@@ -1,0 +1,12 @@
+rules_version = '2';
+
+// Paste into Firebase Console → Firestore Database → Rules.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // users/{uid}: { displayName, photoUrl, weekKey, weekPixels }
+    match /users/{uid} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

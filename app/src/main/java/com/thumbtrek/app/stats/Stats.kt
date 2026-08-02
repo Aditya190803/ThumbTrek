@@ -3,6 +3,7 @@ package com.thumbtrek.app.stats
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.temporal.WeekFields
 import java.util.Locale
 import kotlin.math.roundToInt
 
@@ -38,6 +39,13 @@ fun totalThisWeek(days: Map<LocalDate, Long>, today: LocalDate = LocalDate.now()
 fun totalThisMonth(days: Map<LocalDate, Long>, today: LocalDate = LocalDate.now()): Long {
     val month = YearMonth.from(today)
     return days.filterKeys { YearMonth.from(it) == month }.values.sum()
+}
+
+/** ISO week id like "2026-W31". Leaderboard "weekly reset" = this string changing. */
+fun weekKey(date: LocalDate = LocalDate.now()): String {
+    val week = date.get(WeekFields.ISO.weekOfWeekBasedYear())
+    val year = date.get(WeekFields.ISO.weekBasedYear())
+    return String.format(Locale.US, "%d-W%02d", year, week)
 }
 
 /** Longest single-day trek, or null when there's no data. */

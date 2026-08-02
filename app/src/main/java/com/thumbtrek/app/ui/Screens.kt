@@ -17,6 +17,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -83,13 +84,23 @@ fun MainScreen(vm: DashboardViewModel) {
                     icon = { Icon(Icons.Default.DateRange, contentDescription = null) },
                     label = { Text("History") },
                 )
+                NavigationBarItem(
+                    selected = tab == 2,
+                    onClick = { tab = 2 },
+                    icon = { Icon(Icons.Default.Person, contentDescription = null) },
+                    label = { Text("Social") },
+                )
             }
         },
     ) { padding ->
         val modifier = Modifier
             .fillMaxSize()
             .padding(padding)
-        if (tab == 0) Dashboard(state, modifier) else History(state, modifier)
+        when (tab) {
+            0 -> Dashboard(state, modifier)
+            1 -> History(state, modifier)
+            else -> SocialScreen(modifier)
+        }
     }
 }
 

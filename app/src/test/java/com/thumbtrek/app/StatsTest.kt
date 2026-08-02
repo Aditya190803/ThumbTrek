@@ -7,6 +7,7 @@ import com.thumbtrek.app.stats.pixelsToMeters
 import com.thumbtrek.app.stats.totalThisMonth
 import com.thumbtrek.app.stats.totalThisWeek
 import com.thumbtrek.app.stats.trekStreak
+import com.thumbtrek.app.stats.weekKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -78,6 +79,16 @@ class StatsTest {
         val record = personalRecord(mapOf(today to 5L, best to 50L, today.minusDays(1) to 20L))
         assertEquals(best to 50L, record)
         assertEquals(null, personalRecord(emptyMap()))
+    }
+
+    @Test
+    fun `weekKey matches Monday-start ISO weeks`() {
+        // Same week: Monday Jul 27 through Sunday Aug 2
+        assertEquals(weekKey(LocalDate.of(2026, 7, 27)), weekKey(LocalDate.of(2026, 8, 2)))
+        // Sunday vs the following Monday: different weeks
+        assertTrue(weekKey(LocalDate.of(2026, 8, 2)) != weekKey(LocalDate.of(2026, 8, 3)))
+        // Format
+        assertTrue(weekKey(today).matches(Regex("\\d{4}-W\\d{2}")))
     }
 
     @Test
