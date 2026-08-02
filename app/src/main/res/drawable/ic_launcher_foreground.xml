@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Trail winding up two peaks -->
+    <path
+        android:strokeColor="#7BD88A"
+        android:strokeWidth="7"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M26,74 L42,46 L50,60 L62,38 L82,74" />
+    <path
+        android:fillColor="#7BD88A"
+        android:pathData="M84,26 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0" />
+</vector>

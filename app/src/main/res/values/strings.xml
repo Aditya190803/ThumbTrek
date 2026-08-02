@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">ThumbTrek</string>
+    <string name="service_description">ThumbTrek measures how far your thumb scrolls in Instagram, YouTube, X and Reddit. It only counts scroll distance — it never reads anything on your screen.</string>
+</resources>
