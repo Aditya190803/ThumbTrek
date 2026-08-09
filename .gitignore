@@ -12,3 +12,10 @@ local.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# Secrets
+.env
+.env.local
+.env.*.local
+*.key
+*.pem
