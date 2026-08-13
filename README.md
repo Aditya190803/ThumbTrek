@@ -1,7 +1,17 @@
 # ThumbTrek
 
 Strava for scrolling. Tracks how far your thumb travels in Instagram, YouTube, X and Reddit,
-turns it into trek stats, streaks, and a weekly leaderboard.
+turns it into trek stats, streaks, charts, shareable cards, and weekly friend/global leaderboards.
+
+Version **0.0.1** is the first public Android release.
+
+## What ships
+
+- Per-app opt-in tracking for Instagram, YouTube, X, and Reddit
+- Dashboard ring chart, seven-day history, per-app trends, streaks, and records
+- Fully opt-in social publishing, friend codes/invites, anonymous handles, and friend/global boards
+- Daily summaries, optional streak reminders, and PNG stat-card sharing
+- Local-first Room storage; scroll data only reaches Firebase after leaderboard opt-in
 
 ## Build
 
@@ -41,6 +51,7 @@ No screen content is ever read — the service config requests no node-lookup fl
 ## Data model
 
 - **Local (Room)**: `daily_scroll(packageName, date, pixels)`
-- **Cloud (Firestore)**: `users/{uid} = { displayName, photoUrl, weekKey, weekPixels }`.
+- **Cloud (Firestore)**: `users/{uid}` stores the opted-in weekly score and public identity;
+  `users/{uid}/friends/{friendUid}` stores friendship edges; `friendCodes/{code}` resolves invites.
   The weekly reset is just `weekKey` (ISO week, e.g. `2026-W31`) changing — old docs stop
   matching the leaderboard query. Scores sync when the Social tab is opened/refreshed.

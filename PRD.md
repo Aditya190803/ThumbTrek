@@ -1,8 +1,8 @@
 # ThumbTrek — Product Requirements Document
 
-**Version:** 0.2 (Draft)  
+**Version:** 0.0.1 (Shipped)
 **Owner:** Slowpoke  
-**Last updated:** August 2, 2026
+**Last updated:** August 13, 2026
 
 ---
 
@@ -98,7 +98,7 @@ People scroll for hours a day without any sense of the physical/attention cost. 
 
 ---
 
-## 8. Key Risks & Open Questions
+## 8. Key Risks
 
 - **Play Store policy risk:** Accessibility Services are heavily scrutinized by Google; app will need a clear, honest justification in the Play Console disclosure. Risk of rejection or delisting if not framed carefully.
 - **Battery/performance:** Must be event-driven only (no polling) to avoid battery drain complaints.
@@ -117,19 +117,16 @@ People scroll for hours a day without any sense of the physical/attention cost. 
 
 ---
 
-## 10. Rough Roadmap
+## 10. Release Scope
 
-| Phase | Scope |
-|---|---|
-| MVP | Tracking engine + dashboard + local stats (no social) |
-| v1.1 | Friend leaderboards + streaks |
-| v1.2 | Global leaderboard + shareable stat cards (for Instagram, ironically) |
-| v2 | Explore desktop/browser extension companion for web scrolling |
+Version 0.0.1 ships the tracking engine, per-app controls, dashboard/history charts,
+streaks, notifications, friend/global leaderboards, anonymous handles, invite sharing,
+and shareable stat cards. A desktop/browser companion remains a possible future direction.
 
 ---
 
-## 11. Open Questions for the Team
+## 11. Shipped Product Decisions
 
-1. Do we want opt-in only tracking per app, or all-or-nothing?
-2. Should leaderboard be public by default or fully opt-in?
-3. Monetization: ads, premium stats tier, or fully free for v1?
+1. Each supported app can be enabled or disabled independently; all four start enabled.
+2. Leaderboard publishing is fully opt-in and supports anonymous handles.
+3. Version 0.0.1 is free and contains no ads or premium tier.
