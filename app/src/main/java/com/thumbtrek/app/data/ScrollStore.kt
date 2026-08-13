@@ -47,6 +47,10 @@ interface ScrollDao {
 
     @Query("SELECT date, SUM(pixels) AS pixels FROM daily_scroll GROUP BY date ORDER BY date DESC")
     suspend fun allDays(): List<DayTotal>
+
+    /** Raw per-app-per-day rows from [startDate] (yyyy-MM-dd) onwards, for PRD §5.3 trends. */
+    @Query("SELECT * FROM daily_scroll WHERE date >= :startDate ORDER BY date ASC")
+    fun observeRowsSince(startDate: String): Flow<List<DailyScroll>>
 }
 
 @Database(entities = [DailyScroll::class], version = 1, exportSchema = false)

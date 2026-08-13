@@ -18,10 +18,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -43,19 +46,12 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.thumbtrek.app.stats.comparison
+import com.thumbtrek.app.data.appName
+import com.thumbtrek.app.share.shareTrekCard
 import com.thumbtrek.app.stats.formatDistance
 import com.thumbtrek.app.stats.pixelsToMeters
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-
-private val APP_NAMES = mapOf(
-    "com.instagram.android" to "Instagram",
-    "com.google.android.youtube" to "YouTube",
-    "com.twitter.android" to "X",
-    "com.reddit.frontpage" to "Reddit",
-)
-
-private fun appName(pkg: String) = APP_NAMES[pkg] ?: pkg.substringAfterLast('.')
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -90,6 +86,12 @@ fun MainScreen(vm: DashboardViewModel) {
                     icon = { Icon(Icons.Default.Person, contentDescription = null) },
                     label = { Text("Social") },
                 )
+                NavigationBarItem(
+                    selected = tab == 3,
+                    onClick = { tab = 3 },
+                    icon = { Icon(Icons.Default.Settings, contentDescription = null) },
+                    label = { Text("Settings") },
+                )
             }
         },
     ) { padding ->
@@ -99,7 +101,8 @@ fun MainScreen(vm: DashboardViewModel) {
         when (tab) {
             0 -> Dashboard(state, modifier)
             1 -> History(state, modifier)
-            else -> SocialScreen(modifier)
+            2 -> SocialScreen(modifier)
+            else -> SettingsScreen(modifier)
         }
     }
 }
@@ -167,6 +170,21 @@ private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Mo
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
+                IconButton(
+                    onClick = {
+                        shareTrekCard(
+                            context = context,
+                            distanceMeters = todayMeters,
+                            comparisonLine = comparison(todayMeters),
+                            streak = state.streak,
+                            perApp = state.perApp.map {
+                                it.packageName to pixelsToMeters(it.pixels, dpi)
+                            },
+                        )
+                    },
+                ) {
+                    Icon(Icons.Default.Share, contentDescription = "Share today's trek")
+                }
             }
         }
 
@@ -177,26 +195,14 @@ private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Mo
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
                     Text("By app", style = MaterialTheme.typography.titleMedium)
-                    state.perApp.forEach { app ->
-                        val fraction =
-                            if (state.todayPx > 0) app.pixels.toFloat() / state.todayPx else 0f
-                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                            ) {
-                                Text(appName(app.packageName))
-                                Text(
-                                    formatDistance(pixelsToMeters(app.pixels, dpi)),
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                            LinearProgressIndicator(
-                                progress = { fraction },
-                                modifier = Modifier.fillMaxWidth(),
-                            )
-                        }
-                    }
+                    AppSplitDonut(
+                        slices = state.perApp.map {
+                            val meters = pixelsToMeters(it.pixels, dpi)
+                            ChartSlice(it.packageName, appName(it.packageName), meters.toFloat(), formatDistance(meters))
+                        },
+                        centerLabel = "Today",
+                        centerValue = formatDistance(todayMeters),
+                    )
                 }
             }
         }
@@ -238,6 +244,45 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
                         Text(
                             "${formatDistance(pixelsToMeters(px, dpi))} on ${date.format(dateFormat)}",
                             style = MaterialTheme.typography.bodyLarge,
+                        )
+                    }
+                }
+            }
+        }
+
+        if (state.dailyBuckets.any { it.pixels > 0 }) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text("Last 7 days", style = MaterialTheme.typography.titleMedium)
+                        HistoryBarChart(state.dailyBuckets.map {
+                            ChartBar(it.label, pixelsToMeters(it.pixels, dpi).toFloat())
+                        })
+                    }
+                }
+            }
+        }
+
+        if (state.appTrends.isNotEmpty()) {
+            item {
+                Card(modifier = Modifier.fillMaxWidth()) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        Text("App trends", style = MaterialTheme.typography.titleMedium)
+                        AppTrendChart(
+                            series = state.appTrends.map { trend ->
+                                ChartSeries(
+                                    trend.packageName,
+                                    appName(trend.packageName),
+                                    trend.points.map { pixelsToMeters(it.pixels, dpi).toFloat() },
+                                )
+                            },
+                            labels = state.appTrends.first().points.map { it.label },
                         )
                     }
                 }

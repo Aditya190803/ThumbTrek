@@ -15,6 +15,7 @@ import com.thumbtrek.app.MainActivity
 import com.thumbtrek.app.R
 import com.thumbtrek.app.ThumbTrekApp
 import com.thumbtrek.app.data.ScrollDatabase
+import com.thumbtrek.app.stats.comparison
 import com.thumbtrek.app.stats.formatDistance
 import com.thumbtrek.app.stats.pixelsToMeters
 import java.time.LocalDate
@@ -56,10 +57,13 @@ class DailySummaryWorker(
             PendingIntent.FLAG_IMMUTABLE,
         )
 
+        val headline = "You trekked ${formatDistance(meters)} yesterday$trend."
+
         val notification = NotificationCompat.Builder(applicationContext, ThumbTrekApp.DAILY_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("ThumbTrek")
-            .setContentText("You trekked ${formatDistance(meters)} yesterday$trend.")
+            .setContentText(headline)
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$headline ${comparison(meters)}"))
             .setContentIntent(openApp)
             .setAutoCancel(true)
             .build()

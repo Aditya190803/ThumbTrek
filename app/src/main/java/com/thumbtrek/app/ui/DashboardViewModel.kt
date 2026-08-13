@@ -7,6 +7,10 @@ import com.thumbtrek.app.data.AppTotal
 import com.thumbtrek.app.data.DayTotal
 import com.thumbtrek.app.data.ScrollDatabase
 import com.thumbtrek.app.stats.personalRecord
+import com.thumbtrek.app.stats.AppSeries
+import com.thumbtrek.app.stats.Bucket
+import com.thumbtrek.app.stats.appTrends
+import com.thumbtrek.app.stats.dailyBuckets
 import com.thumbtrek.app.stats.totalThisMonth
 import com.thumbtrek.app.stats.totalThisWeek
 import com.thumbtrek.app.stats.trekStreak
@@ -28,6 +32,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         val monthPx: Long = 0,
         val record: Pair<LocalDate, Long>? = null,
         val days: List<DayTotal> = emptyList(),
+        val dailyBuckets: List<Bucket> = emptyList(),
+        val appTrends: List<AppSeries> = emptyList(),
     )
 
     private val dao = ScrollDatabase.get(app).dao()
@@ -36,8 +42,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
     val state = combine(
         dao.observeDay(LocalDate.now().toString()),
         dao.observeAllDays(),
+        dao.observeRowsSince(LocalDate.now().minusDays(13).toString()),
         trackingEnabled,
-    ) { perApp, allDays, enabled ->
+    ) { perApp, allDays, rows, enabled ->
         val byDate = allDays.associate { LocalDate.parse(it.date) to it.pixels }
         UiState(
             trackingEnabled = enabled,
@@ -48,6 +55,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
             monthPx = totalThisMonth(byDate),
             record = personalRecord(byDate),
             days = allDays,
+            dailyBuckets = dailyBuckets(byDate),
+            appTrends = appTrends(rows),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())
 

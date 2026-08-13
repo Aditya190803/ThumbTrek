@@ -1,8 +1,10 @@
 package com.thumbtrek.app.stats
 
+import com.thumbtrek.app.data.DailyScroll
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
 import java.time.temporal.WeekFields
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -51,6 +53,111 @@ fun weekKey(date: LocalDate = LocalDate.now()): String {
 /** Longest single-day trek, or null when there's no data. */
 fun personalRecord(days: Map<LocalDate, Long>): Pair<LocalDate, Long>? =
     days.maxByOrNull { it.value }?.toPair()
+
+/** One column/point of a history chart: [key] is stable and sortable, [label] goes on the axis. */
+data class Bucket(val key: String, val label: String, val pixels: Long)
+
+/** One app's line in a PRD §5.3 trend chart. Every series shares the same [points] keys and order. */
+data class AppSeries(val packageName: String, val points: List<Bucket>)
+
+private val DAY_LABEL = DateTimeFormatter.ofPattern("MMM d", Locale.US)
+private val MONTH_LABEL = DateTimeFormatter.ofPattern("MMM", Locale.US)
+
+private fun dayWindow(dayCount: Int, today: LocalDate): List<LocalDate> =
+    if (dayCount <= 0) emptyList() else (dayCount - 1 downTo 0).map { today.minusDays(it.toLong()) }
+
+/** PRD §5.3: the last [dayCount] days, oldest first, zero-filled. */
+fun dailyBuckets(
+    days: Map<LocalDate, Long>,
+    dayCount: Int = 7,
+    today: LocalDate = LocalDate.now(),
+): List<Bucket> = dayWindow(dayCount, today).map { date ->
+    Bucket(date.toString(), DAY_LABEL.format(date), days[date] ?: 0L)
+}
+
+/** PRD §5.3: the last [weekCount] ISO weeks (Monday–Sunday), oldest first, zero-filled. */
+fun weeklyBuckets(
+    days: Map<LocalDate, Long>,
+    weekCount: Int = 8,
+    today: LocalDate = LocalDate.now(),
+): List<Bucket> {
+    if (weekCount <= 0) return emptyList()
+    val thisMonday = today.with(DayOfWeek.MONDAY)
+    return (weekCount - 1 downTo 0).map { back ->
+        val monday = thisMonday.minusWeeks(back.toLong())
+        val sunday = monday.plusDays(6)
+        Bucket(
+            weekKey(monday),
+            DAY_LABEL.format(monday),
+            days.filterKeys { it in monday..sunday }.values.sum(),
+        )
+    }
+}
+
+/** PRD §5.3: the last [monthCount] calendar months, oldest first, zero-filled. */
+fun monthlyBuckets(
+    days: Map<LocalDate, Long>,
+    monthCount: Int = 6,
+    today: LocalDate = LocalDate.now(),
+): List<Bucket> {
+    if (monthCount <= 0) return emptyList()
+    val thisMonth = YearMonth.from(today)
+    return (monthCount - 1 downTo 0).map { back ->
+        val month = thisMonth.minusMonths(back.toLong())
+        Bucket(
+            month.toString(),
+            month.format(MONTH_LABEL),
+            days.filterKeys { YearMonth.from(it) == month }.values.sum(),
+        )
+    }
+}
+
+/**
+ * PRD §5.3: one zero-filled daily series per app over the last [dayCount] days, busiest app first.
+ * Apps with no rows inside the window are dropped; rows outside it are ignored.
+ */
+fun appTrends(
+    rows: List<DailyScroll>,
+    dayCount: Int = 14,
+    today: LocalDate = LocalDate.now(),
+): List<AppSeries> {
+    val window = dayWindow(dayCount, today)
+    if (window.isEmpty()) return emptyList()
+    val slots = window.withIndex().associate { (index, date) -> date.toString() to index }
+    val byApp = LinkedHashMap<String, LongArray>()
+    rows.forEach { row ->
+        val slot = slots[row.date] ?: return@forEach
+        byApp.getOrPut(row.packageName) { LongArray(window.size) }[slot] += row.pixels
+    }
+    return byApp.entries
+        .sortedWith(
+            compareByDescending<Map.Entry<String, LongArray>> { it.value.sum() }.thenBy { it.key },
+        )
+        .map { (pkg, pixels) ->
+            AppSeries(
+                pkg,
+                window.mapIndexed { index, date ->
+                    Bucket(date.toString(), DAY_LABEL.format(date), pixels[index])
+                },
+            )
+        }
+}
+
+/** Percent change against [previous]; null when there's no baseline to compare against. */
+fun percentDelta(current: Long, previous: Long): Int? =
+    if (previous <= 0L) null else ((current - previous) * 100.0 / previous).roundToInt()
+
+/** PRD §5.5: "12% more than yesterday". */
+fun dayOverDayDelta(days: Map<LocalDate, Long>, today: LocalDate = LocalDate.now()): Int? =
+    percentDelta(days[today] ?: 0L, days[today.minusDays(1)] ?: 0L)
+
+/** PRD §5.3: this week so far against the same stretch of last week, so partial weeks are fair. */
+fun weekOverWeekDelta(days: Map<LocalDate, Long>, today: LocalDate = LocalDate.now()): Int? {
+    val monday = today.with(DayOfWeek.MONDAY)
+    val current = days.filterKeys { it in monday..today }.values.sum()
+    val previous = days.filterKeys { it in monday.minusWeeks(1)..today.minusWeeks(1) }.values.sum()
+    return percentDelta(current, previous)
+}
 
 data class Landmark(val meters: Double, val label: String)
 

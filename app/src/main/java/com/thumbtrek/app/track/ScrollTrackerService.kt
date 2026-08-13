@@ -6,6 +6,7 @@ import android.content.Context
 import android.os.Build
 import android.provider.Settings
 import android.view.accessibility.AccessibilityEvent
+import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.data.ScrollDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,6 +28,7 @@ class ScrollTrackerService : AccessibilityService() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private val dao by lazy { ScrollDatabase.get(this).dao() }
+    private val prefs by lazy { Prefs.get(this) }
 
     private val pending = mutableMapOf<String, Long>() // package -> px since last flush
     private var flushJob: Job? = null
@@ -37,6 +39,8 @@ class ScrollTrackerService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null || event.eventType != AccessibilityEvent.TYPE_VIEW_SCROLLED) return
         val pkg = event.packageName?.toString() ?: return
+        // PRD §11 Q1: tracking is opt-out per app. In-memory read, no disk hit per event.
+        if (!prefs.isTracked(pkg)) return
 
         val delta = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             abs(event.scrollDeltaY)
