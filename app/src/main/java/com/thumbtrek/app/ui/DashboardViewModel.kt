@@ -5,12 +5,16 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.thumbtrek.app.data.AppTotal
 import com.thumbtrek.app.data.DayTotal
+import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.data.ScrollDatabase
+import com.thumbtrek.app.stats.Badge
+import com.thumbtrek.app.stats.badges
 import com.thumbtrek.app.stats.personalRecord
 import com.thumbtrek.app.stats.AppSeries
 import com.thumbtrek.app.stats.Bucket
 import com.thumbtrek.app.stats.appTrends
 import com.thumbtrek.app.stats.dailyBuckets
+import com.thumbtrek.app.stats.pixelsToMeters
 import com.thumbtrek.app.stats.totalThisMonth
 import com.thumbtrek.app.stats.totalThisWeek
 import com.thumbtrek.app.stats.trekStreak
@@ -34,17 +38,22 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         val days: List<DayTotal> = emptyList(),
         val dailyBuckets: List<Bucket> = emptyList(),
         val appTrends: List<AppSeries> = emptyList(),
+        /** Labels for user-added apps, so display names survive without PackageManager. */
+        val customLabels: Map<String, String> = emptyMap(),
+        val badges: List<Badge> = emptyList(),
     )
 
     private val dao = ScrollDatabase.get(app).dao()
     private val trackingEnabled = MutableStateFlow(ScrollTrackerService.isEnabled(app))
+    private val dpi = app.resources.displayMetrics.densityDpi
 
     val state = combine(
         dao.observeDay(LocalDate.now().toString()),
         dao.observeAllDays(),
         dao.observeRowsSince(LocalDate.now().minusDays(13).toString()),
         trackingEnabled,
-    ) { perApp, allDays, rows, enabled ->
+        Prefs.get(app).customApps,
+    ) { perApp, allDays, rows, enabled, customLabels ->
         val byDate = allDays.associate { LocalDate.parse(it.date) to it.pixels }
         UiState(
             trackingEnabled = enabled,
@@ -57,6 +66,13 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
             days = allDays,
             dailyBuckets = dailyBuckets(byDate),
             appTrends = appTrends(rows),
+            customLabels = customLabels,
+            // Calibration is baked into stored pixels, so these milestones are apples-to-apples.
+            badges = badges(
+                totalMeters = pixelsToMeters(byDate.values.sum(), dpi),
+                bestDayMeters = pixelsToMeters(byDate.values.maxOrNull() ?: 0L, dpi),
+                streak = trekStreak(byDate.keys),
+            ),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())
 

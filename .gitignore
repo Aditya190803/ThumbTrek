@@ -20,3 +20,9 @@ Thumbs.db
 .env.*.local
 *.key
 *.pem
+
+# Real Firebase config — never commit. Fresh clones build from the placeholder.
+app/google-services.json
+
+# Sideload staging (built APKs served over LAN)
+.serve/

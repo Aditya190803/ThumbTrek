@@ -20,9 +20,10 @@ import java.time.LocalDate
 import kotlin.math.abs
 
 /**
- * Listens for TYPE_VIEW_SCROLLED from the four tracked apps (filtered by the
- * system via android:packageNames in the service config, so we only wake for them)
- * and accumulates scroll pixels into Room, batched every few seconds.
+ * Listens for TYPE_VIEW_SCROLLED events and accumulates scroll pixels into Room,
+ * batched every few seconds. Events are not package-filtered by the system (custom
+ * tracked apps exist), so each event is checked against Prefs.trackedApps first —
+ * an in-memory read, cheap enough to sit on the hot path.
  */
 class ScrollTrackerService : AccessibilityService() {
 
@@ -33,7 +34,7 @@ class ScrollTrackerService : AccessibilityService() {
     private val pending = mutableMapOf<String, Long>() // package -> px since last flush
     private var flushJob: Job? = null
 
-    // API 26–27 fallback: events lack scrollDeltaY, so diff scrollY per view class.
+    // Diffed scrollY per view class — the fallback path below, always kept warm.
     private val lastScrollY = mutableMapOf<String, Int>()
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
@@ -42,12 +43,24 @@ class ScrollTrackerService : AccessibilityService() {
         // PRD §11 Q1: tracking is opt-out per app. In-memory read, no disk hit per event.
         if (!prefs.isTracked(pkg)) return
 
-        val delta = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        // Jetpack Compose's scrollable semantics report position (scrollY/maxScrollY) on
+        // TYPE_VIEW_SCROLLED but leave scrollDeltaY unset, unlike classic Views/RecyclerView.
+        // X and YouTube lean on Compose for their feeds now, so scrollDeltaY alone silently
+        // dropped every one of their events. Diff scrollY ourselves whenever delta is missing —
+        // this is also the API 26/27 path, since those OS versions never populate scrollDeltaY.
+        val fromDelta = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             abs(event.scrollDeltaY)
         } else {
-            val key = "$pkg:${event.className}"
-            val last = lastScrollY.put(key, event.scrollY)
-            if (last == null) 0 else abs(event.scrollY - last)
+            0
+        }
+        val key = "$pkg:${event.className}"
+        val previousScrollY = lastScrollY.put(key, event.scrollY)
+        val delta = if (fromDelta > 0) {
+            fromDelta
+        } else if (previousScrollY != null && previousScrollY >= 0 && event.scrollY >= 0) {
+            abs(event.scrollY - previousScrollY)
+        } else {
+            0
         }
         // ponytail: cap single-event deltas; recycled/WebView feeds occasionally report garbage jumps.
         if (delta <= 0 || delta > MAX_DELTA_PX) return
@@ -72,7 +85,13 @@ class ScrollTrackerService : AccessibilityService() {
             pending.toMap().also { pending.clear() }
         }
         val today = LocalDate.now().toString()
-        batch.forEach { (pkg, px) -> dao.accumulate(pkg, today, px) }
+        batch.forEach { (pkg, px) ->
+            // Calibration is applied here, once, so every downstream number — dashboard,
+            // history, boards, widget, export — sees the same adjusted pixels. Only
+            // future scrolls are affected when the user moves a slider.
+            val adjusted = (px * prefs.calibrationFactor(pkg)).toLong()
+            dao.accumulate(pkg, today, adjusted)
+        }
     }
 
     override fun onInterrupt() = Unit

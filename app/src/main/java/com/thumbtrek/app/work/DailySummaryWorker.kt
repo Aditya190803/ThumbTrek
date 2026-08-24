@@ -14,6 +14,7 @@ import androidx.work.WorkerParameters
 import com.thumbtrek.app.MainActivity
 import com.thumbtrek.app.R
 import com.thumbtrek.app.ThumbTrekApp
+import com.thumbtrek.app.widget.TrekWidgetProvider
 import com.thumbtrek.app.data.ScrollDatabase
 import com.thumbtrek.app.stats.comparison
 import com.thumbtrek.app.stats.formatDistance
@@ -69,6 +70,7 @@ class DailySummaryWorker(
             .build()
 
         NotificationManagerCompat.from(applicationContext).notify(DAILY_NOTIFICATION_ID, notification)
+        TrekWidgetProvider.updateAll(applicationContext)
         return Result.success()
     }
 

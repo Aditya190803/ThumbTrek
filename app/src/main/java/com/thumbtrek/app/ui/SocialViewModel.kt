@@ -1,15 +1,26 @@
 package com.thumbtrek.app.ui
 
+import android.Manifest
 import android.app.Application
 import android.content.Context
+import android.content.pm.PackageManager
 import androidx.credentials.exceptions.GetCredentialCancellationException
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.data.ScrollDatabase
+import com.thumbtrek.app.social.FriendRequest
 import com.thumbtrek.app.social.LeaderboardEntry
+import com.thumbtrek.app.social.Period
+import com.thumbtrek.app.social.PodiumEntry
 import com.thumbtrek.app.social.SocialRepository
+import com.thumbtrek.app.stats.monthKey
+import com.thumbtrek.app.stats.totalThisMonth
 import com.thumbtrek.app.stats.totalThisWeek
+import com.thumbtrek.app.stats.weekKey
+import com.thumbtrek.app.work.SocialNotifier
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
@@ -31,16 +42,31 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
         val friendCode: String = "",
         val friendCount: Int = 0,
         val weekPx: Long = 0,
+        val monthPx: Long = 0,
+        val totalPx: Long = 0,
         val board: Board = Board.GLOBAL,
+        val period: Period = Period.WEEK,
         val entries: List<LeaderboardEntry> = emptyList(),
+        val hasMore: Boolean = false,
+        /** My position on the global board; null while I'm not on it or not found yet. */
+        val myRank: Int? = null,
+        /** Total opted-in trekkers on the global board, when known. */
+        val totalCount: Int? = null,
+        val requests: List<FriendRequest> = emptyList(),
+        val podium: List<PodiumEntry> = emptyList(),
         val busy: Boolean = false,
         val error: String? = null,
     )
 
     private data class BoardState(
         val scope: Board = Board.GLOBAL,
+        val period: Period = Period.WEEK,
         val entries: List<LeaderboardEntry> = emptyList(),
+        val hasMore: Boolean = false,
+        val myRank: Int? = null,
         val friendCount: Int = 0,
+        val requests: List<FriendRequest> = emptyList(),
+        val podium: List<PodiumEntry> = emptyList(),
     )
 
     private val repo = SocialRepository(app)
@@ -73,8 +99,15 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
             friendCode = repo.myFriendCode.orEmpty(),
             friendCount = boardState.friendCount,
             weekPx = totalThisWeek(byDate),
+            monthPx = totalThisMonth(byDate),
+            totalPx = byDate.values.sum(),
             board = boardState.scope,
+            period = boardState.period,
             entries = boardState.entries,
+            hasMore = boardState.hasMore,
+            myRank = boardState.myRank,
+            requests = boardState.requests,
+            podium = boardState.podium,
             busy = isBusy,
             error = err,
         )
@@ -99,7 +132,7 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
 
     fun signOut() {
         repo.signOut()
-        board.value = BoardState(board.value.scope)
+        board.value = BoardState()
         error.value = null
     }
 
@@ -109,7 +142,7 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
         if (enabled) {
             refresh()
         } else {
-            board.value = BoardState(board.value.scope)
+            board.value = BoardState(board.value.scope, board.value.period)
             guarded("Couldn't remove your score") { repo.unpublish() }
         }
     }
@@ -122,40 +155,146 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
 
     fun showBoard(scope: Board) {
         if (board.value.scope == scope) return
-        board.value = board.value.copy(scope = scope, entries = emptyList())
+        board.value = board.value.copy(
+            scope = scope, entries = emptyList(), hasMore = false, myRank = null,
+        )
         if (!published()) return
         guarded("Couldn't load leaderboard") { loadBoard() }
     }
 
+    fun showPeriod(period: Period) {
+        if (board.value.period == period) return
+        board.value = board.value.copy(
+            period = period, entries = emptyList(), hasMore = false, myRank = null,
+        )
+        if (!published()) return
+        guarded("Couldn't load leaderboard") { loadBoard() }
+    }
+
+    fun loadMore() {
+        if (!published() || !board.value.hasMore) return
+        guarded("Couldn't load more") {
+            val page = repo.nextGlobalPage(board.value.period)
+            board.value = board.value.copy(
+                entries = board.value.entries + page,
+                hasMore = board.value.hasMore && page.isNotEmpty(),
+                myRank = board.value.myRank ?: findMyRank(page),
+            )
+        }
+    }
+
     fun addFriend(code: String) {
         if (!published()) return
-        guarded("Couldn't add that friend") {
+        guarded("Couldn't send that request") {
             repo.addFriendByCode(code)
             board.value = board.value.copy(scope = Board.FRIENDS)
             loadBoard()
         }
     }
 
-    /** Pushes my week score, then reloads the visible board. */
-    fun refresh() {
+    fun respondToRequest(uid: String, accept: Boolean) {
         if (!published()) return
-        guarded("Couldn't load leaderboard") {
-            repo.syncScore(state.value.weekPx)
+        guarded("Couldn't update that request") {
+            if (accept) repo.acceptFriend(uid) else repo.removeFriend(uid)
             loadBoard()
         }
     }
 
-    private fun published() = repo.uid.value != null && prefs.leaderboardOptIn.value
+    fun removeFriend(uid: String) = respondToRequest(uid, accept = false)
+
+    /** Pushes all three scores, then reloads the visible board. */
+    fun refresh() {
+        if (!published()) return
+        guarded("Couldn't load leaderboard") {
+            val current = state.value
+            repo.syncScore(current.weekPx, current.monthPx, current.totalPx)
+            loadBoard()
+        }
+    }
+
+    private suspend fun findMyRank(page: List<LeaderboardEntry>, offset: Int = 0): Int? {
+        val uid = repo.uid.value ?: return null
+        val index = page.indexOfFirst { it.uid == uid }
+        return if (index >= 0) offset + index + 1 else null
+    }
 
     private suspend fun loadBoard() {
         val scope = board.value.scope
+        val period = board.value.period
         val friends = repo.friendUids()
-        val entries = when (scope) {
-            Board.FRIENDS -> repo.friendLeaderboard(friends)
-            Board.GLOBAL -> repo.leaderboard()
+
+        var entries: List<LeaderboardEntry>
+        var hasMore = false
+        var rank: Int? = null
+        if (scope == Board.FRIENDS) {
+            entries = repo.friendBoard(friends, period)
+        } else {
+            entries = repo.openGlobalBoard(period)
+            rank = findMyRank(entries)
+            // Walk a few pages so "you're #N" works even when you're outside page one.
+            var walks = 0
+            while (rank == null && repo.globalHasMore() && walks < MAX_RANK_WALKS) {
+                val page = repo.nextGlobalPage(period)
+                if (page.isEmpty()) break
+                rank = findMyRank(page, offset = entries.size)
+                entries += page
+                walks++
+            }
+            hasMore = repo.globalHasMore()
         }
-        board.value = BoardState(scope, entries, friends.size)
+
+        val requests = repo.incomingRequests()
+        val podium = repo.lastWeekPodium()
+        board.value = BoardState(
+            scope = scope,
+            period = period,
+            entries = entries,
+            hasMore = hasMore,
+            myRank = rank,
+            friendCount = friends.size,
+            requests = requests,
+            podium = podium,
+        )
+        maybeNotify(requests, rank)
     }
+
+    private companion object {
+        const val MAX_RANK_WALKS = 8
+    }
+
+    /**
+     * Local-only nudges: a new trek request, or slipping down the global board.
+     * Fires at most once per event per week; silently skipped without notification
+     * permission.
+     */
+    private fun maybeNotify(requests: List<FriendRequest>, rank: Int?) {
+        val app = getApplication<Application>()
+        if (!notificationsAllowed(app)) return
+        val known = prefs.knownRequestUids
+        val fresh = requests.filter { it.uid !in known }
+        fresh.firstOrNull()?.let {
+            SocialNotifier.notifyRequest(app, it.displayName)
+        }
+        if (requests.isNotEmpty()) prefs.knownRequestUids = requests.map { it.uid }.toSet()
+
+        val thisWeek = weekKey()
+        if (rank != null) {
+            if (prefs.notifiedRankWeek == thisWeek &&
+                prefs.notifiedRank != Int.MAX_VALUE &&
+                rank > prefs.notifiedRank
+            ) {
+                SocialNotifier.notifyRankSlip(app, rank)
+            }
+            prefs.notifiedRankWeek = thisWeek
+            prefs.notifiedRank = minOf(rank, prefs.notifiedRank.takeIf { it != Int.MAX_VALUE } ?: rank)
+        }
+    }
+
+    private fun notificationsAllowed(context: Context): Boolean =
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED || android.os.Build.VERSION.SDK_INT < 33
+
+    private fun published() = repo.uid.value != null && prefs.leaderboardOptIn.value
 
     private fun guarded(fallback: String, block: suspend () -> Unit) {
         viewModelScope.launch {

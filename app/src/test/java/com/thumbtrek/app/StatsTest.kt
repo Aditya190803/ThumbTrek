@@ -1,13 +1,18 @@
 package com.thumbtrek.app
 
 import com.thumbtrek.app.data.DailyScroll
+import com.thumbtrek.app.data.Prefs
+import com.thumbtrek.app.social.normalizeFriendCode
 import com.thumbtrek.app.stats.AppSeries
+import com.thumbtrek.app.stats.Badge
+import com.thumbtrek.app.stats.badges
 import com.thumbtrek.app.stats.Bucket
 import com.thumbtrek.app.stats.appTrends
 import com.thumbtrek.app.stats.comparison
 import com.thumbtrek.app.stats.dailyBuckets
 import com.thumbtrek.app.stats.dayOverDayDelta
 import com.thumbtrek.app.stats.formatDistance
+import com.thumbtrek.app.stats.monthKey
 import com.thumbtrek.app.stats.monthlyBuckets
 import com.thumbtrek.app.stats.percentDelta
 import com.thumbtrek.app.stats.personalRecord
@@ -19,6 +24,7 @@ import com.thumbtrek.app.stats.weekKey
 import com.thumbtrek.app.stats.weekOverWeekDelta
 import com.thumbtrek.app.stats.weeklyBuckets
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -105,7 +111,8 @@ class StatsTest {
     @Test
     fun `comparisons scale with distance`() {
         assertEquals("No trek yet — go scroll something.", comparison(0.0))
-        assertTrue(comparison(12.4).contains("banana"))
+        assertTrue(comparison(0.25).contains("banana"))
+        assertTrue(comparison(12.4).contains("school bus"))
         assertTrue(comparison(1000.0).contains("Burj Khalifa"))
         assertTrue(comparison(50000.0).contains("marathon"))
     }
@@ -259,5 +266,65 @@ class StatsTest {
         )
         assertEquals(100, weekOverWeekDelta(days, wednesday))
         assertNull(weekOverWeekDelta(mapOf(wednesday to 10L), wednesday))
+    }
+
+    @Test
+    fun `badges earn at their milestones`() {
+        val all = badges(totalMeters = 1_000_000.0, bestDayMeters = 9_000.0, streak = 365)
+        assertTrue(all.all { it.earned })
+        // Every badge reports which target it tracks.
+        assertEquals(all.size, badges(0.0, 0.0, 0).size)
+        assertTrue(badges(0.0, 0.0, 0).none { it.earned })
+    }
+
+    @Test
+    fun `badge progress clamps to one`() {
+        val halfWay = badges(totalMeters = 1_368.5, bestDayMeters = 0.0, streak = 0) // half a bridge
+            .first { it.id == "bridge" }
+        assertEquals(0.5, halfWay.progress, 1e-9)
+        assertFalse(halfWay.earned)
+        val over = badges(totalMeters = 500_000.0, bestDayMeters = 0.0, streak = 0)
+            .first { it.id == "bridge" }
+        assertEquals(1.0, over.progress, 1e-9)
+        assertTrue(over.earned)
+    }
+
+    @Test
+    fun `monthKey resets monthly like weekKey does weekly`() {
+        assertEquals("2026-07", monthKey(LocalDate.of(2026, 7, 31)))
+        assertEquals("2026-08", monthKey(today))
+        assertTrue(monthKey(LocalDate.of(2026, 7, 31)) != monthKey(LocalDate.of(2026, 8, 1)))
+    }
+
+    @Test
+    fun `friend codes normalize what people paste`() {
+        assertEquals("ABCD1234", normalizeFriendCode("abcd-1234"))
+        assertEquals("ABCD1234", normalizeFriendCode(" https://thumbtrek.app/i/abcd1234 "))
+        // Crockford disambiguation: I/L→1, O→0, U→V
+        assertEquals("101VABCD", normalizeFriendCode("IOLUABCD"))
+        assertEquals(8, normalizeFriendCode("waytoolongcode").length)
+    }
+
+    @Test
+    fun `custom app prefs round-trip through their encoded form`() {
+        val apps = mapOf(
+            "com.example.reader" to "Reader",
+            "com.example.news" to "Daily News",
+        )
+        assertEquals(apps, Prefs.decodeCustomApps(Prefs.encodeCustomApps(apps)))
+        assertEquals(emptyMap<String, String>(), Prefs.decodeCustomApps(null))
+        assertEquals(emptyMap<String, String>(), Prefs.decodeCustomApps("\n\nbroken|\n|x"))
+    }
+
+    @Test
+    fun `calibration prefs round-trip through their encoded form`() {
+        val factors = mapOf(
+            "com.instagram.android" to 1.25f,
+            "com.reddit.frontpage" to 0.75f,
+        )
+        assertEquals(factors, Prefs.decodeCalibration(Prefs.encodeCalibration(factors)))
+        assertEquals(emptyMap<String, Float>(), Prefs.decodeCalibration(null))
+        // Malformed entries are dropped, not crashed on.
+        assertEquals(emptyMap<String, Float>(), Prefs.decodeCalibration("pkg:notanumber,pkg2:"))
     }
 }

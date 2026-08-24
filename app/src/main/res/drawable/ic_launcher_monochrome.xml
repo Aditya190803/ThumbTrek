@@ -7,12 +7,12 @@
          gap where it breaks open — a single ownable glyph instead of a literal mountain,
          and it echoes the badge/checkpoint rings used inside the app. -->
     <path
-        android:strokeColor="#7BD88A"
+        android:strokeColor="#FF000000"
         android:strokeWidth="8"
         android:strokeLineCap="round"
         android:fillColor="#00000000"
         android:pathData="M61,80.1 A27,27 0 1 1 80.1,61" />
     <path
-        android:fillColor="#7BD88A"
+        android:fillColor="#FF000000"
         android:pathData="M73.1,73.1 m-5,0 a5,5 0 1,1 10,0 a5,5 0 1,1 -10,0" />
 </vector>

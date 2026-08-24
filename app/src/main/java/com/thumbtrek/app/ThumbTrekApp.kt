@@ -8,6 +8,7 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import com.thumbtrek.app.work.DailySummaryWorker
 import com.thumbtrek.app.data.Prefs
+import com.thumbtrek.app.widget.TrekWidgetProvider
 import com.thumbtrek.app.work.StreakReminderWorker
 import java.time.Duration
 import java.time.LocalDateTime
@@ -32,6 +33,13 @@ class ThumbTrekApp : Application() {
                 NotificationManager.IMPORTANCE_LOW,
             ),
         )
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(
+                SOCIAL_CHANNEL_ID,
+                "Social",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ),
+        )
 
         WorkManager.getInstance(this).enqueueUniquePeriodicWork(
             "daily_summary",
@@ -41,6 +49,7 @@ class ThumbTrekApp : Application() {
                 .build(),
         )
         if (Prefs.get(this).streakReminder.value) StreakReminderWorker.schedule(this)
+        TrekWidgetProvider.updateAll(this)
     }
 
     /** Next 21:00 local — daily summary per PRD §5.5. */
@@ -53,5 +62,6 @@ class ThumbTrekApp : Application() {
 
     companion object {
         const val DAILY_CHANNEL_ID = "daily_summary"
+        const val SOCIAL_CHANNEL_ID = "social"
     }
 }

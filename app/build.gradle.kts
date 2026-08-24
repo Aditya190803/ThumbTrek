@@ -6,6 +6,15 @@ plugins {
     alias(libs.plugins.google.services)
 }
 
+// Fresh clone without a real config? Copy the committed placeholder so the app still
+// builds (sign-in won't work until you drop your own google-services.json here).
+// The real file is gitignored — see README.
+file("google-services.json").takeIf { it.exists() }
+    ?: file("google-services.placeholder.json").takeIf { it.exists() }?.copyTo(
+        file("google-services.json"),
+        overwrite = true,
+    )
+
 android {
     namespace = "com.thumbtrek.app"
     compileSdk = 35
@@ -14,8 +23,8 @@ android {
         applicationId = "com.thumbtrek.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.0.1"
+        versionCode = 2
+        versionName = "0.1.0"
     }
 
     buildTypes {

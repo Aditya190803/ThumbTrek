@@ -1,6 +1,11 @@
 rules_version = '2';
 
 // Paste into Firebase Console → Firestore Database → Rules.
+//
+// Composite indexes the boards need (Firestore Console → Indexes, or accept the
+// auto-link in the first error):
+//   users:  weekKey  ASC, weekPixels  DESC
+//   users:  monthKey ASC, monthPixels DESC
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -12,14 +17,16 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
-    // users/{uid}: { displayName, photoUrl, friendCode, weekKey, weekPixels }
+    // users/{uid}: { displayName, photoUrl, friendCode, weekKey, weekPixels,
+    //                monthKey, monthPixels, totalPixels }
     // A doc only exists while its owner has opted in — leaving the leaderboard deletes it.
-    // Readable by any signed-in user because that *is* the global board; it holds one
-    // week's distance and a name the owner chose (possibly an anonymous handle), nothing more.
+    // Readable by any signed-in user because that *is* the global board; it holds three
+    // distance numbers and a name the owner chose (possibly an anonymous handle), nothing more.
     match /users/{uid} {
       function validScore() {
         return request.resource.data.keys().hasOnly(
-                 ['displayName', 'photoUrl', 'friendCode', 'weekKey', 'weekPixels']
+                 ['displayName', 'photoUrl', 'friendCode',
+                  'weekKey', 'weekPixels', 'monthKey', 'monthPixels', 'totalPixels']
                )
                && request.resource.data.displayName is string
                && request.resource.data.displayName.size() <= 64
@@ -30,20 +37,35 @@ service cloud.firestore {
                && request.resource.data.weekKey is string
                && request.resource.data.weekKey.size() <= 16
                && request.resource.data.weekPixels is int
-               && request.resource.data.weekPixels >= 0;
+               && request.resource.data.weekPixels >= 0
+               && request.resource.data.monthKey is string
+               && request.resource.data.monthKey.size() <= 16
+               && request.resource.data.monthPixels is int
+               && request.resource.data.monthPixels >= 0
+               && request.resource.data.totalPixels is int
+               && request.resource.data.totalPixels >= 0;
       }
 
       allow read: if signedIn();
       allow create, update: if isSelf(uid) && validScore();
       allow delete: if isSelf(uid);
 
-      // Friendship is symmetric, so adding a friend writes both edges in one batch:
-      // you may edit your own list, or put/remove *yourself* on someone else's. Neither
-      // side can touch an edge it isn't part of, and a friend list is private to its owner.
+      // Friendship edges carry { since, status }: "pending" until the other side
+      // accepts, "accepted" after. Old edges with no status read as accepted.
+      // An edge may be written by either endpoint and nobody else:
+      //   - you can always edit your own list;
+      //   - adding yourself as a pending edge on someone else's list is how a request
+      //     is sent;
+      //   - flipping both copies to accepted / deleting both is how it is answered or
+      //     removed — each endpoint touches only docs of which it IS an endpoint.
       match /friends/{friendUid} {
+        function validEdge() {
+          return request.resource.data.keys().hasOnly(['since', 'status'])
+                 && (!('status' in request.resource.data)
+                     || request.resource.data.status in ['pending', 'accepted']);
+        }
         allow read: if isSelf(uid);
-        allow create, update: if (isSelf(uid) || isSelf(friendUid))
-                              && request.resource.data.keys().hasOnly(['since']);
+        allow create, update: if (isSelf(uid) || isSelf(friendUid)) && validEdge();
         allow delete: if isSelf(uid) || isSelf(friendUid);
       }
     }
@@ -62,6 +84,24 @@ service cloud.firestore {
                     && request.resource.data.keys().hasOnly(['uid'])
                     && request.resource.data.uid == request.auth.uid;
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // archive/{weekKey}/scores/{uid} = { displayName, photoUrl, pixels }:
+    // one frozen copy of every week's board so last week's podium survives the weekly
+    // reset. You can write your own row into any week's archive (the client knows the
+    // week key better than the rules can compute it), but never anybody else's.
+    match /archive/{weekKey}/scores/{uid} {
+      allow read: if signedIn();
+      allow create, update: if isSelf(uid)
+                            && request.resource.data.keys().hasOnly(
+                                 ['displayName', 'photoUrl', 'pixels'])
+                            && request.resource.data.displayName is string
+                            && request.resource.data.displayName.size() <= 64
+                            && request.resource.data.photoUrl is string
+                            && request.resource.data.photoUrl.size() <= 512
+                            && request.resource.data.pixels is int
+                            && request.resource.data.pixels >= 0;
+      allow delete: if isSelf(uid);
     }
   }
 }

@@ -4,6 +4,14 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Package visibility for the custom-app picker (Settings → Tracked apps). -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+    </queries>
+
     <application
         android:name=".ThumbTrekApp"
         android:allowBackup="true"
@@ -32,6 +40,17 @@
                 android:name="android.accessibilityservice"
                 android:resource="@xml/accessibility_service_config" />
         </service>
+
+        <receiver
+            android:name=".widget.TrekWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/widget_info" />
+        </receiver>
 
         <provider
             android:name="androidx.core.content.FileProvider"

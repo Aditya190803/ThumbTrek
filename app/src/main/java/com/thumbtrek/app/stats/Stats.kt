@@ -50,6 +50,9 @@ fun weekKey(date: LocalDate = LocalDate.now()): String {
     return String.format(Locale.US, "%d-W%02d", year, week)
 }
 
+/** Month id like "2026-08". Monthly board reset works the same way as [weekKey]. */
+fun monthKey(date: LocalDate = LocalDate.now()): String = YearMonth.from(date).toString()
+
 /** Longest single-day trek, or null when there's no data. */
 fun personalRecord(days: Map<LocalDate, Long>): Pair<LocalDate, Long>? =
     days.maxByOrNull { it.value }?.toPair()
@@ -161,17 +164,34 @@ fun weekOverWeekDelta(days: Map<LocalDate, Long>, today: LocalDate = LocalDate.n
 
 data class Landmark(val meters: Double, val label: String)
 
-/** Ascending. Fun comparisons per PRD §5.2. */
+/**
+ * Ascending. Fun comparisons per PRD §5.2. Kept dense at the low end on purpose — the
+ * old list jumped straight from a banana (0.18 m) to a basketball court (28 m), a 155×
+ * gap that left every short trek reading as some large multiple of banana instead of
+ * moving on to a new object.
+ */
 val LANDMARKS = listOf(
     Landmark(0.18, "a banana"),
+    Landmark(0.3, "a sneaker"),
+    Landmark(1.0, "a doorway"),
+    Landmark(1.8, "a queen-size bed"),
+    Landmark(4.5, "a parked car"),
+    Landmark(12.0, "a school bus"),
+    Landmark(19.0, "a bowling lane"),
     Landmark(28.0, "a basketball court"),
     Landmark(93.0, "the Statue of Liberty"),
     Landmark(105.0, "a football pitch"),
+    Landmark(269.0, "the Titanic"),
     Landmark(330.0, "the Eiffel Tower"),
     Landmark(830.0, "the Burj Khalifa"),
+    Landmark(1_609.0, "a mile"),
     Landmark(2_737.0, "the Golden Gate Bridge"),
+    Landmark(5_000.0, "a 5K run"),
     Landmark(8_849.0, "Mount Everest"),
+    Landmark(21_097.0, "a half marathon"),
     Landmark(42_195.0, "a marathon"),
+    Landmark(100_000.0, "a 100K ultramarathon"),
+    Landmark(384_400_000.0, "the Moon"),
 )
 
 fun comparison(meters: Double): String {
@@ -180,3 +200,74 @@ fun comparison(meters: Double): String {
     val times = meters / landmark.meters
     return "That's ${String.format(Locale.US, "%.1f", times)}× ${landmark.label}."
 }
+
+/** One achievement: [progress] is clamped 0..1 so UI can show a fill or lock. */
+data class Badge(
+    val id: String,
+    val emoji: String,
+    val label: String,
+    val detail: String,
+    val earned: Boolean,
+    val progress: Double,
+)
+
+private fun badge(
+    id: String,
+    emoji: String,
+    label: String,
+    value: Double,
+    target: Double,
+    detail: String,
+): Badge {
+    val progress = if (target <= 0.0) 1.0 else (value / target).coerceIn(0.0, 1.0)
+    return Badge(id, emoji, label, detail, progress >= 1.0, progress)
+}
+
+/**
+ * Local achievements computed from history alone — no server, no extra storage.
+ * [totalMeters] is the all-time distance, [bestDayMeters] the longest single day.
+ */
+fun badges(totalMeters: Double, bestDayMeters: Double, streak: Int): List<Badge> = listOf(
+    badge("first_trek", "👣", "First steps", totalMeters, 1.0,
+        "Complete your first trek"),
+    badge("banana", "🍌", "Banana", totalMeters, 100.0,
+        "Trek 100 m in total"),
+    badge("kilometer", "🎯", "Kilometer club", totalMeters, 1_000.0,
+        "Trek 1 km in total"),
+    badge("bridge", "🌉", "Golden Gate", totalMeters, 2_737.0,
+        "Trek 2.7 km in total"),
+    badge("fivek", "🏅", "5K", totalMeters, 5_000.0,
+        "Trek 5 km in total"),
+    badge("burj_day", "🏙️", "Burj day", bestDayMeters, 830.0,
+        "Trek 830 m — the Burj Khalifa — in a single day"),
+    badge("tenk", "🥉", "10K", totalMeters, 10_000.0,
+        "Trek 10 km in total"),
+    badge("half_marathon", "🥈", "Half marathon", totalMeters, 21_097.0,
+        "Trek 21.1 km in total"),
+    badge("everest", "🏔️", "Everest", bestDayMeters, 8_849.0,
+        "Trek 8.8 km in a single day"),
+    badge("marathon", "🏃", "Marathon thumb", totalMeters, 42_195.0,
+        "Trek 42.2 km in total"),
+    badge("ultra", "🥇", "Ultra", totalMeters, 50_000.0,
+        "Trek 50 km in total"),
+    badge("century", "💯", "Century", totalMeters, 100_000.0,
+        "Trek 100 km in total"),
+    badge("quarter_million", "🚀", "Quarter-million", totalMeters, 250_000.0,
+        "Trek 250 km in total"),
+    badge("half_million", "⭐", "Half-million", totalMeters, 500_000.0,
+        "Trek 500 km in total"),
+    badge("million", "🌟", "Thousand-K club", totalMeters, 1_000_000.0,
+        "Trek 1,000 km in total"),
+    badge("streak_3", "🔥", "Warm-up", streak.toDouble(), 3.0,
+        "Keep a 3-day streak"),
+    badge("streak_7", "📅", "Week trekker", streak.toDouble(), 7.0,
+        "Keep a 7-day streak"),
+    badge("streak_14", "🌱", "Two-week habit", streak.toDouble(), 14.0,
+        "Keep a 14-day streak"),
+    badge("streak_30", "🗓️", "Monthly mover", streak.toDouble(), 30.0,
+        "Keep a 30-day streak"),
+    badge("streak_100", "💎", "Centurion streak", streak.toDouble(), 100.0,
+        "Keep a 100-day streak"),
+    badge("streak_365", "👑", "Year-round trekker", streak.toDouble(), 365.0,
+        "Keep a 365-day streak"),
+)

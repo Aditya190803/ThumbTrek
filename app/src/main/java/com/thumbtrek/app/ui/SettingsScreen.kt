@@ -18,13 +18,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -34,6 +42,8 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.thumbtrek.app.data.TRACKED_APPS
+import com.thumbtrek.app.share.DataExporter
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewModel()) {
@@ -44,6 +54,8 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
 
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var showPicker by remember { mutableStateOf(false) }
 
     // PRD §5.5 reminders are a notification, and on Android 13+ that needs a runtime grant.
     val notificationPermission = rememberLauncherForActivityResult(
@@ -91,12 +103,51 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
                     onCheckedChange = { vm.setAppTracked(pkg, it) },
                 )
             }
-            if (TRACKED_APPS.keys.none { it in state.trackedApps }) {
+            state.customApps.forEach { (pkg, label) ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SettingsToggleRow(
+                        label = label,
+                        checked = pkg in state.trackedApps,
+                        onCheckedChange = { vm.setAppTracked(pkg, it) },
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { vm.removeCustomApp(pkg) }) {
+                        Text("Remove", color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+            OutlinedButton(onClick = {
+                vm.loadInstalledApps()
+                showPicker = true
+            }) {
+                Text("Add another app")
+            }
+            if (TRACKED_APPS.keys.none { it in state.trackedApps } && state.customApps.isEmpty()) {
                 Text(
                     "Every app is switched off, so nothing will be measured. Turn at least one " +
                         "back on to keep your trek going.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
+                )
+            }
+        }
+
+        SettingsCard("Calibration") {
+            Text(
+                "Different apps report scroll pixels differently. Nudge an app's multiplier " +
+                    "if its distances feel off. Applies to future scrolls only.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            val knownApps = TRACKED_APPS.keys + state.customApps.keys
+            knownApps.forEach { pkg ->
+                CalibrationRow(
+                    label = TRACKED_APPS[pkg] ?: state.customApps[pkg] ?: pkg,
+                    factor = state.calibration[pkg] ?: 1f,
+                    onFactorChange = { vm.setCalibration(pkg, it) },
                 )
             }
         }
@@ -121,6 +172,29 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
             )
         }
 
+        SettingsCard("Your data") {
+            Button(
+                onClick = {
+                    scope.launch {
+                        runCatching { DataExporter.export(context) }
+                            .onSuccess { uri ->
+                                context.startActivity(
+                                    Intent.createChooser(DataExporter.shareIntent(uri), "Export trek"),
+                                )
+                            }
+                    }
+                },
+            ) {
+                Text("Export my data (CSV)")
+            }
+            Text(
+                "Everything stays on your device unless you opt into the leaderboard. The CSV " +
+                    "contains one row per app per day — dates and pixel counts, nothing else.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+
         SettingsCard("Privacy") {
             Text(
                 "ThumbTrek measures distance, never content. The service listens for one thing — " +
@@ -137,23 +211,93 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
         }
 
         Text(
-            "ThumbTrek 0.0.1",
+            "ThumbTrek 0.1.0",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(modifier = Modifier.height(8.dp))
     }
+
+    if (showPicker) {
+        AppPickerDialog(
+            vm = vm,
+            onDismiss = { showPicker = false },
+        )
+    }
 }
 
 @Composable
+private fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
+    val apps by vm.installedApps.collectAsStateWithLifecycle()
+    LaunchedEffect(Unit) { vm.loadInstalledApps() }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Track another app") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                if (apps.isEmpty()) {
+                    Text(
+                        "No other launchable apps found.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                } else {
+                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                        apps.forEach { app ->
+                            TextButtonWithLabel(app.label) {
+                                vm.addCustomApp(app.packageName, app.label)
+                                onDismiss()
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel") }
+        },
+    )
+}
+
+@Composable
+private fun TextButtonWithLabel(label: String, onClick: () -> Unit) {
+    Button(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
+        Text(label, modifier = Modifier.weight(1f))
+    }
+}
+
+@Composable
+private fun CalibrationRow(label: String, factor: Float, onFactorChange: (Float) -> Unit) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(label, modifier = Modifier.weight(1f))
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                "×${String.format(java.util.Locale.US, "%.2f", factor)}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+            )
+        }
+        Slider(
+            value = factor,
+            onValueChange = onFactorChange,
+            valueRange = CALIBRATION_MIN..CALIBRATION_MAX,
+            steps = CALIBRATION_STEPS,
+        )
+    }
+}
+
+/** 0.25 → 3.00 in quarters: 11 stops, 10 gaps between them. */
+private const val CALIBRATION_MIN = 0.25f
+private const val CALIBRATION_MAX = 3f
+private const val CALIBRATION_STEPS = 10
+
+@Composable
 private fun SettingsCard(title: String, content: @Composable () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
+    TrekCard {
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             content()
         }
@@ -165,9 +309,10 @@ private fun SettingsToggleRow(
     label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, modifier = Modifier.weight(1f))

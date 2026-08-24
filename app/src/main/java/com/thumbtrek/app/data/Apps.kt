@@ -1,6 +1,11 @@
 package com.thumbtrek.app.data
 
-/** The four feeds ThumbTrek measures (PRD §5.1). Order is the display order in Settings. */
+/**
+ * The four feeds ThumbTrek measures out of the box (PRD §5.1). Order is the display
+ * order in Settings. Users can track any other installed app on top of these — those
+ * live in [Prefs.customApps] with a label captured at add time, so no PackageManager
+ * lookup is ever needed on the display path.
+ */
 val TRACKED_APPS: Map<String, String> = linkedMapOf(
     "com.instagram.android" to "Instagram",
     "com.google.android.youtube" to "YouTube",
@@ -8,4 +13,6 @@ val TRACKED_APPS: Map<String, String> = linkedMapOf(
     "com.reddit.frontpage" to "Reddit",
 )
 
-fun appName(pkg: String): String = TRACKED_APPS[pkg] ?: pkg.substringAfterLast('.')
+/** Display name for any package: built-in first, then user-added labels. */
+fun appName(pkg: String, customLabels: Map<String, String> = emptyMap()): String =
+    TRACKED_APPS[pkg] ?: customLabels[pkg] ?: pkg.substringAfterLast('.')

@@ -22,6 +22,21 @@ class Prefs private constructor(context: Context) {
     /** Packages the accessibility service should count. Defaults to all of [TRACKED_APPS]. */
     val trackedApps: StateFlow<Set<String>> = _trackedApps.asStateFlow()
 
+    /**
+     * Packages the user added beyond [TRACKED_APPS], as pkg -> display label. Separate
+     * from [trackedApps] so unchecking one doesn't forget it exists.
+     */
+    private val _customApps = MutableStateFlow(readCustomApps())
+    val customApps: StateFlow<Map<String, String>> = _customApps.asStateFlow()
+
+    /**
+     * Per-app scroll multipliers (1.0 = trust the pixels). Applied at accumulation time
+     * in the tracker service, so every downstream number — dashboard, history, boards,
+     * widget, export — stays consistent. Changing it only affects future scrolls.
+     */
+    private val _calibration = MutableStateFlow(readCalibration())
+    val calibration: StateFlow<Map<String, Float>> = _calibration.asStateFlow()
+
     private val _streakReminder = MutableStateFlow(sp.getBoolean(KEY_STREAK_REMINDER, false))
     /** PRD §5.5: off by default, "to avoid becoming another nagging app". */
     val streakReminder: StateFlow<Boolean> = _streakReminder.asStateFlow()
@@ -34,6 +49,20 @@ class Prefs private constructor(context: Context) {
     /** Publish as an anonymous handle instead of the Google display name (PRD §5.4). */
     val anonymous: StateFlow<Boolean> = _anonymous.asStateFlow()
 
+    // --- social notification bookkeeping (so each event nags exactly once) ---
+
+    var knownRequestUids: Set<String>
+        get() = sp.getStringSet(KEY_KNOWN_REQUESTS, emptySet()) ?: emptySet()
+        set(value) = sp.edit().putStringSet(KEY_KNOWN_REQUESTS, value).apply()
+
+    var notifiedRankWeek: String?
+        get() = sp.getString(KEY_NOTIFIED_RANK_WEEK, null)
+        set(value) = sp.edit().putString(KEY_NOTIFIED_RANK_WEEK, value).apply()
+
+    var notifiedRank: Int
+        get() = sp.getInt(KEY_NOTIFIED_RANK, Int.MAX_VALUE)
+        set(value) = sp.edit().putInt(KEY_NOTIFIED_RANK, value).apply()
+
     private fun readTrackedApps(): Set<String> =
         sp.getStringSet(KEY_TRACKED_APPS, null) ?: TRACKED_APPS.keys
 
@@ -44,6 +73,39 @@ class Prefs private constructor(context: Context) {
         sp.edit().putStringSet(KEY_TRACKED_APPS, next).apply()
         _trackedApps.value = next
     }
+
+    fun addCustomApp(pkg: String, label: String) {
+        val next = _customApps.value + (pkg to label)
+        sp.edit().putString(KEY_CUSTOM_APPS, encodeCustomApps(next)).apply()
+        _customApps.value = next
+        setAppTracked(pkg, true)
+    }
+
+    fun removeCustomApp(pkg: String) {
+        val next = _customApps.value - pkg
+        sp.edit().putString(KEY_CUSTOM_APPS, encodeCustomApps(next)).apply()
+        _customApps.value = next
+        setAppTracked(pkg, false)
+        setCalibration(pkg, 1.0f)
+    }
+
+    private fun readCustomApps(): Map<String, String> =
+        decodeCustomApps(sp.getString(KEY_CUSTOM_APPS, null))
+
+    fun calibrationFactor(pkg: String): Float = _calibration.value[pkg] ?: 1f
+
+    fun setCalibration(pkg: String, factor: Float) {
+        val next = if (factor == 1f) {
+            _calibration.value - pkg
+        } else {
+            _calibration.value + (pkg to factor)
+        }
+        sp.edit().putString(KEY_CALIBRATION, encodeCalibration(next)).apply()
+        _calibration.value = next
+    }
+
+    private fun readCalibration(): Map<String, Float> =
+        decodeCalibration(sp.getString(KEY_CALIBRATION, null))
 
     fun setStreakReminder(enabled: Boolean) {
         sp.edit().putBoolean(KEY_STREAK_REMINDER, enabled).apply()
@@ -68,9 +130,39 @@ class Prefs private constructor(context: Context) {
 
     companion object {
         private const val KEY_TRACKED_APPS = "tracked_apps"
+        private const val KEY_CUSTOM_APPS = "custom_apps"
+        private const val KEY_CALIBRATION = "calibration"
         private const val KEY_STREAK_REMINDER = "streak_reminder"
         private const val KEY_LEADERBOARD_OPT_IN = "leaderboard_opt_in"
         private const val KEY_ANONYMOUS = "anonymous"
+        private const val KEY_KNOWN_REQUESTS = "known_request_uids"
+        private const val KEY_NOTIFIED_RANK_WEEK = "notified_rank_week"
+        private const val KEY_NOTIFIED_RANK = "notified_rank"
+
+        /** `pkg|label` lines; labels never contain newlines and `|` is stripped on save. */
+        fun encodeCustomApps(apps: Map<String, String>): String =
+            apps.entries.joinToString("\n") { "${it.key}|${it.value.replace('|', ' ')}" }
+
+        fun decodeCustomApps(raw: String?): Map<String, String> =
+            raw.orEmpty().lineSequence()
+                .mapNotNull { line ->
+                    val sep = line.indexOf('|')
+                    if (sep <= 0 || sep == line.length - 1) return@mapNotNull null
+                    line.take(sep) to line.drop(sep + 1)
+                }
+                .toMap()
+
+        fun encodeCalibration(factors: Map<String, Float>): String =
+            factors.entries.joinToString(",") { "${it.key}:${it.value}" }
+
+        fun decodeCalibration(raw: String?): Map<String, Float> =
+            raw.orEmpty().split(',')
+                .filter { ':' in it }
+                .mapNotNull {
+                    val parts = it.split(':', limit = 2)
+                    parts[1].toFloatOrNull()?.let { f -> parts[0] to f }
+                }
+                .toMap()
 
         @Volatile
         private var instance: Prefs? = null
