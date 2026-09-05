@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ThumbTrek — Strava for scrolling</title>
+  <meta name="description" content="Track how far your thumb travels across Instagram, YouTube, X, and Reddit. Streaks, trek stats, share cards, and opt-in leaderboards." />
+  <meta property="og:title" content="ThumbTrek" />
+  <meta property="og:description" content="Strava for scrolling. Measure the trek your thumb already takes." />
+  <meta property="og:type" content="website" />
+  <link rel="icon" href="/assets/mark.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="wrap nav">
+    <a class="brand" href="/">
+      <img src="/assets/mark.svg" width="36" height="36" alt="" />
+      ThumbTrek
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="#how">How it works</a>
+      <a href="#privacy">Privacy</a>
+      <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest">Get the APK</a>
+    </nav>
+  </header>
+
+  <main>
+    <section class="wrap hero" aria-label="Hero">
+      <div class="hero-copy">
+        <h1>Thumb<span>Trek</span></h1>
+        <p class="hero-lead">
+          Strava for scrolling. Turn Instagram, YouTube, X, and Reddit into a trek —
+          meters, streaks, share cards, and friend boards.
+        </p>
+        <div class="cta-row">
+          <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest">
+            Download for Android
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/Aditya190803/ThumbTrek">
+            Source on GitHub
+          </a>
+        </div>
+      </div>
+
+      <div class="hero-visual" aria-hidden="true">
+        <div class="topo"></div>
+        <div class="stat-stack">
+          <article class="stat">
+            <p class="stat-label">Today's trek</p>
+            <p class="stat-value"><em>1.84</em> km</p>
+            <p class="stat-note">Thumb distance across four feeds</p>
+          </article>
+          <article class="stat">
+            <p class="stat-label">Checkpoint</p>
+            <p class="stat-value">Burj Khalifa × <em>2.1</em></p>
+            <p class="stat-note">Same pixels, real-world scale</p>
+          </article>
+          <article class="stat">
+            <p class="stat-label">Streak</p>
+            <p class="stat-value"><em>12</em> days</p>
+            <p class="stat-note">One quiet reminder if it slips</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="wrap" id="how">
+      <div class="section-head">
+        <h2>A trek, not a guilt trip</h2>
+        <p>ThumbTrek measures distance, not doom. No blocking, no lectures — just the map of where your thumb already went.</p>
+      </div>
+      <div class="trail">
+        <article class="trail-step">
+          <div>
+            <h3>Grant Accessibility once</h3>
+            <p>The service only listens for scroll events in apps you choose. It never reads screen content.</p>
+          </div>
+        </article>
+        <article class="trail-step">
+          <div>
+            <h3>Scroll like you already do</h3>
+            <p>Pixels become meters using your screen density. Instagram, YouTube, X, Reddit — plus any app you add.</p>
+          </div>
+        </article>
+        <article class="trail-step">
+          <div>
+            <h3>Check the board when you want</h3>
+            <p>Streaks, records, shareable PNG cards, and fully opt-in friend or global leaderboards.</p>
+          </div>
+        </article>
+      </div>
+      <div class="apps" aria-label="Tracked apps">
+        <span class="chip">Instagram</span>
+        <span class="chip">YouTube</span>
+        <span class="chip">X</span>
+        <span class="chip">Reddit</span>
+        <span class="chip">+ custom apps</span>
+      </div>
+    </section>
+
+    <section class="wrap">
+      <div class="section-head">
+        <h2>Built for the long scroll</h2>
+        <p>Local-first storage, signed sideloaded updates, and a social layer that stays quiet until you opt in.</p>
+      </div>
+      <div class="split">
+        <article class="panel">
+          <h3>Self-updating APK</h3>
+          <p>Checks GitHub Releases over Wi‑Fi, verifies SHA‑256, then asks once to install. No Play Store required.</p>
+        </article>
+        <article class="panel">
+          <h3>Opt-in social</h3>
+          <p>Friend codes, weekly boards, anonymous handles. <strong>Nothing leaves the phone until you say so.</strong></p>
+        </article>
+        <article class="panel">
+          <h3>Honest numbers</h3>
+          <p>No user calibration sliders on competitive scores — everyone measures the same raw trek.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="install" id="download">
+      <div class="wrap install-inner">
+        <div>
+          <h2>Install in a minute</h2>
+          <p>Grab the latest signed APK from GitHub Releases. Allow install from your browser once, then ThumbTrek can update itself.</p>
+          <p class="fine">Android 8.0+. Sideload only — not on the Play Store yet.</p>
+        </div>
+        <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest">
+          Get ThumbTrek
+        </a>
+      </div>
+    </section>
+
+    <section class="wrap" id="privacy">
+      <div class="section-head">
+        <h2>What we see — and don't</h2>
+        <p>Scroll distance stays on-device by default. Cloud sync is for leaderboards you choose to join.</p>
+      </div>
+      <div class="split">
+        <article class="panel">
+          <h3>Never read</h3>
+          <p>No screenshots, no feed text, no URLs. Accessibility is scoped to scroll events on opted-in packages.</p>
+        </article>
+        <article class="panel">
+          <h3>Stored locally</h3>
+          <p>Day-by-day pixels live in Room on your phone. Export CSV anytime from Settings.</p>
+        </article>
+        <article class="panel">
+          <h3>Shared only if opted in</h3>
+          <p>Weekly / monthly / all-time totals sync to Firebase after you flip the Social switch.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <span>© ThumbTrek · Android sideload</span>
+    <span>
+      <a href="https://github.com/Aditya190803/ThumbTrek">GitHub</a>
+      ·
+      <a href="https://github.com/Aditya190803/ThumbTrek/releases">Releases</a>
+    </span>
+  </footer>
+</body>
+</html>
