@@ -21,6 +21,13 @@ Thumbs.db
 *.key
 *.pem
 
+# Release signing — the keystore and its passwords never enter git. Losing the keystore
+# means every future self-update APK is unsignable with the same key, so back it up
+# somewhere outside this repo. See README "Release signing".
+keystore.properties
+*.jks
+*.keystore
+
 # Real Firebase config — never commit. Fresh clones build from the placeholder.
 app/google-services.json
 

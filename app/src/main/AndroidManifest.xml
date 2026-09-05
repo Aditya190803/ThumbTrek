@@ -1,8 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <!-- Self-update (see com.thumbtrek.app.update). ThumbTrek is sideloaded, so nothing
+         else is going to update it. -->
+    <!-- Lets the app hand its own downloaded APK to PackageInstaller. On API 26+ the user
+         must additionally grant "install unknown apps" for ThumbTrek in system settings;
+         the updater asks for that once, from Settings. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Used to hold the multi-megabyte APK download back until the phone is on Wi-Fi. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- API 31+, normal permission. Asks the system to let an app update *itself* without
+         the confirmation dialog. The system frequently refuses (notably when the current
+         copy was installed by hand rather than by us), so it is strictly a best case —
+         the updater always handles being told "ask the user" instead. -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
 
     <!-- Package visibility for the custom-app picker (Settings → Tracked apps). -->
     <queries>
@@ -29,6 +44,22 @@
             </intent-filter>
         </activity>
 
+        <!-- Invisible, finishes immediately. Exists so the "update ready" notification has a
+             foreground activity to launch Android's install-confirmation screen from —
+             broadcast receivers are not allowed to start activities. -->
+        <activity
+            android:name=".update.UpdateInstallActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- PackageInstaller reports session outcomes here. -->
+        <receiver
+            android:name=".update.InstallResultReceiver"
+            android:exported="false" />
+
         <service
             android:name=".track.ScrollTrackerService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
@@ -51,6 +82,19 @@
                 android:name="android.appwidget.provider"
                 android:resource="@xml/widget_info" />
         </receiver>
+
+        <!-- App Startup. WorkManager already contributes this provider; merging into it is
+             how the updater gets its periodic check scheduled on process start without
+             editing ThumbTrekApp. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="com.thumbtrek.app.update.UpdateStartupInitializer"
+                android:value="androidx.startup" />
+        </provider>
 
         <provider
             android:name="androidx.core.content.FileProvider"

@@ -9,6 +9,8 @@ package com.thumbtrek.app.data
 val TRACKED_APPS: Map<String, String> = linkedMapOf(
     "com.instagram.android" to "Instagram",
     "com.google.android.youtube" to "YouTube",
+    // Still com.twitter.android after the rebrand — a package name can't change without
+    // becoming a different Play listing, so "com.x.android" would silently track nothing.
     "com.twitter.android" to "X",
     "com.reddit.frontpage" to "Reddit",
 )

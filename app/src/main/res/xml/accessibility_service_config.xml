@@ -1,9 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- No android:packageNames: the four built-in feeds plus any user-added apps must all
      wake the service. The code filters events against Prefs.trackedApps (an in-memory
-     read) before counting a pixel, so untracked apps cost one string compare each. -->
+     read) before counting a pixel, so untracked apps cost one string compare each.
+
+     canRetrieveWindowContent is deliberately still absent. Nothing here reads a single
+     node, label or piece of text — only the scroll numbers the event itself carries — so
+     the privacy claim in the README stands exactly as written.
+
+     notificationTimeout="0", not 50: the system keeps at most ONE pending event per event
+     type per service inside that window and recycles the rest
+     (AbstractAccessibilityServiceConnection.notifyAccessibilityEvent). Every dropped
+     TYPE_VIEW_SCROLLED is a scroll delta we never get told about again, and an app with
+     two scrollers on screen loses whichever one reported first. A counter cannot afford
+     the coalescing a screen reader wants.
+
+     flagIncludeNotImportantViews: wantsEventLocked() silently discards every event whose
+     source view isn't important for accessibility unless the service asks for those too.
+     Feeds that draw their own custom containers land on the wrong side of that check, and
+     they lose the whole event, not just its fields. The flag only widens which events and
+     nodes may be delivered; it grants no content access on its own.
+
+     typeWindowStateChanged is low-volume and buys two things: baselines for the scroll
+     position diff are dropped when the foreground app changes (a position from another
+     app's feed is worse than no position), and the diagnostics can tell "we never heard
+     from YouTube" apart from "we heard from YouTube and it told us nothing". -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
-    android:accessibilityEventTypes="typeViewScrolled"
+    android:accessibilityEventTypes="typeViewScrolled|typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:notificationTimeout="50"
+    android:accessibilityFlags="flagIncludeNotImportantViews"
+    android:notificationTimeout="0"
     android:description="@string/service_description" />

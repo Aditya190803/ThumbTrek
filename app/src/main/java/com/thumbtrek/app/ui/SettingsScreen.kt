@@ -8,22 +8,31 @@ import android.os.Build
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -35,7 +44,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -43,7 +55,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.thumbtrek.app.data.TRACKED_APPS
 import com.thumbtrek.app.share.DataExporter
+import com.thumbtrek.app.update.UpdateSettingsContent
 import kotlinx.coroutines.launch
+import java.util.Locale
+
+private val GUTTER = 20.dp
 
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewModel()) {
@@ -54,10 +70,15 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
 
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
+
+    // Read once per visit to the screen. The package manager is not observable, but that
+    // is fine: an in-place update restarts the process, so a stale read cannot survive it.
+    val installedVersion = remember { installedVersionName(context) }
     val scope = rememberCoroutineScope()
     var showPicker by remember { mutableStateOf(false) }
+    var exportNote by remember { mutableStateOf<String?>(null) }
 
-    // PRD §5.5 reminders are a notification, and on Android 13+ that needs a runtime grant.
+    // PRD 5.5 reminders are a notification, and on Android 13+ that needs a runtime grant.
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
@@ -66,82 +87,103 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
 
     Column(
         modifier = modifier
+            .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
+            .padding(horizontal = GUTTER),
+        verticalArrangement = Arrangement.spacedBy(30.dp),
     ) {
-        SettingsCard("Tracking") {
+        Spacer(modifier = Modifier.height(2.dp))
+
+        // ---- Tracking -----------------------------------------------------------------
+        Column {
+            SectionHead("Tracking")
+            StatusLine(
+                live = state.trackingEnabled,
+                liveText = "Counting scrolls",
+                idleText = "Paused",
+            )
+            Spacer(modifier = Modifier.height(10.dp))
             Text(
                 if (state.trackingEnabled) {
-                    "ThumbTrek's Accessibility Service is on and counting your scrolls."
+                    "The Accessibility Service is running. It sees scroll events from the apps " +
+                        "below and nothing else."
                 } else {
-                    "Tracking is off. ThumbTrek needs its Accessibility Service to count how " +
-                        "far you scroll."
+                    "Nothing is being measured. ThumbTrek needs its Accessibility Service " +
+                        "switched on to count how far you scroll."
                 },
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Trek.inkMuted,
             )
             if (!state.trackingEnabled) {
-                Button(onClick = {
+                Spacer(modifier = Modifier.height(14.dp))
+                TrekButton(
+                    "Turn on tracking",
+                    onClick = {
                     context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                }) {
-                    Text("Enable tracking")
-                }
+                    },
+                )
             }
         }
 
-        SettingsCard("Tracked apps") {
-            Text(
-                "Pick which feeds count towards your trek.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        // ---- Tracked apps -------------------------------------------------------------
+        Column {
+            SectionHead(
+                "Tracked apps",
+                trailing = "${state.trackedApps.size} ON",
+                trailingColor = if (state.trackedApps.isEmpty()) Trek.danger else Trek.inkMuted,
             )
             TRACKED_APPS.forEach { (pkg, name) ->
-                SettingsToggleRow(
-                    label = name,
+                ToggleRow(
+                    title = name,
                     checked = pkg in state.trackedApps,
                     onCheckedChange = { vm.setAppTracked(pkg, it) },
+                    leading = { SeriesDot(chartColor(pkg)) },
                 )
             }
             state.customApps.forEach { (pkg, label) ->
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    SettingsToggleRow(
-                        label = label,
-                        checked = pkg in state.trackedApps,
-                        onCheckedChange = { vm.setAppTracked(pkg, it) },
-                        modifier = Modifier.weight(1f),
-                    )
-                    TextButton(onClick = { vm.removeCustomApp(pkg) }) {
-                        Text("Remove", color = MaterialTheme.colorScheme.error)
-                    }
-                }
+                ToggleRow(
+                    title = label,
+                    subtitle = pkg,
+                    checked = pkg in state.trackedApps,
+                    onCheckedChange = { vm.setAppTracked(pkg, it) },
+                    leading = { SeriesDot(chartColor(pkg)) },
+                    trailing = {
+                        TextButton(onClick = { vm.removeCustomApp(pkg) }) {
+                            Text("Remove", color = Trek.inkFaint)
+                        }
+                    },
+                )
             }
-            OutlinedButton(onClick = {
-                vm.loadInstalledApps()
-                showPicker = true
-            }) {
-                Text("Add another app")
-            }
-            if (TRACKED_APPS.keys.none { it in state.trackedApps } && state.customApps.isEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            TrekGhostButton(
+                text = "Add another app",
+                onClick = {
+                    vm.loadInstalledApps()
+                    showPicker = true
+                },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            if (state.trackedApps.isEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    "Every app is switched off, so nothing will be measured. Turn at least one " +
-                        "back on to keep your trek going.",
+                    "Every app is off, so nothing will be measured. Switch at least one back " +
+                        "on to keep your trek going.",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
+                    color = Trek.danger,
                 )
             }
         }
 
-        SettingsCard("Calibration") {
+        // ---- Calibration --------------------------------------------------------------
+        Column {
+            SectionHead("Calibration")
             Text(
-                "Different apps report scroll pixels differently. Nudge an app's multiplier " +
-                    "if its distances feel off. Applies to future scrolls only.",
+                "Apps report scroll pixels differently. Nudge a multiplier if an app's " +
+                    "distances feel wrong. Applies to future scrolls only.",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Trek.inkMuted,
             )
+            Spacer(modifier = Modifier.height(6.dp))
             val knownApps = TRACKED_APPS.keys + state.customApps.keys
             knownApps.forEach { pkg ->
                 CalibrationRow(
@@ -152,9 +194,12 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
             }
         }
 
-        SettingsCard("Notifications") {
-            SettingsToggleRow(
-                label = "Streak reminder",
+        // ---- Notifications ------------------------------------------------------------
+        Column {
+            SectionHead("Notifications")
+            ToggleRow(
+                title = "Streak reminder",
+                subtitle = "One quiet nudge if a streak is about to lapse",
                 checked = state.streakReminder,
                 onCheckedChange = { enabled ->
                     if (enabled && needsNotificationPermission(context)) {
@@ -165,66 +210,281 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
                 },
             )
             Text(
-                "Off by default. One quiet nudge if your streak is about to lapse — ThumbTrek " +
-                    "is not here to nag you about your screen time.",
+                "Off by default. ThumbTrek is not here to nag you about your screen time.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Trek.inkFaint,
             )
         }
 
-        SettingsCard("Your data") {
-            Button(
+        // ---- Data ---------------------------------------------------------------------
+        Column {
+            SectionHead("Your data")
+            TrekGhostButton(
+                text = "Export everything as CSV",
                 onClick = {
                     scope.launch {
                         runCatching { DataExporter.export(context) }
                             .onSuccess { uri ->
+                                exportNote = null
                                 context.startActivity(
-                                    Intent.createChooser(DataExporter.shareIntent(uri), "Export trek"),
+                                    Intent.createChooser(
+                                        DataExporter.shareIntent(uri),
+                                        "Export trek",
+                                    ),
                                 )
+                            }
+                            .onFailure {
+                                exportNote = "Could not write the export file. Free up a " +
+                                    "little storage and try again."
                             }
                     }
                 },
-            ) {
-                Text("Export my data (CSV)")
-            }
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(10.dp))
             Text(
-                "Everything stays on your device unless you opt into the leaderboard. The CSV " +
-                    "contains one row per app per day — dates and pixel counts, nothing else.",
+                "One row per app per day: dates and pixel counts, nothing else.",
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Trek.inkFaint,
+            )
+            exportNote?.let {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(it, style = MaterialTheme.typography.bodySmall, color = Trek.danger)
+            }
+        }
+
+        // ---- Privacy ------------------------------------------------------------------
+        Column {
+            SectionHead("Privacy")
+            TrekPanel {
+                Text(
+                    "ThumbTrek measures distance, never content.",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = Trek.ink,
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    "The service listens for one thing, scroll events from the apps you picked " +
+                        "above, and requests no permission to read what is on screen. It cannot " +
+                        "see your posts, your messages, or what you type.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Trek.inkMuted,
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    "Distances live in a database on this phone. Nothing is uploaded until you " +
+                        "opt into a leaderboard on the Social tab.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Trek.inkMuted,
+                )
+            }
+        }
+
+        // ---- About --------------------------------------------------------------------
+        Column {
+            SectionHead("About")
+
+            // The self-updater rides here, above the Version row (the banner-ish slot the
+            // old TODO reserved). Its stock container — UpdateCard's OutlinedCard — would
+            // drop a foreign card shape into this screen's panel system, so we take
+            // UpdateSettingsContent, contents only, and dress it in a TrekPanel the way
+            // Privacy does. UpdateUi.kt is deliberately plain Material3 so it keeps
+            // compiling when the design system moves; the dressing stays local to this
+            // file. The content wires up its own ViewModel via the default viewModel(),
+            // which shares state with the background worker through UpdateRepository.
+            SectionHead("Updates")
+            TrekPanel { UpdateSettingsContent() }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            ActionRow(
+                title = "Version",
+                // Same PackageManager lookup UpdateRepository performs for the updater's
+                // own "Installed:" line, so the two can never disagree.
+                subtitle = "ThumbTrek $installedVersion",
+                onClick = null,
             )
         }
 
-        SettingsCard("Privacy") {
-            Text(
-                "ThumbTrek measures distance, never content. The service listens for one thing — " +
-                    "scroll events from the apps you picked above — and asks for no permission to " +
-                    "read what is on your screen. It cannot see your posts, messages, or what you " +
-                    "type.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            Text(
-                "Scroll distances are stored in a database on this phone. Nothing is uploaded " +
-                    "anywhere unless you opt into the leaderboard on the Social tab.",
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        }
-
-        Text(
-            "ThumbTrek 0.1.0",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
     }
 
     if (showPicker) {
-        AppPickerDialog(
-            vm = vm,
-            onDismiss = { showPicker = false },
+        AppPickerDialog(vm = vm, onDismiss = { showPicker = false })
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Rows
+// ---------------------------------------------------------------------------------------
+
+/** A live/idle indicator with a dot, so tracking state is readable without parsing prose. */
+@Composable
+private fun StatusLine(live: Boolean, liveText: String, idleText: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .background(if (live) Trek.moss else Trek.inkFaint, CircleShape),
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            if (live) liveText else idleText,
+            style = MaterialTheme.typography.titleLarge,
+            color = if (live) Trek.ink else Trek.inkMuted,
         )
     }
 }
+
+/**
+ * One setting. The whole row toggles, not just the switch, which is both a bigger target
+ * and how every other Android settings screen behaves.
+ */
+@Composable
+private fun ToggleRow(
+    title: String,
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+    subtitle: String? = null,
+    leading: (@Composable () -> Unit)? = null,
+    trailing: (@Composable () -> Unit)? = null,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .clickable(role = Role.Switch) { onCheckedChange(!checked) }
+            .padding(vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (leading != null) {
+            leading()
+            Spacer(modifier = Modifier.width(12.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                title,
+                style = MaterialTheme.typography.bodyLarge,
+                color = Trek.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Trek.inkFaint,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
+        trailing?.invoke()
+        Spacer(modifier = Modifier.width(8.dp))
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Trek.onMoss,
+                checkedTrackColor = Trek.moss,
+                checkedBorderColor = Trek.moss,
+                uncheckedThumbColor = Trek.inkFaint,
+                uncheckedTrackColor = Trek.groundSunken,
+                uncheckedBorderColor = Trek.hairline,
+            ),
+        )
+    }
+}
+
+/**
+ * A tappable settings row. [onClick] may be null for read-only entries, which then take no
+ * press feedback and stay out of the focus order.
+ */
+@Composable
+private fun ActionRow(
+    title: String,
+    subtitle: String?,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp)
+            .then(
+                if (onClick != null) {
+                    Modifier.clickable(role = Role.Button, onClick = onClick)
+                } else {
+                    Modifier
+                },
+            )
+            .padding(vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = Trek.ink)
+            if (subtitle != null) {
+                Text(
+                    subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Trek.inkFaint,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CalibrationRow(label: String, factor: Float, onFactorChange: (Float) -> Unit) {
+    val tweaked = factor != 1f
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                label,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge,
+                color = Trek.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (tweaked) {
+                TextButton(onClick = { onFactorChange(1f) }) {
+                    Text("Reset", color = Trek.inkFaint)
+                }
+                Spacer(modifier = Modifier.width(4.dp))
+            }
+            TrekChip(
+                text = "x" + String.format(Locale.US, "%.2f", factor),
+                color = if (tweaked) Trek.moss else Trek.inkMuted,
+                border = if (tweaked) Trek.moss.copy(alpha = 0.4f) else Trek.hairline,
+                fill = if (tweaked) Trek.mossWash else Color.Transparent,
+            )
+        }
+        Slider(
+            value = factor,
+            onValueChange = onFactorChange,
+            valueRange = CALIBRATION_MIN..CALIBRATION_MAX,
+            steps = CALIBRATION_STEPS,
+            colors = SliderDefaults.colors(
+                thumbColor = Trek.moss,
+                activeTrackColor = Trek.moss,
+                activeTickColor = Trek.onMoss.copy(alpha = 0.4f),
+                inactiveTrackColor = Trek.groundSunken,
+                inactiveTickColor = Trek.hairline,
+            ),
+        )
+    }
+}
+
+/** 0.25 to 3.00 in quarters: 11 stops, 10 gaps between them. */
+private const val CALIBRATION_MIN = 0.25f
+private const val CALIBRATION_MAX = 3f
+private const val CALIBRATION_STEPS = 10
+
+// ---------------------------------------------------------------------------------------
+// App picker
+// ---------------------------------------------------------------------------------------
 
 @Composable
 private fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
@@ -233,22 +493,39 @@ private fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = Trek.groundRaised,
+        titleContentColor = Trek.ink,
+        textContentColor = Trek.inkMuted,
+        shape = MaterialTheme.shapes.large,
         title = { Text("Track another app") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                if (apps.isEmpty()) {
-                    Text(
-                        "No other launchable apps found.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                } else {
-                    Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                        apps.forEach { app ->
-                            TextButtonWithLabel(app.label) {
-                                vm.addCustomApp(app.packageName, app.label)
-                                onDismiss()
-                            }
+            if (apps.isEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    repeat(4) { Skeleton(modifier = Modifier.fillMaxWidth(), height = 20.dp) }
+                }
+            } else {
+                Column(
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                ) {
+                    apps.forEach { app ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 48.dp)
+                                .clickable(role = Role.Button) {
+                                    vm.addCustomApp(app.packageName, app.label)
+                                    onDismiss()
+                                }
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                app.label,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Trek.ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
                         }
                     }
                 }
@@ -256,70 +533,22 @@ private fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = Trek.inkMuted) }
         },
     )
 }
 
-@Composable
-private fun TextButtonWithLabel(label: String, onClick: () -> Unit) {
-    Button(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Text(label, modifier = Modifier.weight(1f))
+/**
+ * The installed version name, read the same way the updater's UpdateRepository reads it so
+ * the Version row and the updater's own "Installed:" line can never disagree. A bare "?"
+ * keeps the row intact if the package manager somehow cannot see our own package.
+ */
+private fun installedVersionName(context: Context): String =
+    try {
+        context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "?"
+    } catch (e: Exception) {
+        "?"
     }
-}
-
-@Composable
-private fun CalibrationRow(label: String, factor: Float, onFactorChange: (Float) -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text(label, modifier = Modifier.weight(1f))
-            Spacer(modifier = Modifier.width(12.dp))
-            Text(
-                "×${String.format(java.util.Locale.US, "%.2f", factor)}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-        Slider(
-            value = factor,
-            onValueChange = onFactorChange,
-            valueRange = CALIBRATION_MIN..CALIBRATION_MAX,
-            steps = CALIBRATION_STEPS,
-        )
-    }
-}
-
-/** 0.25 → 3.00 in quarters: 11 stops, 10 gaps between them. */
-private const val CALIBRATION_MIN = 0.25f
-private const val CALIBRATION_MAX = 3f
-private const val CALIBRATION_STEPS = 10
-
-@Composable
-private fun SettingsCard(title: String, content: @Composable () -> Unit) {
-    TrekCard {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            content()
-        }
-    }
-}
-
-@Composable
-private fun SettingsToggleRow(
-    label: String,
-    checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, modifier = Modifier.weight(1f))
-        Spacer(modifier = Modifier.width(12.dp))
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
-}
 
 private fun needsNotificationPermission(context: Context): Boolean =
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&

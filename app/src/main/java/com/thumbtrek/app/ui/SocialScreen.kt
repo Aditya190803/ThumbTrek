@@ -1,15 +1,22 @@
 package com.thumbtrek.app.ui
 
 import android.content.Intent
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -19,19 +26,12 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
+import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,11 +44,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -60,6 +65,9 @@ import com.thumbtrek.app.social.formatFriendCode
 import com.thumbtrek.app.social.inviteMessage
 import com.thumbtrek.app.stats.formatDistance
 import com.thumbtrek.app.stats.pixelsToMeters
+import kotlinx.coroutines.delay
+
+private val GUTTER = 20.dp
 
 @Composable
 fun SocialScreen(modifier: Modifier = Modifier, vm: SocialViewModel = viewModel()) {
@@ -73,7 +81,6 @@ fun SocialScreen(modifier: Modifier = Modifier, vm: SocialViewModel = viewModel(
     LaunchedEffect(state.signedIn) {
         if (state.signedIn) vm.refresh()
     }
-
     LaunchedEffect(state.friendCount) {
         codeInput = ""
     }
@@ -90,386 +97,584 @@ fun SocialScreen(modifier: Modifier = Modifier, vm: SocialViewModel = viewModel(
     }
 
     LazyColumn(
-        modifier = modifier.padding(horizontal = 16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = modifier
+            .fillMaxSize()
+            .padding(horizontal = GUTTER),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
+        contentPadding = PaddingValues(top = 10.dp, bottom = 28.dp),
     ) {
-        if (!state.signedIn) {
-            item {
-                TrekCard {
-                    Text("Join the leaderboard", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "Sign in to compare your weekly trek with friends — or the whole " +
-                            "world. Signing in publishes nothing on its own; you choose " +
-                            "what gets shared on the next screen.",
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = { vm.signIn(context) },
-                        enabled = !state.busy,
-                    ) {
-                        if (state.busy) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
+        when {
+            !state.signedIn -> item("signin") { SignInPitch(state, vm, context) }
+            !state.optedIn -> item("consent") { ConsentPanel(state, vm) }
+            else -> item("standing") { MyStanding(state, vm, dpi) }
+        }
+
+        // Nothing below the fold means anything until the board is switched on.
+        if (!state.optedIn) return@LazyColumn
+
+        if (state.requests.isNotEmpty()) {
+            item("requests") {
+                Column {
+                    SectionHead("Trek requests", trailing = "${state.requests.size}")
+                    state.requests.forEach { request ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 56.dp)
+                                .padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Avatar(request.photoUrl, request.displayName)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Text(
+                                request.displayName,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = Trek.ink,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                             )
-                        } else {
-                            Text("Sign in with Google")
+                            TextButton(onClick = { vm.respondToRequest(request.uid, true) }) {
+                                Text("Accept", color = Trek.moss)
+                            }
+                            TextButton(onClick = { vm.respondToRequest(request.uid, false) }) {
+                                Text("Decline", color = Trek.inkFaint)
+                            }
                         }
                     }
                 }
             }
-        } else if (!state.optedIn) {
-            item {
-                TrekCard {
-                    Text("Share your trek?", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        "Leaderboards are off until you turn them on. Switching them on " +
-                            "uploads exactly three things:",
-                        style = MaterialTheme.typography.bodyMedium,
+        }
+
+        if (state.podium.isNotEmpty()) {
+            item("podium") { PodiumBlock(state.podium, dpi) }
+        }
+
+        item("invite") { FriendCodeBlock(state, vm, codeInput, { codeInput = it }, context) }
+
+        item("boardControls") {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SectionHead("Leaderboard")
+                TrekSegmented(
+                    options = listOf("Friends", "Global"),
+                    selected = if (state.board == SocialViewModel.Board.FRIENDS) 0 else 1,
+                    onSelect = {
+                        vm.showBoard(
+                            if (it == 0) SocialViewModel.Board.FRIENDS
+                            else SocialViewModel.Board.GLOBAL,
+                        )
+                    },
+                )
+                val periods = Period.entries.toList()
+                TrekSegmented(
+                    options = periods.map { it.label },
+                    selected = periods.indexOf(state.period).coerceAtLeast(0),
+                    onSelect = { vm.showPeriod(periods[it]) },
+                )
+            }
+        }
+
+        state.error?.let { message ->
+            item("boardError") { ErrorNote(message) { vm.refresh() } }
+        }
+
+        if (state.busy && state.entries.isEmpty()) {
+            item("loading") {
+                Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
+                    repeat(4) { BoardRowSkeleton() }
+                }
+            }
+        } else if (state.entries.isEmpty()) {
+            item("emptyBoard") {
+                if (state.board == SocialViewModel.Board.FRIENDS) {
+                    EmptyState(
+                        title = "Nobody here but you",
+                        body = "Friend codes are the only way onto this board. Send yours to " +
+                            "one person and it stops being a solo sport.",
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "• your name — or an anonymous handle, your call\n" +
-                            "• your profile photo, unless you're anonymous\n" +
-                            "• how far you've trekked this week, month and all time",
-                        style = MaterialTheme.typography.bodyMedium,
+                } else {
+                    EmptyState(
+                        title = "The global board is empty",
+                        body = "Nobody has published a score for this period yet. Pull it " +
+                            "again in a bit, or check the friends board.",
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Never your history, your per-app numbers, or anything you scrolled " +
-                            "past. The board resets every Monday, and switching this back " +
-                            "off deletes your score from it.",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AnonymousToggle(state, vm)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Button(
-                        onClick = { vm.setOptIn(true) },
-                        enabled = !state.busy,
-                    ) {
-                        if (state.busy) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(18.dp),
-                                strokeWidth = 2.dp,
-                            )
-                        } else {
-                            Text("Turn on leaderboards")
-                        }
-                    }
-                    TextButton(onClick = { vm.signOut() }) { Text("Sign out") }
                 }
             }
         } else {
-            item {
-                TrekCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Avatar(state.myPhotoUrl, state.myName)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(state.myName, style = MaterialTheme.typography.titleMedium)
-                            val rankLine = globalRankLine(state.board, state.myRank)
-                            Text(
-                                if (rankLine != null && state.board == SocialViewModel.Board.GLOBAL) {
-                                    "$rankLine · this week: " +
-                                        formatDistance(pixelsToMeters(state.weekPx, dpi))
-                                } else {
-                                    "This week: ${formatDistance(pixelsToMeters(state.weekPx, dpi))}"
-                                },
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                        TextButton(onClick = { vm.signOut() }) { Text("Sign out") }
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    AnonymousToggle(state, vm)
-                    TextButton(onClick = { vm.setOptIn(false) }) {
-                        Text("Leave the leaderboard")
-                    }
-                }
-            }
-        }
-
-        if (state.optedIn) {
-            if (state.podium.isNotEmpty()) {
-                item { PodiumCard(state.podium, dpi) }
-            }
-
-            if (state.requests.isNotEmpty()) {
-                item {
-                    TrekCard {
-                        Text("Trek requests", style = MaterialTheme.typography.titleMedium)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        state.requests.forEach { request ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically,
-                            ) {
-                                Avatar(request.photoUrl, request.displayName)
-                                Spacer(modifier = Modifier.width(12.dp))
-                                Text(request.displayName, modifier = Modifier.weight(1f))
-                                TextButton(onClick = { vm.respondToRequest(request.uid, true) }) {
-                                    Text("Accept")
-                                }
-                                TextButton(onClick = { vm.respondToRequest(request.uid, false) }) {
-                                    Text("Decline", color = MaterialTheme.colorScheme.error)
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        if (state.signedIn && state.optedIn) {
-            item {
-                TrekCard {
-                    Text("Your friend code", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        formatFriendCode(state.friendCode),
-                        style = MaterialTheme.typography.headlineSmall,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Anyone who adds this code sends you a trek request — accept it " +
-                            "and you land on each other's board.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Button(
-                        onClick = {
-                            val send = Intent(Intent.ACTION_SEND).apply {
-                                type = "text/plain"
-                                putExtra(Intent.EXTRA_TEXT, inviteMessage(state.friendCode))
-                            }
-                            context.startActivity(
-                                Intent.createChooser(send, "Invite a trekker"),
-                            )
-                        },
-                        enabled = state.friendCode.isNotBlank(),
-                    ) {
-                        Text("Invite a friend")
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        OutlinedTextField(
-                            value = codeInput,
-                            onValueChange = { codeInput = it },
-                            modifier = Modifier.weight(1f),
-                            label = { Text("Add by code") },
-                            singleLine = true,
-                            keyboardOptions = KeyboardOptions(
-                                capitalization = KeyboardCapitalization.Characters,
-                            ),
-                        )
-                        Button(
-                            onClick = { vm.addFriend(codeInput) },
-                            enabled = !state.busy && codeInput.isNotBlank(),
-                        ) {
-                            Text("Add")
-                        }
-                    }
-                }
-            }
-
-            item {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TabRow(
-                        selectedTabIndex = if (state.board == SocialViewModel.Board.FRIENDS) 0 else 1,
-                    ) {
-                        Tab(
-                            selected = state.board == SocialViewModel.Board.FRIENDS,
-                            onClick = { vm.showBoard(SocialViewModel.Board.FRIENDS) },
-                            text = { Text("Friends") },
-                        )
-                        Tab(
-                            selected = state.board == SocialViewModel.Board.GLOBAL,
-                            onClick = { vm.showBoard(SocialViewModel.Board.GLOBAL) },
-                            text = { Text("Global") },
-                        )
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Period.entries.forEach { period ->
-                            FilterChip(
-                                selected = state.period == period,
-                                onClick = { vm.showPeriod(period) },
-                                label = { Text(period.label) },
-                            )
-                        }
-                    }
-                }
-            }
-
-            if (state.entries.isEmpty() && !state.busy) {
-                item {
-                    Text(
-                        if (state.board == SocialViewModel.Board.FRIENDS) {
-                            "Just you out here. Send that code to someone."
-                        } else {
-                            "No trekkers on the board yet."
-                        },
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-
-            itemsIndexed(state.entries) { index, entry ->
-                val isMe = entry.uid == state.myUid
-                val isFriendsTab = state.board == SocialViewModel.Board.FRIENDS
-                OutlinedCard(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.outlinedCardColors(
-                        containerColor = if (isMe) {
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.1f)
-                        } else {
-                            TrekCardSurface
-                        },
-                    ),
-                    border = CardDefaults.outlinedCardBorder().copy(
-                        brush = SolidColor(
-                            if (isMe) {
-                                MaterialTheme.colorScheme.primary.copy(alpha = 0.4f)
-                            } else {
-                                MaterialTheme.colorScheme.outlineVariant
-                            },
-                        ),
-                    ),
-                    onClick = {
+            val leader = state.entries.maxOfOrNull { it.score(state.period) } ?: 1L
+            itemsIndexed(state.entries, key = { _, entry -> entry.uid }) { index, entry ->
+                BoardRow(
+                    rank = index + 1,
+                    entry = entry,
+                    period = state.period,
+                    leaderScore = leader,
+                    dpi = dpi,
+                    isMe = entry.uid == state.myUid,
+                    expanded = expandedUid == entry.uid,
+                    removable = state.board == SocialViewModel.Board.FRIENDS &&
+                        entry.uid != state.myUid,
+                    onToggle = {
                         expandedUid = if (expandedUid == entry.uid) null else entry.uid
                     },
+                    onRemove = { removeTarget = entry },
+                )
+            }
+        }
+
+        if (state.hasMore) {
+            item("more") {
+                TrekGhostButton(
+                    text = "Load more",
+                    onClick = { vm.loadMore() },
+                    enabled = !state.busy,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        }
+
+        if (state.board == SocialViewModel.Board.FRIENDS &&
+            state.friendCount > 0 &&
+            state.entries.size < state.friendCount + 1
+        ) {
+            item("hiddenFriends") {
+                Text(
+                    "Friends who have not turned leaderboards on stay hidden here.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Trek.inkFaint,
+                )
+            }
+        }
+
+        item("refresh") {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                TrekGhostButton(
+                    text = if (state.busy) "Refreshing" else "Refresh",
+                    onClick = { vm.refresh() },
+                    enabled = !state.busy,
+                    contentColor = Trek.inkMuted,
+                )
+            }
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Onboarding into the social layer
+// ---------------------------------------------------------------------------------------
+
+@Composable
+private fun SignInPitch(
+    state: SocialViewModel.UiState,
+    vm: SocialViewModel,
+    context: android.content.Context,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("SOCIAL", style = TrekOverline, color = Trek.inkFaint)
+        Text(
+            "See how your week stacks up.",
+            style = MaterialTheme.typography.displaySmall,
+            color = Trek.ink,
+        )
+        Text(
+            "Weekly, monthly and all-time boards against friends you invite by code, or " +
+                "against everyone. Signing in publishes nothing on its own: you choose what " +
+                "gets shared on the next step, and you can leave at any time.",
+            style = MaterialTheme.typography.bodyLarge,
+            color = Trek.inkMuted,
+        )
+        TrekButton(
+            text = "Continue with Google",
+            onClick = { vm.signIn(context) },
+            loading = state.busy,
+        )
+        state.error?.let { ErrorNote(it) { vm.signIn(context) } }
+    }
+}
+
+/**
+ * Just-in-time consent. The exact three fields that leave the phone are listed at the
+ * moment of the ask, next to the switch that decides whether your name is one of them.
+ */
+@Composable
+private fun ConsentPanel(state: SocialViewModel.UiState, vm: SocialViewModel) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text("ONE MORE STEP", style = TrekOverline, color = Trek.inkFaint)
+        Text(
+            "Publish your trek?",
+            style = MaterialTheme.typography.displaySmall,
+            color = Trek.ink,
+        )
+        TrekPanel {
+            ConsentLine("Your name", "or an anonymous handle, your call")
+            Hairline(modifier = Modifier.padding(vertical = 12.dp))
+            ConsentLine("Your profile photo", "skipped entirely when anonymous")
+            Hairline(modifier = Modifier.padding(vertical = 12.dp))
+            ConsentLine("Three distances", "this week, this month, all time")
+        }
+        Text(
+            "That is the whole upload. Never your history, your per-app split, or anything " +
+                "you scrolled past. Boards reset every Monday, and switching this off deletes " +
+                "your score from them.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Trek.inkMuted,
+        )
+        AnonymousToggle(state, vm)
+        TrekButton(
+            text = "Turn on leaderboards",
+            onClick = { vm.setOptIn(true) },
+            loading = state.busy,
+        )
+        TextButton(onClick = { vm.signOut() }) {
+            Text("Sign out", color = Trek.inkFaint)
+        }
+        state.error?.let { ErrorNote(it) { vm.setOptIn(true) } }
+    }
+}
+
+@Composable
+private fun ConsentLine(title: String, detail: String) {
+    Row(verticalAlignment = Alignment.Top) {
+        Spacer(
+            modifier = Modifier
+                .padding(top = 7.dp)
+                .size(5.dp)
+                .background(Trek.moss, CircleShape),
+        )
+        Spacer(modifier = Modifier.width(12.dp))
+        Column {
+            Text(title, style = MaterialTheme.typography.titleMedium, color = Trek.ink)
+            Text(detail, style = MaterialTheme.typography.bodySmall, color = Trek.inkFaint)
+        }
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Signed in
+// ---------------------------------------------------------------------------------------
+
+@Composable
+private fun MyStanding(state: SocialViewModel.UiState, vm: SocialViewModel, dpi: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Avatar(state.myPhotoUrl, state.myName, size = 44.dp)
+            Spacer(modifier = Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    state.myName,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = Trek.ink,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    state.myRank?.let { "Ranked #$it globally" } ?: "Published",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Trek.inkFaint,
+                )
+            }
+            TextButton(onClick = { vm.signOut() }) {
+                Text("Sign out", color = Trek.inkFaint)
+            }
+        }
+
+        Column {
+            Text("YOUR WEEK", style = TrekOverline, color = Trek.inkFaint)
+            Spacer(modifier = Modifier.height(2.dp))
+            CountedDistance(
+                pixelsToMeters(state.weekPx, dpi),
+                style = MaterialTheme.typography.displayMedium,
+            )
+        }
+
+        AnonymousToggle(state, vm)
+        TextButton(onClick = { vm.setOptIn(false) }) {
+            Text("Leave the leaderboard", color = Trek.inkFaint)
+        }
+    }
+}
+
+/**
+ * Last week's top three as an actual podium. It is the one piece of pure delight on this
+ * screen, and it earns its place: a ranked list of three names reads as data, three blocks
+ * of different heights reads as a result.
+ */
+@Composable
+private fun PodiumBlock(podium: List<PodiumEntry>, dpi: Int) {
+    // Second, first, third: the shape everyone already knows.
+    val order = listOf(1, 0, 2).filter { it <= podium.lastIndex }
+    val heights = mapOf(0 to 74.dp, 1 to 54.dp, 2 to 40.dp)
+    val medals = Trek.medals
+
+    Column {
+        SectionHead("Last week's podium")
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Bottom,
+        ) {
+            order.forEach { index ->
+                val entry = podium[index]
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .semantics(mergeDescendants = true) {
+                            contentDescription = "Number ${index + 1}, ${entry.displayName}, " +
+                                formatDistance(pixelsToMeters(entry.pixels, dpi))
+                        },
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Row(
+                    Avatar(entry.photoUrl, entry.displayName, size = if (index == 0) 44.dp else 34.dp)
+                    Text(
+                        entry.displayName,
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Trek.ink,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        formatDistance(pixelsToMeters(entry.pixels, dpi)),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Trek.inkFaint,
+                        maxLines = 1,
+                    )
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(start = 16.dp, top = 10.dp, bottom = 10.dp, end = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+                            .height(heights[index] ?: 40.dp)
+                            .background(
+                                medals[index].copy(alpha = 0.16f),
+                                MaterialTheme.shapes.small,
+                            )
+                            .border(1.dp, medals[index].copy(alpha = 0.5f), MaterialTheme.shapes.small),
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             "${index + 1}",
-                            modifier = Modifier.width(28.dp),
-                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.headlineMedium,
+                            color = medals[index],
                         )
-                        Avatar(entry.photoUrl, entry.displayName)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            if (isMe) "${entry.displayName} (you)" else entry.displayName,
-                            modifier = Modifier.weight(1f),
-                            fontWeight = if (isMe) FontWeight.Bold else FontWeight.Normal,
-                        )
-                        Text(formatDistance(pixelsToMeters(entry.score(state.period), dpi)))
-                        if (isFriendsTab && !isMe) {
-                            IconButton(onClick = { removeTarget = entry }) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Remove ${entry.displayName}",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        } else {
-                            Spacer(modifier = Modifier.width(12.dp))
-                        }
-                    }
-                    if (expandedUid == entry.uid) {
-                        EntryDetails(entry, dpi)
                     }
                 }
             }
+        }
+    }
+}
 
-            if (state.hasMore) {
-                item {
-                    OutlinedButton(
-                        onClick = { vm.loadMore() },
-                        enabled = !state.busy,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text("Load more")
-                    }
+@Composable
+private fun FriendCodeBlock(
+    state: SocialViewModel.UiState,
+    vm: SocialViewModel,
+    codeInput: String,
+    onCodeInput: (String) -> Unit,
+    context: android.content.Context,
+) {
+    val clipboard = LocalClipboardManager.current
+    var copied by remember { mutableStateOf(false) }
+    LaunchedEffect(copied) {
+        if (copied) {
+            delay(1800)
+            copied = false
+        }
+    }
+
+    Column {
+        SectionHead("Your friend code")
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 56.dp)
+                .background(Trek.groundSunken, MaterialTheme.shapes.small)
+                .border(1.dp, Trek.hairline, MaterialTheme.shapes.small)
+                .clickable(
+                    enabled = state.friendCode.isNotBlank(),
+                    role = Role.Button,
+                ) {
+                    clipboard.setText(AnnotatedString(state.friendCode))
+                    copied = true
                 }
-            }
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .semantics {
+                    contentDescription = "Friend code ${formatFriendCode(state.friendCode)}. " +
+                        "Tap to copy."
+                },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                formatFriendCode(state.friendCode).ifBlank { "Generating" },
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.headlineMedium,
+                color = Trek.ink,
+                maxLines = 1,
+            )
+            Text(
+                if (copied) "COPIED" else "TAP TO COPY",
+                style = TrekOverline,
+                color = if (copied) Trek.moss else Trek.inkFaint,
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        Text(
+            "Anyone who enters this sends you a request. Accept it and you land on each " +
+                "other's boards.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Trek.inkFaint,
+        )
+        Spacer(modifier = Modifier.height(14.dp))
+        TrekGhostButton(
+            text = "Share invite",
+            onClick = {
+                val send = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TEXT, inviteMessage(state.friendCode))
+                }
+                context.startActivity(Intent.createChooser(send, "Invite a trekker"))
+            },
+            enabled = state.friendCode.isNotBlank(),
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Spacer(modifier = Modifier.height(18.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            OutlinedTextField(
+                value = codeInput,
+                onValueChange = onCodeInput,
+                modifier = Modifier.weight(1f),
+                label = { Text("Add by code") },
+                singleLine = true,
+                shape = MaterialTheme.shapes.small,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Characters,
+                ),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Trek.moss,
+                    unfocusedBorderColor = Trek.hairline,
+                    focusedContainerColor = Trek.groundSunken,
+                    unfocusedContainerColor = Trek.groundSunken,
+                ),
+            )
+            TrekButton(
+                text = "Add",
+                onClick = { vm.addFriend(codeInput) },
+                enabled = codeInput.isNotBlank(),
+                loading = state.busy && codeInput.isNotBlank(),
+            )
+        }
+    }
+}
 
-            if (state.board == SocialViewModel.Board.FRIENDS &&
-                state.friendCount > 0 &&
-                state.entries.size < state.friendCount + 1
-            ) {
-                item {
-                    Text(
-                        "Friends who haven't turned leaderboards on yet stay hidden.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+// ---------------------------------------------------------------------------------------
+// Board rows
+// ---------------------------------------------------------------------------------------
+
+@Composable
+private fun BoardRow(
+    rank: Int,
+    entry: LeaderboardEntry,
+    period: Period,
+    leaderScore: Long,
+    dpi: Int,
+    isMe: Boolean,
+    expanded: Boolean,
+    removable: Boolean,
+    onToggle: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    val score = entry.score(period)
+    val meters = pixelsToMeters(score, dpi)
+    val fraction = if (leaderScore > 0) score.toFloat() / leaderScore else 0f
+    val name = if (isMe) "${entry.displayName} (you)" else entry.displayName
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                if (isMe) Trek.mossWash else Trek.groundRaised,
+                MaterialTheme.shapes.medium,
+            )
+            .border(
+                1.dp,
+                if (isMe) Trek.moss.copy(alpha = 0.4f) else Trek.hairline,
+                MaterialTheme.shapes.medium,
+            )
+            .clickable(role = Role.Button, onClick = onToggle)
+            .animateContentSize(tween(trekDuration(TrekDur.SMALL), easing = TrekEase))
+            .padding(horizontal = 14.dp, vertical = 12.dp)
+            .semantics(mergeDescendants = true) {
+                contentDescription = "Rank $rank, $name, ${formatDistance(meters)}"
+            },
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RankMark(rank, highlight = isMe)
+            Spacer(modifier = Modifier.width(6.dp))
+            Avatar(entry.photoUrl, entry.displayName, size = 32.dp)
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                name,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyLarge,
+                color = Trek.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(formatDistance(meters), style = TrekFigure, color = Trek.ink)
+            if (removable) {
+                Spacer(modifier = Modifier.width(4.dp))
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable(role = Role.Button, onClick = onRemove)
+                        .semantics { contentDescription = "Remove ${entry.displayName}" },
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Default.Close,
+                        contentDescription = null,
+                        tint = Trek.inkFaint,
+                        modifier = Modifier.size(16.dp),
                     )
                 }
             }
         }
-
-        state.error?.let { err ->
-            item {
-                Text(err, color = MaterialTheme.colorScheme.error)
-            }
-        }
-
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                if (state.busy && state.signedIn) {
-                    CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                } else if (state.signedIn && state.optedIn) {
-                    TextButton(onClick = { vm.refresh() }) { Text("Refresh") }
-                }
-            }
-        }
-    }
-}
-
-private fun globalRankLine(board: SocialViewModel.Board, myRank: Int?): String? =
-    if (board == SocialViewModel.Board.GLOBAL) myRank?.let { "#$it" } else null
-
-@Composable
-private fun PodiumCard(podium: List<PodiumEntry>, dpi: Int) {
-    TrekCard {
-        Text("🏆 Last week's podium", style = MaterialTheme.typography.titleMedium)
-        Spacer(modifier = Modifier.height(8.dp))
-        podium.forEachIndexed { index, p ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text("${index + 1}", modifier = Modifier.width(28.dp), fontWeight = FontWeight.Bold)
-                Avatar(p.photoUrl, p.displayName)
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(p.displayName, modifier = Modifier.weight(1f))
-                Text(formatDistance(pixelsToMeters(p.pixels, dpi)))
+        Rail(
+            fraction = fraction,
+            color = if (isMe) Trek.moss else Trek.slate,
+            height = 4.dp,
+        )
+        if (expanded) {
+            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                DetailRow("This month", pixelsToMeters(entry.monthPixels, dpi))
+                DetailRow("All time", pixelsToMeters(entry.totalPixels, dpi))
             }
         }
     }
 }
 
 @Composable
-private fun EntryDetails(entry: LeaderboardEntry, dpi: Int) {
+private fun BoardRowSkeleton() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(start = 56.dp, end = 16.dp, bottom = 12.dp),
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+            .background(Trek.groundRaised, MaterialTheme.shapes.medium)
+            .border(1.dp, Trek.hairlineSoft, MaterialTheme.shapes.medium)
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        DetailRow("This month", pixelsToMeters(entry.monthPixels, dpi))
-        DetailRow("All time", pixelsToMeters(entry.totalPixels, dpi))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Skeleton(modifier = Modifier.size(32.dp), height = 32.dp, shape = CircleShape)
+            Spacer(modifier = Modifier.width(12.dp))
+            Skeleton(modifier = Modifier.weight(1f), height = 14.dp)
+            Spacer(modifier = Modifier.width(40.dp))
+        }
+        Skeleton(height = 4.dp)
     }
 }
 
@@ -480,13 +685,26 @@ private fun DetailRow(label: String, meters: Double) {
             label,
             modifier = Modifier.weight(1f),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Trek.inkFaint,
         )
         Text(
             formatDistance(meters),
             style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            color = Trek.inkMuted,
         )
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Shared bits
+// ---------------------------------------------------------------------------------------
+
+@Composable
+private fun ErrorNote(message: String, onRetry: () -> Unit) {
+    TrekPanel(fill = Trek.dangerWash, border = Trek.danger.copy(alpha = 0.4f)) {
+        Text(message, style = MaterialTheme.typography.bodyMedium, color = Trek.ink)
+        Spacer(modifier = Modifier.height(12.dp))
+        TrekGhostButton("Try again", onRetry, contentColor = Trek.danger)
     }
 }
 
@@ -494,16 +712,22 @@ private fun DetailRow(label: String, meters: Double) {
 private fun RemoveFriendDialog(name: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = Trek.groundRaised,
+        titleContentColor = Trek.ink,
+        textContentColor = Trek.inkMuted,
+        shape = MaterialTheme.shapes.large,
         title = { Text("Remove $name?") },
-        text = { Text("You'll disappear from each other's boards. You can always add " +
-            "each other back with a friend code.") },
+        text = {
+            Text(
+                "You will drop off each other's boards. Friend codes still work, so you can " +
+                    "add each other back later.",
+            )
+        },
         confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text("Remove", color = MaterialTheme.colorScheme.error)
-            }
+            TextButton(onClick = onConfirm) { Text("Remove", color = Trek.danger) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Keep") }
+            TextButton(onClick = onDismiss) { Text("Keep", color = Trek.inkMuted) }
         },
     )
 }
@@ -511,47 +735,62 @@ private fun RemoveFriendDialog(name: String, onConfirm: () -> Unit, onDismiss: (
 @Composable
 private fun AnonymousToggle(state: SocialViewModel.UiState, vm: SocialViewModel) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 56.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text("Trek anonymously", style = MaterialTheme.typography.bodyLarge)
+            Text("Trek anonymously", style = MaterialTheme.typography.bodyLarge, color = Trek.ink)
             Text(
                 if (state.anonymous) {
-                    "The board sees \"${state.myName}\" and no photo"
+                    "Boards show \"${state.myName}\" and no photo"
                 } else {
-                    "The board sees your Google name and photo"
+                    "Boards show your Google name and photo"
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                color = Trek.inkFaint,
             )
         }
+        Spacer(modifier = Modifier.width(12.dp))
         Switch(
             checked = state.anonymous,
             onCheckedChange = { vm.setAnonymous(it) },
             enabled = !state.busy,
+            colors = SwitchDefaults.colors(
+                checkedThumbColor = Trek.onMoss,
+                checkedTrackColor = Trek.moss,
+                uncheckedThumbColor = Trek.inkFaint,
+                uncheckedTrackColor = Trek.groundSunken,
+                uncheckedBorderColor = Trek.hairline,
+            ),
         )
     }
 }
 
 @Composable
-private fun Avatar(photoUrl: String, name: String) {
+private fun Avatar(photoUrl: String, name: String, size: Dp = 36.dp) {
     if (photoUrl.isBlank()) {
         Box(
             modifier = Modifier
-                .size(36.dp)
+                .size(size)
                 .clip(CircleShape)
-                .background(MaterialTheme.colorScheme.surfaceVariant),
+                .background(Trek.mossWash)
+                .border(1.dp, Trek.hairline, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Text(name.firstOrNull()?.uppercase() ?: "?")
+            Text(
+                name.firstOrNull()?.uppercase() ?: "?",
+                style = MaterialTheme.typography.titleMedium,
+                color = Trek.moss,
+            )
         }
     } else {
         AsyncImage(
             model = photoUrl,
             contentDescription = null,
             modifier = Modifier
-                .size(36.dp)
+                .size(size)
                 .clip(CircleShape),
             contentScale = ContentScale.Crop,
         )
