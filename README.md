@@ -3,14 +3,13 @@
 Strava for scrolling. Tracks how far your thumb travels in Instagram, YouTube, X and Reddit,
 turns it into trek stats, streaks, charts, shareable cards, and weekly friend/global leaderboards.
 
-Version **0.2.0**.
+Version **0.2.1**.
 
 ## What ships
 
-- Per-app opt-in tracking for Instagram, YouTube, X, and Reddit â€” plus any other installed app you add in Settings
+- Per-app opt-in tracking for Instagram, YouTube, X, and Reddit — plus any other installed app you add in Settings
 - Dashboard ring chart, seven-day history, per-app trends, streaks, records, and achievement badges
-- Per-app scroll calibration (a multiplier for apps that report pixels oddly)
-- Fully opt-in social publishing, friend codes/invites with a requestâ†’accept flow, anonymous handles
+- Fully opt-in social publishing, friend codes/invites with a request→accept flow, anonymous handles
 - Weekly, monthly, and all-time boards; friends and global tabs; server-paginated global board; last week's podium
 - Friend management: accept/decline requests, remove friends, local nudges for new requests and rank slips
 - Daily summaries, optional streak reminders, PNG stat-card sharing, and full CSV data export
@@ -45,21 +44,27 @@ but sign-in will fail until you swap in a real one:
    first leaderboard error â€” Firestore will offer to build them):
    - `users`: `weekKey` Ascending, `weekPixels` Descending
    - `users`: `monthKey` Ascending, `monthPixels` Descending
-8. Google Sign-In needs your signing key's SHA-1 registered in
-   **Project settings â†’ Your apps â†’ SHA certificate fingerprints**:
+8. Google Sign-In needs **every** signing key's SHA-1 registered in
+   **Project settings → Your apps → SHA certificate fingerprints**:
    ```
-   ./gradlew signingReport    # copy the debug SHA-1
+   ./gradlew signingReport    # debug SHA-1
    ```
-   Re-download `google-services.json` after adding it (it now includes the Android OAuth client).
+   For the release keystore (required for sideloaded / GitHub Release APKs):
+   ```
+   keytool -list -v -keystore thumbtrek-release.jks -alias thumbtrek
+   ```
+   Current release SHA-1: `E4:38:D9:CB:C2:BC:7F:5B:55:6F:A5:A1:C0:96:48:EB:61:CB:DC:77`
+   Re-download `google-services.json` after adding fingerprints (it must include an
+   Android OAuth client per cert). Keep both debug and release SHA-1s registered.
 
 ## How tracking works
 
 An `AccessibilityService` listens only for `TYPE_VIEW_SCROLLED` events and checks each one
 against your tracked-app set (an in-memory read) before counting a pixel. The four built-in
 feeds are on by default; Settings lets you add any other installed app or switch any of them
-off. Pixel deltas are batched in memory, multiplied by each app's calibration factor, and
-upserted into Room every few seconds as one row per app per day. Meters are computed at
-display time: `pixels / densityDpi * 0.0254`.
+off. Pixel deltas are batched in memory and upserted into Room every few seconds as one row per
+app per day. Meters are computed at display time: `pixels / densityDpi * 0.0254`. There is
+no user-facing calibration multiplier — that would let anyone shrink (or inflate) board scores.
 
 No screen content is ever read â€” the service config requests no node-lookup flags.
 
@@ -258,8 +263,8 @@ per IP, comfortably above a six-hourly check.
 
 ```
 # 1. Bump both in app/build.gradle.kts â€” the updater compares versionCode:
-#      versionCode = 3
-#      versionName = "0.2.0"
+#      versionCode = 4
+#      versionName = "0.2.1"
 # 2. Commit, then tag. The annotation message becomes the in-app release notes.
 git tag -a v0.2.0 -m "Fixes X, adds Y"
 git push origin v0.2.0

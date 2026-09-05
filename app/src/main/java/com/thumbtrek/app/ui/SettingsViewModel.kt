@@ -27,8 +27,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         val trackedApps: Set<String> = emptySet(),
         /** User-added packages: pkg -> label captured at add time. */
         val customApps: Map<String, String> = emptyMap(),
-        /** Per-app scroll multipliers; absent means 1.0. */
-        val calibration: Map<String, Float> = emptyMap(),
         val streakReminder: Boolean = false,
         val leaderboardOptIn: Boolean = false,
         val anonymous: Boolean = false,
@@ -48,7 +46,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         trackingEnabled = trackingEnabled.value,
         trackedApps = prefs.trackedApps.value,
         customApps = prefs.customApps.value,
-        calibration = prefs.calibration.value,
         streakReminder = prefs.streakReminder.value,
         leaderboardOptIn = prefs.leaderboardOptIn.value,
         anonymous = prefs.anonymous.value,
@@ -57,11 +54,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private val prefState = combine(
         prefs.trackedApps,
         prefs.customApps,
-        prefs.calibration,
         prefs.streakReminder,
         prefs.leaderboardOptIn,
-    ) { tracked, custom, calibration, reminder, leaderboard ->
-        PrefSnapshot(tracked, custom, calibration, reminder, leaderboard)
+    ) { tracked, custom, reminder, leaderboard ->
+        PrefSnapshot(tracked, custom, reminder, leaderboard)
     }
 
     val state = combine(
@@ -73,7 +69,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             trackingEnabled = enabled,
             trackedApps = snap.tracked,
             customApps = snap.custom,
-            calibration = snap.calibration,
             streakReminder = snap.reminder,
             leaderboardOptIn = snap.leaderboard,
             anonymous = anon,
@@ -83,7 +78,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     private data class PrefSnapshot(
         val tracked: Set<String>,
         val custom: Map<String, String>,
-        val calibration: Map<String, Float>,
         val reminder: Boolean,
         val leaderboard: Boolean,
     )
@@ -126,8 +120,6 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun removeCustomApp(pkg: String) = prefs.removeCustomApp(pkg)
 
     fun setAppTracked(pkg: String, tracked: Boolean) = prefs.setAppTracked(pkg, tracked)
-
-    fun setCalibration(pkg: String, factor: Float) = prefs.setCalibration(pkg, factor)
 
     fun setStreakReminder(enabled: Boolean) {
         prefs.setStreakReminder(enabled)

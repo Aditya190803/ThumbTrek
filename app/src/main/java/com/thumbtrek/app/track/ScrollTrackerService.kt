@@ -131,11 +131,9 @@ class ScrollTrackerService : AccessibilityService() {
         }
         val today = LocalDate.now().toString()
         batch.forEach { (pkg, px) ->
-            // Calibration is applied here, once, so every downstream number — dashboard,
-            // history, boards, widget, export — sees the same adjusted pixels. Only
-            // future scrolls are affected when the user moves a slider.
-            val adjusted = (px * prefs.calibrationFactor(pkg)).toLong()
-            dao.accumulate(pkg, today, adjusted)
+            // Raw pixels only — no user multiplier. Leaderboards and local stats stay
+            // comparable; a Settings slider would have been an honor-system cheat dial.
+            dao.accumulate(pkg, today, px)
         }
     }
 

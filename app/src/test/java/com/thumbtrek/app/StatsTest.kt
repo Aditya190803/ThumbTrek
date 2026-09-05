@@ -315,16 +315,4 @@ class StatsTest {
         assertEquals(emptyMap<String, String>(), Prefs.decodeCustomApps(null))
         assertEquals(emptyMap<String, String>(), Prefs.decodeCustomApps("\n\nbroken|\n|x"))
     }
-
-    @Test
-    fun `calibration prefs round-trip through their encoded form`() {
-        val factors = mapOf(
-            "com.instagram.android" to 1.25f,
-            "com.reddit.frontpage" to 0.75f,
-        )
-        assertEquals(factors, Prefs.decodeCalibration(Prefs.encodeCalibration(factors)))
-        assertEquals(emptyMap<String, Float>(), Prefs.decodeCalibration(null))
-        // Malformed entries are dropped, not crashed on.
-        assertEquals(emptyMap<String, Float>(), Prefs.decodeCalibration("pkg:notanumber,pkg2:"))
-    }
 }

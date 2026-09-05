@@ -29,14 +29,6 @@ class Prefs private constructor(context: Context) {
     private val _customApps = MutableStateFlow(readCustomApps())
     val customApps: StateFlow<Map<String, String>> = _customApps.asStateFlow()
 
-    /**
-     * Per-app scroll multipliers (1.0 = trust the pixels). Applied at accumulation time
-     * in the tracker service, so every downstream number — dashboard, history, boards,
-     * widget, export — stays consistent. Changing it only affects future scrolls.
-     */
-    private val _calibration = MutableStateFlow(readCalibration())
-    val calibration: StateFlow<Map<String, Float>> = _calibration.asStateFlow()
-
     private val _streakReminder = MutableStateFlow(sp.getBoolean(KEY_STREAK_REMINDER, false))
     /** PRD §5.5: off by default, "to avoid becoming another nagging app". */
     val streakReminder: StateFlow<Boolean> = _streakReminder.asStateFlow()
@@ -86,26 +78,10 @@ class Prefs private constructor(context: Context) {
         sp.edit().putString(KEY_CUSTOM_APPS, encodeCustomApps(next)).apply()
         _customApps.value = next
         setAppTracked(pkg, false)
-        setCalibration(pkg, 1.0f)
     }
 
     private fun readCustomApps(): Map<String, String> =
         decodeCustomApps(sp.getString(KEY_CUSTOM_APPS, null))
-
-    fun calibrationFactor(pkg: String): Float = _calibration.value[pkg] ?: 1f
-
-    fun setCalibration(pkg: String, factor: Float) {
-        val next = if (factor == 1f) {
-            _calibration.value - pkg
-        } else {
-            _calibration.value + (pkg to factor)
-        }
-        sp.edit().putString(KEY_CALIBRATION, encodeCalibration(next)).apply()
-        _calibration.value = next
-    }
-
-    private fun readCalibration(): Map<String, Float> =
-        decodeCalibration(sp.getString(KEY_CALIBRATION, null))
 
     fun setStreakReminder(enabled: Boolean) {
         sp.edit().putBoolean(KEY_STREAK_REMINDER, enabled).apply()
@@ -131,7 +107,6 @@ class Prefs private constructor(context: Context) {
     companion object {
         private const val KEY_TRACKED_APPS = "tracked_apps"
         private const val KEY_CUSTOM_APPS = "custom_apps"
-        private const val KEY_CALIBRATION = "calibration"
         private const val KEY_STREAK_REMINDER = "streak_reminder"
         private const val KEY_LEADERBOARD_OPT_IN = "leaderboard_opt_in"
         private const val KEY_ANONYMOUS = "anonymous"
@@ -149,18 +124,6 @@ class Prefs private constructor(context: Context) {
                     val sep = line.indexOf('|')
                     if (sep <= 0 || sep == line.length - 1) return@mapNotNull null
                     line.take(sep) to line.drop(sep + 1)
-                }
-                .toMap()
-
-        fun encodeCalibration(factors: Map<String, Float>): String =
-            factors.entries.joinToString(",") { "${it.key}:${it.value}" }
-
-        fun decodeCalibration(raw: String?): Map<String, Float> =
-            raw.orEmpty().split(',')
-                .filter { ':' in it }
-                .mapNotNull {
-                    val parts = it.split(':', limit = 2)
-                    parts[1].toFloatOrNull()?.let { f -> parts[0] to f }
                 }
                 .toMap()
 

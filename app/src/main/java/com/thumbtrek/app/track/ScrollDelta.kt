@@ -92,7 +92,7 @@ private const val LAZY_MAX_LOOKAHEAD = 100
  * 2. [ScrollPath.PIXEL_POSITION] — diff `scrollY`, when it is a pixel position.
  * 3. [ScrollPath.PAGED] — a page-snapped Compose feed: one item swiped = one screen.
  * 4. [ScrollPath.LAZY_POSITION] — a Compose lazy feed: pseudo-units, close enough to pixels
- *    to be worth counting, and the per-app calibration slider exists for the rest.
+ *    to be worth counting for board-comparable totals.
  * 5. Nothing. [ScrollPath.NO_MAGNITUDE], [ScrollPath.HORIZONTAL] and
  *    [ScrollPath.OUT_OF_RANGE] all bank zero, but each is tallied separately so that the
  *    next regression shows up in the diagnostics instead of as a silent flat line.

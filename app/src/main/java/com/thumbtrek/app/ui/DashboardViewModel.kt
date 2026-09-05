@@ -67,7 +67,6 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
             dailyBuckets = dailyBuckets(byDate),
             appTrends = appTrends(rows),
             customLabels = customLabels,
-            // Calibration is baked into stored pixels, so these milestones are apples-to-apples.
             badges = badges(
                 totalMeters = pixelsToMeters(byDate.values.sum(), dpi),
                 bestDayMeters = pixelsToMeters(byDate.values.maxOrNull() ?: 0L, dpi),

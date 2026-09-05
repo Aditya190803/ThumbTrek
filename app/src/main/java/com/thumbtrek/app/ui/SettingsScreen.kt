@@ -29,8 +29,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -44,7 +42,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -57,7 +54,6 @@ import com.thumbtrek.app.data.TRACKED_APPS
 import com.thumbtrek.app.share.DataExporter
 import com.thumbtrek.app.update.UpdateSettingsContent
 import kotlinx.coroutines.launch
-import java.util.Locale
 
 private val GUTTER = 20.dp
 
@@ -170,26 +166,6 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
                         "on to keep your trek going.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Trek.danger,
-                )
-            }
-        }
-
-        // ---- Calibration --------------------------------------------------------------
-        Column {
-            SectionHead("Calibration")
-            Text(
-                "Apps report scroll pixels differently. Nudge a multiplier if an app's " +
-                    "distances feel wrong. Applies to future scrolls only.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Trek.inkMuted,
-            )
-            Spacer(modifier = Modifier.height(6.dp))
-            val knownApps = TRACKED_APPS.keys + state.customApps.keys
-            knownApps.forEach { pkg ->
-                CalibrationRow(
-                    label = TRACKED_APPS[pkg] ?: state.customApps[pkg] ?: pkg,
-                    factor = state.calibration[pkg] ?: 1f,
-                    onFactorChange = { vm.setCalibration(pkg, it) },
                 )
             }
         }
@@ -434,53 +410,6 @@ private fun ActionRow(
         }
     }
 }
-
-@Composable
-private fun CalibrationRow(label: String, factor: Float, onFactorChange: (Float) -> Unit) {
-    val tweaked = factor != 1f
-    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                label,
-                modifier = Modifier.weight(1f),
-                style = MaterialTheme.typography.bodyLarge,
-                color = Trek.ink,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            if (tweaked) {
-                TextButton(onClick = { onFactorChange(1f) }) {
-                    Text("Reset", color = Trek.inkFaint)
-                }
-                Spacer(modifier = Modifier.width(4.dp))
-            }
-            TrekChip(
-                text = "x" + String.format(Locale.US, "%.2f", factor),
-                color = if (tweaked) Trek.moss else Trek.inkMuted,
-                border = if (tweaked) Trek.moss.copy(alpha = 0.4f) else Trek.hairline,
-                fill = if (tweaked) Trek.mossWash else Color.Transparent,
-            )
-        }
-        Slider(
-            value = factor,
-            onValueChange = onFactorChange,
-            valueRange = CALIBRATION_MIN..CALIBRATION_MAX,
-            steps = CALIBRATION_STEPS,
-            colors = SliderDefaults.colors(
-                thumbColor = Trek.moss,
-                activeTrackColor = Trek.moss,
-                activeTickColor = Trek.onMoss.copy(alpha = 0.4f),
-                inactiveTrackColor = Trek.groundSunken,
-                inactiveTickColor = Trek.hairline,
-            ),
-        )
-    }
-}
-
-/** 0.25 to 3.00 in quarters: 11 stops, 10 gaps between them. */
-private const val CALIBRATION_MIN = 0.25f
-private const val CALIBRATION_MAX = 3f
-private const val CALIBRATION_STEPS = 10
 
 // ---------------------------------------------------------------------------------------
 // App picker
