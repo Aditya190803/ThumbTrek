@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#0C0F0B" />
+    <!-- Thumbprint ridges that double as trail/elevation -->
+    <path
+        android:strokeColor="#8BE6A0"
+        android:strokeWidth="3"
+        android:strokeCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54 16 C45 16 39 22 39 30 C39 38 45 44 54 44" />
+    <path
+        android:strokeColor="#8BE6A0"
+        android:strokeWidth="3"
+        android:strokeCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54 20 C48 20 44 24 44 30 C44 36 48 40 54 40"
+        android:alpha="0.7" />
+    <path
+        android:strokeColor="#8BE6A0"
+        android:strokeWidth="3"
+        android:strokeCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54 24 C50 24 48 26 48 30 C48 34 50 36 54 36"
+        android:alpha="0.5" />
+    <path
+        android:strokeColor="#8BE6A0"
+        android:strokeWidth="3"
+        android:strokeCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54 16 C62 16 68 22 68 30 C68 38 62 44 54 44" />
+    <path
+        android:strokeColor="#8BE6A0"
+        android:strokeWidth="3"
+        android:strokeCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54 20 C60 20 64 24 64 30 C64 36 60 40 54 40"
+        android:alpha="0.7" />
+    <path
+        android:strokeColor="#8BE6A0"
+        android:strokeWidth="3"
+        android:strokeCap="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M54 24 C58 24 60 26 60 30 C60 34 58 36 54 36"
+        android:alpha="0.5" />
+    <!-- Topo/elevation line cutting through -->
+    <path
+        android:strokeColor="#EDF1E6"
+        android:strokeWidth="4"
+        android:strokeCap="round"
+        android:strokeJoin="round"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M23 48 L38 42 L48 52 L58 46 L66 50 L70 46" />
+    <!-- Distance dots -->
+    <path
+        android:fillColor="#F2B455"
+        android:pathData="M23 48 a4.2 4.2 0 1 0 0 0.01" />
+    <path
+        android:fillColor="#8BE6A0"
+        android:pathData="M48 52 a4.2 4.2 0 1 0 0 0.01" />
+    <path
+        android:fillColor="#8FB6CC"
+        android:pathData="M70 46 a4.2 4.2 0 1 0 0 0.01" />
+</vector>
