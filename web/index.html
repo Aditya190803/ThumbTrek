@@ -23,7 +23,7 @@
     <nav class="nav-links" aria-label="Primary">
       <a href="#how">How it works</a>
       <a href="#privacy">Privacy</a>
-      <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest">Get the APK</a>
+      <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>Get the APK</a>
     </nav>
   </header>
 
@@ -36,7 +36,7 @@
           meters, streaks, share cards, and friend boards.
         </p>
         <div class="cta-row">
-          <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest">
+          <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>
             Download for Android
           </a>
           <a class="btn btn-ghost" href="https://github.com/Aditya190803/ThumbTrek">
@@ -129,7 +129,7 @@
           <p>Grab the latest signed APK from GitHub Releases. Allow install from your browser once, then ThumbTrek can update itself.</p>
           <p class="fine">Android 8.0+. Sideload only — not on the Play Store yet.</p>
         </div>
-        <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest">
+        <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>
           Get ThumbTrek
         </a>
       </div>
@@ -165,5 +165,27 @@
       <a href="https://github.com/Aditya190803/ThumbTrek/releases">Releases</a>
     </span>
   </footer>
+  <script>
+    // Resolve latest APK download URL and trigger direct download
+    async function handleDirectDownload(e) {
+      e.preventDefault();
+      const btn = e.currentTarget;
+      try {
+        const res = await fetch('https://api.github.com/repos/Aditya190803/ThumbTrek/releases/latest');
+        const data = await res.json();
+        const apk = data.assets?.find(a => a.name.endsWith('.apk'));
+        if (apk) {
+          window.location.href = apk.browser_download_url;
+        } else {
+          window.location.href = 'https://github.com/Aditya190803/ThumbTrek/releases/latest';
+        }
+      } catch {
+        window.location.href = 'https://github.com/Aditya190803/ThumbTrek/releases/latest';
+      }
+    }
+    document.querySelectorAll('[data-direct-download]').forEach(btn => {
+      btn.addEventListener('click', handleDirectDownload);
+    });
+  </script>
 </body>
 </html>

@@ -1,10 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none" aria-hidden="true">
-  <rect width="64" height="64" rx="16" fill="#0C0F0B"/>
-  <circle cx="32" cy="32" r="22" stroke="#262C1D" stroke-width="2"/>
-  <circle cx="32" cy="32" r="14" stroke="#8BE6A0" stroke-width="2.5"/>
-  <circle cx="32" cy="18" r="3" fill="#8BE6A0"/>
-  <circle cx="44" cy="38" r="2.5" fill="#F2B455"/>
-  <circle cx="20" cy="38" r="2.5" fill="#8FB6CC"/>
-  <path d="M32 32v-8" stroke="#EDF1E6" stroke-width="2" stroke-linecap="round"/>
-  <path d="M32 32l7 5" stroke="#A9B39C" stroke-width="2" stroke-linecap="round"/>
+  <rect width="64" height="64" rx="14" fill="#0C0F0B"/>
+  <!-- Thumbprint ridges that double as trail/elevation -->
+  <path d="M32 16 C24 16, 18 22, 18 30 C18 38, 24 44, 32 44" stroke="#8BE6A0" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M32 20 C26 20, 22 24, 22 30 C22 36, 26 40, 32 40" stroke="#8BE6A0" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7"/>
+  <path d="M32 24 C28 24, 26 26, 26 30 C26 34, 28 36, 32 36" stroke="#8BE6A0" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.5"/>
+  <path d="M32 16 C40 16, 46 22, 46 30 C46 38, 40 44, 32 44" stroke="#8BE6A0" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <path d="M32 20 C38 20, 42 24, 42 30 C42 36, 38 40, 32 40" stroke="#8BE6A0" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.7"/>
+  <path d="M32 24 C36 24, 38 26, 38 30 C38 34, 36 36, 32 36" stroke="#8BE6A0" stroke-width="2" stroke-linecap="round" fill="none" opacity="0.5"/>
+  <!-- Topo/elevation line cutting through -->
+  <path d="M12 48 L24 40 L34 44 L44 36 L52 32 L56 28" stroke="#EDF1E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- Distance dots -->
+  <circle cx="12" cy="48" r="2.5" fill="#F2B455"/>
+  <circle cx="34" cy="44" r="2.5" fill="#8BE6A0"/>
+  <circle cx="56" cy="28" r="2.5" fill="#8FB6CC"/>
 </svg>
