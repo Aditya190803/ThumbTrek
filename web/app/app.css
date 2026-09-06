@@ -108,6 +108,18 @@ body[data-auth="in"] #account:not([hidden]) {
   display: inline-flex;
 }
 
+/* One-way safety rails: no JS path, stale script, or slow resolve can paint the
+   gateway for a signed-in visitor, or the data for a signed-out one. Deliberately
+   WITHOUT :not([hidden]) — unlike the header halves above, these are never allowed
+   to show in the wrong state, whatever JS thinks. */
+body[data-auth="in"] #welcome {
+  display: none;
+}
+
+body[data-auth="out"] #dashboard {
+  display: none;
+}
+
 #signin-head {
   display: none;
 }
@@ -243,6 +255,18 @@ body[data-auth="out"] #signin-head:not([hidden]) {
 .gateway-list {
   margin: var(--s-4) 0 var(--s-5);
   font-size: var(--t-sm);
+}
+
+/* `.promise` is absolutely positioned by default: it was designed as the overlay pinned
+   to the bottom of the contour map (position:relative). Inside the gateway there is no
+   such positioning context, so without this it escapes to a full-width bar across the
+   viewport. Here it is a plain inline checklist; the dash marker survives. */
+.gateway .promise {
+  position: static;
+  border: none;
+  background: none;
+  backdrop-filter: none;
+  padding: 0;
 }
 
 .gateway-map {
