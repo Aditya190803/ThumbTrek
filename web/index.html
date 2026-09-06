@@ -8,6 +8,7 @@
   <meta property="og:title" content="ThumbTrek" />
   <meta property="og:description" content="Strava for scrolling. Measure the trek your thumb already takes." />
   <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#0c0f0b" />
   <link rel="icon" href="/assets/mark.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -17,11 +18,12 @@
 <body>
   <header class="wrap nav">
     <a class="brand" href="/">
-      <img src="/assets/mark.svg" width="36" height="36" alt="" />
+      <img src="/assets/mark.svg" width="32" height="32" alt="" />
       ThumbTrek
     </a>
     <nav class="nav-links" aria-label="Primary">
       <a href="#how">How it works</a>
+      <a href="#scale">The scale</a>
       <a href="#privacy">Privacy</a>
       <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>Get the APK</a>
     </nav>
@@ -30,10 +32,11 @@
   <main>
     <section class="wrap hero" aria-label="Hero">
       <div class="hero-copy">
-        <h1>Thumb<span>Trek</span></h1>
+        <p class="overline">Android · sideload</p>
+        <h1>Your thumb<br />goes <span>somewhere</span>.</h1>
         <p class="hero-lead">
-          Strava for scrolling. Turn Instagram, YouTube, X, and Reddit into a trek —
-          meters, streaks, share cards, and friend boards.
+          ThumbTrek measures how far. Instagram, YouTube, X and Reddit, converted from
+          pixels to metres — with streaks, records and boards you opt into.
         </p>
         <div class="cta-row">
           <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>
@@ -43,25 +46,38 @@
             Source on GitHub
           </a>
         </div>
+        <p class="cta-note">Android 8.0+ · signed APK · updates itself</p>
       </div>
 
-      <div class="hero-visual" aria-hidden="true">
-        <div class="topo"></div>
-        <div class="stat-stack">
-          <article class="stat">
-            <p class="stat-label">Today's trek</p>
-            <p class="stat-value"><em>1.84</em> km</p>
-            <p class="stat-note">Thumb distance across four feeds</p>
+      <div class="map">
+        <svg viewBox="0 0 400 320" role="img" aria-label="A route climbing across contour lines, with three waypoints marking a day's trek.">
+          <g aria-hidden="true">
+            <path class="contour" d="M-10 250 C70 230 130 264 200 246 C270 228 330 254 410 234" />
+            <path class="contour" d="M-10 218 C70 196 130 232 200 212 C270 192 330 222 410 200" />
+            <path class="contour" d="M-10 186 C70 162 130 199 200 177 C270 155 330 187 410 164" />
+            <path class="contour" d="M-10 154 C70 128 130 166 200 142 C270 118 330 152 410 128" />
+            <path class="contour" d="M-10 122 C70 94 130 133 200 107 C270 81 330 117 410 92" />
+            <path class="contour" d="M-10 90 C70 60 130 100 200 72 C270 44 330 82 410 56" />
+            <path class="contour" d="M-10 58 C70 26 130 67 200 37 C270 7 330 47 410 20" />
+          </g>
+          <path class="route" d="M40 228 L100 200 L148 210 L208 166 L260 146 L302 104 L350 82" />
+          <circle class="waypoint" cx="40" cy="228" r="5" fill="#f2b455" />
+          <circle class="waypoint" cx="208" cy="166" r="5" fill="#8be6a0" />
+          <circle class="waypoint" cx="350" cy="82" r="5" fill="#8fb6cc" />
+        </svg>
+
+        <div class="readouts">
+          <article class="readout">
+            <p class="overline">Today</p>
+            <p class="readout-value num v-moss">1.84<span class="unit">km</span></p>
           </article>
-          <article class="stat">
-            <p class="stat-label">Checkpoint</p>
-            <p class="stat-value">Burj Khalifa × <em>2.1</em></p>
-            <p class="stat-note">Same pixels, real-world scale</p>
+          <article class="readout">
+            <p class="overline">Streak</p>
+            <p class="readout-value num v-amber">12<span class="unit">days</span></p>
           </article>
-          <article class="stat">
-            <p class="stat-label">Streak</p>
-            <p class="stat-value"><em>12</em> days</p>
-            <p class="stat-note">One quiet reminder if it slips</p>
+          <article class="readout">
+            <p class="overline">Best day</p>
+            <p class="readout-value num v-slate">3.10<span class="unit">km</span></p>
           </article>
         </div>
       </div>
@@ -69,47 +85,103 @@
 
     <section class="wrap" id="how">
       <div class="section-head">
+        <p class="overline">How it works</p>
         <h2>A trek, not a guilt trip</h2>
         <p>ThumbTrek measures distance, not doom. No blocking, no lectures — just the map of where your thumb already went.</p>
       </div>
+
       <div class="trail">
         <article class="trail-step">
           <div>
             <h3>Grant Accessibility once</h3>
-            <p>The service only listens for scroll events in apps you choose. It never reads screen content.</p>
+            <p>The service listens for scroll events in the apps you choose. It never asks for permission to read screen content, so it cannot see posts, text or URLs — only how far a view moved.</p>
           </div>
         </article>
         <article class="trail-step">
           <div>
             <h3>Scroll like you already do</h3>
-            <p>Pixels become meters using your screen density. Instagram, YouTube, X, Reddit — plus any app you add.</p>
+            <p>Pixels become metres using your screen's density: <span class="num">pixels ÷ dpi × 0.0254</span>. Nothing to start, nothing to stop, no timer running in the corner.</p>
           </div>
         </article>
         <article class="trail-step">
           <div>
             <h3>Check the board when you want</h3>
-            <p>Streaks, records, shareable PNG cards, and fully opt-in friend or global leaderboards.</p>
+            <p>Daily and weekly totals, streaks, personal records, shareable cards, and friend or global boards that stay empty until you opt in.</p>
           </div>
         </article>
       </div>
+
       <div class="apps" aria-label="Tracked apps">
         <span class="chip">Instagram</span>
         <span class="chip">YouTube</span>
         <span class="chip">X</span>
         <span class="chip">Reddit</span>
-        <span class="chip">+ custom apps</span>
+        <span class="chip chip-muted">+ any app you add</span>
       </div>
+    </section>
+
+    <section class="wrap" id="scale">
+      <div class="section-head">
+        <p class="overline">The scale</p>
+        <h2>Metres mean nothing. Landmarks do.</h2>
+        <p>A number like 830&nbsp;m doesn't land. So every total gets measured against something you can picture — the ladder the app actually walks up.</p>
+      </div>
+
+      <div class="ladder">
+        <div class="rung">
+          <span class="rung-dist num">1.8 m</span>
+          <span class="rung-label">a queen-size bed</span>
+          <span class="rung-note">a glance at notifications</span>
+        </div>
+        <div class="rung">
+          <span class="rung-dist num">28 m</span>
+          <span class="rung-label">a basketball court</span>
+          <span class="rung-note">waiting for the kettle</span>
+        </div>
+        <div class="rung">
+          <span class="rung-dist num">105 m</span>
+          <span class="rung-label">a football pitch</span>
+          <span class="rung-note">one queue</span>
+        </div>
+        <div class="rung">
+          <span class="rung-dist num">330 m</span>
+          <span class="rung-label">the Eiffel Tower</span>
+          <span class="rung-note">a coffee break</span>
+        </div>
+        <div class="rung">
+          <span class="rung-dist num">830 m</span>
+          <span class="rung-label">the Burj Khalifa</span>
+          <span class="rung-note">a lunch hour</span>
+        </div>
+        <div class="rung">
+          <span class="rung-dist num">2.74 km</span>
+          <span class="rung-label">the Golden Gate Bridge</span>
+          <span class="rung-note">an evening in</span>
+        </div>
+        <div class="rung">
+          <span class="rung-dist num">8.85 km</span>
+          <span class="rung-label">Mount Everest</span>
+          <span class="rung-note">a long weekend</span>
+        </div>
+        <div class="rung">
+          <span class="rung-dist num">42.2 km</span>
+          <span class="rung-label">a marathon</span>
+          <span class="rung-note">a fortnight, honestly</span>
+        </div>
+      </div>
+      <p class="ladder-foot">The ladder runs from a banana to the Moon. You will not reach the Moon.</p>
     </section>
 
     <section class="wrap">
       <div class="section-head">
+        <p class="overline">Design</p>
         <h2>Built for the long scroll</h2>
-        <p>Local-first storage, signed sideloaded updates, and a social layer that stays quiet until you opt in.</p>
+        <p>Local-first storage, signed sideloaded updates, and a social layer that stays quiet until you turn it on.</p>
       </div>
       <div class="split">
         <article class="panel">
           <h3>Self-updating APK</h3>
-          <p>Checks GitHub Releases over Wi‑Fi, verifies SHA‑256, then asks once to install. No Play Store required.</p>
+          <p>Checks GitHub Releases over Wi‑Fi, verifies the SHA‑256, then asks once to install. No Play Store required.</p>
         </article>
         <article class="panel">
           <h3>Opt-in social</h3>
@@ -117,7 +189,7 @@
         </article>
         <article class="panel">
           <h3>Honest numbers</h3>
-          <p>No user calibration sliders on competitive scores — everyone measures the same raw trek.</p>
+          <p>No calibration slider on competitive scores. A slider would just be an honour-system cheat dial — everyone measures the same raw trek.</p>
         </article>
       </div>
     </section>
@@ -125,9 +197,10 @@
     <section class="install" id="download">
       <div class="wrap install-inner">
         <div>
-          <h2>Install in a minute</h2>
-          <p>Grab the latest signed APK from GitHub Releases. Allow install from your browser once, then ThumbTrek can update itself.</p>
-          <p class="fine">Android 8.0+. Sideload only — not on the Play Store yet.</p>
+          <p class="overline">Install</p>
+          <h2>A minute, once</h2>
+          <p>Grab the latest signed APK from GitHub Releases. Allow installs from your browser once, and ThumbTrek handles every update after that.</p>
+          <p class="fine">Android 8.0+. Sideload only — not on the Play Store.</p>
         </div>
         <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>
           Get ThumbTrek
@@ -137,21 +210,22 @@
 
     <section class="wrap" id="privacy">
       <div class="section-head">
+        <p class="overline">Privacy</p>
         <h2>What we see — and don't</h2>
-        <p>Scroll distance stays on-device by default. Cloud sync is for leaderboards you choose to join.</p>
+        <p>Scroll distance stays on-device by default. Cloud sync exists only for the boards you choose to join.</p>
       </div>
       <div class="split">
         <article class="panel">
           <h3>Never read</h3>
-          <p>No screenshots, no feed text, no URLs. Accessibility is scoped to scroll events on opted-in packages.</p>
+          <p>No screenshots, no feed text, no URLs. The service never requests content access — it reads the scroll numbers the event itself carries and nothing else.</p>
         </article>
         <article class="panel">
           <h3>Stored locally</h3>
-          <p>Day-by-day pixels live in Room on your phone. Export CSV anytime from Settings.</p>
+          <p>Day-by-day pixels live in a Room database on your phone. Export the lot as CSV from Settings whenever you want it.</p>
         </article>
         <article class="panel">
           <h3>Shared only if opted in</h3>
-          <p>Weekly / monthly / all-time totals sync to Firebase after you flip the Social switch.</p>
+          <p>Weekly, monthly and all-time totals sync to Firebase after you flip the Social switch — and only the totals.</p>
         </article>
       </div>
     </section>
@@ -165,22 +239,20 @@
       <a href="https://github.com/Aditya190803/ThumbTrek/releases">Releases</a>
     </span>
   </footer>
+
   <script>
-    // Resolve latest APK download URL and trigger direct download
+    // The download buttons point at the Releases page as a working href; when the API is
+    // reachable we upgrade that to the APK asset itself so the click is a single download.
     async function handleDirectDownload(e) {
       e.preventDefault();
-      const btn = e.currentTarget;
+      const fallback = 'https://github.com/Aditya190803/ThumbTrek/releases/latest';
       try {
         const res = await fetch('https://api.github.com/repos/Aditya190803/ThumbTrek/releases/latest');
         const data = await res.json();
         const apk = data.assets?.find(a => a.name.endsWith('.apk'));
-        if (apk) {
-          window.location.href = apk.browser_download_url;
-        } else {
-          window.location.href = 'https://github.com/Aditya190803/ThumbTrek/releases/latest';
-        }
+        window.location.href = apk ? apk.browser_download_url : fallback;
       } catch {
-        window.location.href = 'https://github.com/Aditya190803/ThumbTrek/releases/latest';
+        window.location.href = fallback;
       }
     }
     document.querySelectorAll('[data-direct-download]').forEach(btn => {
