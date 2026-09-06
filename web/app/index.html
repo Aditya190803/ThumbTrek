@@ -17,24 +17,28 @@
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/app/app.css" />
 </head>
-<body>
+<body data-auth="out">
   <a class="skip-link" href="#main">Skip to the dashboard</a>
 
-  <header class="wrap nav">
+  <!-- App chrome, not site nav: the dashboard is a signed-in tool, and marketing links
+       here are how it ended up reading as a second landing page. Which half of this bar
+       is visible is decided twice — the body[data-auth] rules in app.css hide the wrong
+       half even before JS runs, and onAuthChanged toggles `hidden` after — so a stale
+       script or a slow auth resolve can never show Sign out to a signed-out visitor. -->
+  <header class="wrap appbar">
     <a class="brand" href="/">
       <img src="/assets/mark.svg" width="32" height="32" alt="" />
       ThumbTrek
+      <span class="appbar-tag">Dashboard</span>
     </a>
-    <nav class="nav-links" aria-label="Primary">
-      <a href="/">Home</a>
-      <a href="/#how">How it works</a>
-      <a href="/#privacy">Privacy</a>
+    <div class="appbar-side">
+      <button class="btn btn-primary btn-small" type="button" data-signin id="signin-head">Continue with Google</button>
       <span class="account" id="account" hidden>
         <img class="avatar" id="account-avatar" alt="" width="28" height="28" hidden />
         <span class="account-name" id="account-name"></span>
         <button class="btn btn-ghost btn-small" type="button" id="signout">Sign out</button>
       </span>
-    </nav>
+    </div>
   </header>
 
   <!-- Everything that changes without the focus moving is announced here. -->
@@ -61,19 +65,27 @@
 
     <!-- ————————————————————— Signed out ————————————————————— -->
     <!--
-      Visible by default and hidden once auth resolves, so a visitor with no account, no
-      session, or no JavaScript still gets a page that explains itself instead of a spinner
-      over a blank column.
+      A sign-in gateway, not a second hero: the landing page already made the case, so
+      this is one bordered panel with the single action, the read-only promise as a
+      checklist, and the contour motif as a banner underneath. Visible by default and
+      hidden once auth resolves, so a visitor with no account, no session, or no
+      JavaScript still gets a page that explains itself instead of a spinner over a
+      blank column.
     -->
-    <section class="wrap hero" id="welcome" aria-labelledby="welcome-h">
-      <div class="hero-copy">
-        <p class="overline">Dashboard</p>
+    <section class="wrap gateway-wrap" id="welcome" aria-labelledby="welcome-h">
+      <div class="gateway">
+        <p class="overline">Dashboard · sign in required</p>
         <h1 id="welcome-h">The same trek,<br />on a <span>bigger screen</span>.</h1>
         <p class="hero-lead">
           Sign in with the Google account you use on the phone and this page shows the trek
           your thumb has already taken: totals, the history the app keeps day by day, which
           device did the scrolling, your streak and records, and the boards.
         </p>
+        <ul class="promise gateway-list">
+          <li>Day-by-day history, charted</li>
+          <li>Phone and browser, side by side</li>
+          <li>Friend codes and the weekly board</li>
+        </ul>
         <div class="cta-row">
           <button class="btn btn-primary" type="button" data-signin>Continue with Google</button>
           <a class="btn btn-ghost" href="/">Back to the site</a>
@@ -85,8 +97,8 @@
         <p class="error" id="welcome-error" hidden></p>
       </div>
 
-      <div class="map">
-        <svg viewBox="0 0 400 300" role="img" aria-label="A route climbing across contour lines toward a marked summit.">
+      <div class="map gateway-map">
+        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A route climbing across contour lines toward a marked summit.">
           <g aria-hidden="true">
             <path class="contour" d="M-10 240 C70 220 130 254 200 236 C270 218 330 244 410 224" />
             <path class="contour" d="M-10 205 C70 183 130 219 200 199 C270 179 330 209 410 187" />
@@ -100,11 +112,6 @@
           <circle class="waypoint" cx="208" cy="156" r="5" fill="#8be6a0" />
           <circle class="waypoint" cx="350" cy="72" r="5" fill="#8fb6cc" />
         </svg>
-        <ul class="promise">
-          <li>Day-by-day history, charted</li>
-          <li>Phone and browser, side by side</li>
-          <li>Friend codes and the weekly board</li>
-        </ul>
       </div>
     </section>
 

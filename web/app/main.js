@@ -189,6 +189,9 @@ function setOffline(offline) {
 async function onAuthChanged(user) {
   stopWatching();
   state.user = user;
+  // The CSS layer hides the wrong header half for this value even before the show()
+  // calls below run, so Sign out can never leak into a signed-out render.
+  document.body.dataset.auth = user ? 'in' : 'out';
   state.profiles = new Map();
   state.podium = [];
   state.board = { entries: [], cursor: null, exhausted: true, pages: 0, loading: false, error: null };
@@ -425,7 +428,7 @@ function renderHistory(derived) {
   if (!state.days.loaded) {
     show(body, false);
     show(empty, true);
-    empty.textContent = 'Reading your history…';
+    fill(empty, loadingSkeleton('Reading your history'));
     return;
   }
   if (byDate.size === 0) {
@@ -783,7 +786,7 @@ function renderBoard() {
   }
 
   if (state.board.loading && !ranked.length) {
-    fill(target, el('p', { class: 'fine', text: 'Reading the board…' }));
+    fill(target, loadingSkeleton('Reading the board'));
   } else if (!ranked.length) {
     fill(
       target,
@@ -882,6 +885,19 @@ function avatar(photoUrl, name) {
 
 function emptyState(title, body) {
   return el('div', { class: 'empty' }, el('h3', { text: title }), el('p', { text: body }));
+}
+
+/**
+ * Loading reads as the shape of what is coming. The spoken label carries the sentence
+ * for screen readers; the shimmer is hidden from them so it is not announced as content.
+ */
+function loadingSkeleton(label, widths = [88, 72, 80, 58]) {
+  return el(
+    'div',
+    { class: 'skel', role: 'status', 'aria-label': label },
+    el('span', { class: 'visually-hidden', text: label }),
+    ...widths.map((w) => el('i', { style: `width:${w}%`, 'aria-hidden': 'true' })),
+  );
 }
 
 async function loadLastWeekPodium() {
