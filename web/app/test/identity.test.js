@@ -88,9 +88,10 @@ test('friend codes are grouped for reading aloud, and only when they are whole',
 });
 
 test('friend codes normalize what people paste', () => {
-  // These four cases are exactly the ones StatsTest.kt pins on the phone.
+  // These cases mirror the ones StatsTest.kt pins on the phone.
   assert.equal(normalizeFriendCode('abcd-1234'), 'ABCD1234');
-  assert.equal(normalizeFriendCode(' https://thumbtrek.app/i/abcd1234 '), 'ABCD1234');
+  assert.equal(normalizeFriendCode(' https://thumbtrek.adityamer.dev/i/abcd1234 '), 'ABCD1234');
+  assert.equal(normalizeFriendCode(' https://thumbtrek.app/i/abcd1234 '), 'ABCD1234'); // old host still parses
   assert.equal(normalizeFriendCode('IOLUABCD'), '101VABCD'); // I/L→1, O→0, U→V
   assert.equal(normalizeFriendCode('waytoolongcode').length, 8);
 });
@@ -116,7 +117,7 @@ test('anonymous handles are stable and zero-padded', async () => {
 });
 
 test('invite links are the ones the phone already shares', () => {
-  assert.equal(inviteLink('ABCD1234'), 'https://thumbtrek.app/i/ABCD1234');
+  assert.equal(inviteLink('ABCD1234'), 'https://thumbtrek.adityamer.dev/i/ABCD1234');
   // The message carries the grouped form, and the link round-trips back through normalize.
   const message = inviteMessage('ABCD1234');
   assert.match(message, /ABCD-1234/);

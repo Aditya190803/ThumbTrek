@@ -43,7 +43,7 @@ export function formatFriendCode(code) {
 
 /**
  * Accepts what people actually paste: lower case, spaces, the grouping dash, or the whole
- * `https://thumbtrek.app/i/<code>` invite link.
+ * `https://thumbtrek.adityamer.dev/i/<code>` invite link.
  */
 export function normalizeFriendCode(input) {
   const afterSlash = input.trim().split('/').pop();
@@ -80,5 +80,5 @@ export async function anonymousHandle(uid) {
 }
 
 export function inviteLink(code) {
-  return `https://thumbtrek.app/i/${code}`;
+  return `https://thumbtrek.adityamer.dev/i/${code}`;
 }

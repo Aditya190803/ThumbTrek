@@ -299,6 +299,8 @@ class StatsTest {
     @Test
     fun `friend codes normalize what people paste`() {
         assertEquals("ABCD1234", normalizeFriendCode("abcd-1234"))
+        assertEquals("ABCD1234", normalizeFriendCode(" https://thumbtrek.adityamer.dev/i/abcd1234 "))
+        // Old links used the thumbtrek.app host; they keep parsing — the code is the last segment either way.
         assertEquals("ABCD1234", normalizeFriendCode(" https://thumbtrek.app/i/abcd1234 "))
         // Crockford disambiguation: I/L→1, O→0, U→V
         assertEquals("101VABCD", normalizeFriendCode("IOLUABCD"))

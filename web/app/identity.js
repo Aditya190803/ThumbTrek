@@ -35,7 +35,7 @@ export function formatFriendCode(code) {
 
 /**
  * Accepts what people actually paste: lower case, spaces, the grouping dash, or the whole
- * `https://thumbtrek.app/i/<code>` invite link.
+ * `https://thumbtrek.adityamer.dev/i/<code>` invite link.
  *
  * The Unicode property escapes stand in for Kotlin's `Char.isLetterOrDigit`, which is also
  * Unicode-aware: a pasted code with a stray accented character loses the same characters on
@@ -75,7 +75,7 @@ export async function anonymousHandle(uid) {
  * invite page in web/vercel.json, so a link the app produced today resolves on the site.
  */
 export function inviteLink(code) {
-  return `https://thumbtrek.app/i/${code}`;
+  return `https://thumbtrek.adityamer.dev/i/${code}`;
 }
 
 export function inviteMessage(code) {

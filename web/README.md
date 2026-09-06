@@ -93,7 +93,7 @@ step to hide a public value would be complexity bought with nothing.
 Firebase console → **Authentication** → **Settings** → **Authorized domains** → **Add
 domain**. Add every host the dashboard is served from:
 
-- the production domain (`thumbtrek.app`, and `www.thumbtrek.app` if that resolves),
+- the production domain (`thumbtrek.adityamer.dev`),
 - the Vercel project domain (`<project>.vercel.app`),
 - `localhost` is authorised by default, which covers local testing.
 
@@ -120,7 +120,7 @@ the console link in the browser console, which offers to create the index for yo
 ### 4. Invite links open the app (already done — verify after deploy)
 
 `web/.well-known/assetlinks.json` carries the release certificate's SHA-256, so
-`https://thumbtrek.app/.well-known/assetlinks.json` verifies the `https://thumbtrek.app/i/`
+`https://thumbtrek.adityamer.dev/.well-known/assetlinks.json` verifies the `https://thumbtrek.adityamer.dev/i/`
 app link declared in `AndroidManifest.xml` (`autoVerify`). Confirm it after deploying:
 the file must load with `Content-Type: application/json` and no redirect. Until the
 production domain serves it, that filter stays inert — which is fine, because the invite

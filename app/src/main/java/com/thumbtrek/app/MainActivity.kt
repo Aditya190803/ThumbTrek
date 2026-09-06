@@ -66,7 +66,7 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * Pulls a friend code out of `thumbtrek://i/<code>` or `https://thumbtrek.app/i/<code>`.
+     * Pulls a friend code out of `thumbtrek://i/<code>` or `https://thumbtrek.adityamer.dev/i/<code>`.
      *
      * Both shapes end in the code, so the last path segment is enough — except for the
      * custom scheme, where `thumbtrek://i/CODE` parses with host `i` and path `/CODE`, and

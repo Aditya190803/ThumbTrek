@@ -1,6 +1,6 @@
 // /i/<code> — the link Identity.kt has always promised.
 //
-// `inviteLink(code)` on the phone produces https://thumbtrek.app/i/<code> and hands it to
+// `inviteLink(code)` on the phone produces https://thumbtrek.adityamer.dev/i/<code> and hands it to
 // the share sheet, so those links are already out in the world in people's chats. This page
 // is what they land on. vercel.json rewrites /i/(.*) here, keeping the pretty URL in the
 // address bar — which matters, because the code in the bar is the fallback when everything

@@ -43,8 +43,8 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 
-            <!-- Invite links. `Identity.inviteLink` has always produced
-                 https://thumbtrek.app/i/<code>, and the web dashboard now serves that URL,
+            <!-- Invite links. `Identity.inviteLink` produces
+                 https://thumbtrek.adityamer.dev/i/<code>, and the web dashboard serves that URL,
                  so a tapped invite has to be able to hand the code to the app.
 
                  Two filters, because neither alone is enough:
@@ -70,7 +70,7 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
-                    android:host="thumbtrek.app"
+                    android:host="thumbtrek.adityamer.dev"
                     android:pathPrefix="/i/" />
             </intent-filter>
         </activity>

@@ -78,7 +78,7 @@ private val GUTTER = 20.dp
 
 /**
  * [inviteCode] is a friend code that arrived by invite link (`thumbtrek://i/<code>` or
- * https://thumbtrek.app/i/<code>). It is prefilled into the add-a-trekker box rather than
+ * https://thumbtrek.adityamer.dev/i/<code>). It is prefilled into the add-a-trekker box rather than
  * sent automatically: adding someone is a social act, and a link tapped by accident should
  * not silently fire a request at a stranger.
  */
