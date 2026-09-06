@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard — ThumbTrek</title>
+  <meta name="description" content="Your ThumbTrek trek in the browser: totals, history, the split between phone and browser, streaks, records and the leaderboard." />
+  <!-- A signed-in page has nothing to offer a crawler, and the URL is not a share target. -->
+  <meta name="robots" content="noindex" />
+  <meta name="theme-color" content="#0c0f0b" />
+  <link rel="icon" href="/assets/mark.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <!-- The Firebase SDK is fetched from here on first paint; the handshake is worth pre-empting. -->
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/app/app.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to the dashboard</a>
+
+  <header class="wrap nav">
+    <a class="brand" href="/">
+      <img src="/assets/mark.svg" width="32" height="32" alt="" />
+      ThumbTrek
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="/">Home</a>
+      <a href="/#how">How it works</a>
+      <a href="/#privacy">Privacy</a>
+      <span class="account" id="account" hidden>
+        <img class="avatar" id="account-avatar" alt="" width="28" height="28" hidden />
+        <span class="account-name" id="account-name"></span>
+        <button class="btn btn-ghost btn-small" type="button" id="signout">Sign out</button>
+      </span>
+    </nav>
+  </header>
+
+  <!-- Everything that changes without the focus moving is announced here. -->
+  <div id="live" class="visually-hidden" role="status" aria-live="polite"></div>
+
+  <main id="main">
+
+    <!-- ————————————————————— Not configured yet ————————————————————— -->
+    <section class="wrap" id="setup" hidden aria-labelledby="setup-h">
+      <div class="section-head">
+        <p class="overline">Setup</p>
+        <h2 id="setup-h">This deployment has no Firebase config</h2>
+        <p>The dashboard reads your account from Firebase, and this copy of the site has not
+          been pointed at a project yet. Nothing is broken — the file just is not there.</p>
+      </div>
+      <div class="panel">
+        <p class="mono" id="setup-detail"></p>
+        <p>Copy <code>web/app/firebase-config.example.js</code> to
+          <code>web/app/firebase-config.js</code>, fill in the six values from the Firebase
+          console, and redeploy. <a href="https://github.com/Aditya190803/ThumbTrek/blob/main/web/README.md">web/README.md</a>
+          says which console screen produces each one, and why that file is safe to commit.</p>
+      </div>
+    </section>
+
+    <!-- ————————————————————— Signed out ————————————————————— -->
+    <!--
+      Visible by default and hidden once auth resolves, so a visitor with no account, no
+      session, or no JavaScript still gets a page that explains itself instead of a spinner
+      over a blank column.
+    -->
+    <section class="wrap hero" id="welcome" aria-labelledby="welcome-h">
+      <div class="hero-copy">
+        <p class="overline">Dashboard</p>
+        <h1 id="welcome-h">The same trek,<br />on a <span>bigger screen</span>.</h1>
+        <p class="hero-lead">
+          Sign in with the Google account you use on the phone and this page shows the trek
+          your thumb has already taken: totals, the history the app keeps day by day, which
+          device did the scrolling, your streak and records, and the boards.
+        </p>
+        <div class="cta-row">
+          <button class="btn btn-primary" type="button" data-signin>Continue with Google</button>
+          <a class="btn btn-ghost" href="/">Back to the site</a>
+        </div>
+        <p class="cta-note">
+          Read-only. This page never publishes a score, and never starts measuring — turning
+          the leaderboard on stays a decision you make in the app.
+        </p>
+        <p class="error" id="welcome-error" hidden></p>
+      </div>
+
+      <div class="map">
+        <svg viewBox="0 0 400 300" role="img" aria-label="A route climbing across contour lines toward a marked summit.">
+          <g aria-hidden="true">
+            <path class="contour" d="M-10 240 C70 220 130 254 200 236 C270 218 330 244 410 224" />
+            <path class="contour" d="M-10 205 C70 183 130 219 200 199 C270 179 330 209 410 187" />
+            <path class="contour" d="M-10 170 C70 146 130 183 200 161 C270 139 330 171 410 148" />
+            <path class="contour" d="M-10 135 C70 109 130 147 200 123 C270 99 330 133 410 109" />
+            <path class="contour" d="M-10 100 C70 72 130 111 200 85 C270 59 330 95 410 70" />
+            <path class="contour" d="M-10 65 C70 35 130 75 200 47 C270 19 330 57 410 31" />
+          </g>
+          <path class="route" d="M40 218 L100 190 L148 200 L208 156 L260 136 L302 94 L350 72" />
+          <circle class="waypoint" cx="40" cy="218" r="5" fill="#f2b455" />
+          <circle class="waypoint" cx="208" cy="156" r="5" fill="#8be6a0" />
+          <circle class="waypoint" cx="350" cy="72" r="5" fill="#8fb6cc" />
+        </svg>
+        <ul class="promise">
+          <li>Day-by-day history, charted</li>
+          <li>Phone and browser, side by side</li>
+          <li>Friend codes and the weekly board</li>
+        </ul>
+      </div>
+    </section>
+
+    <!-- ————————————————————— Signed in ————————————————————— -->
+    <div id="dashboard" hidden>
+
+      <p class="connection" id="connection" hidden></p>
+
+      <section class="wrap" id="totals" aria-labelledby="totals-h">
+        <div class="section-head">
+          <p class="overline">Today</p>
+          <h2 id="totals-h" class="visually-hidden">Your totals</h2>
+        </div>
+        <div class="today">
+          <p class="today-figure num">
+            <span id="today-figure">0</span><span class="unit" id="today-unit">m</span>
+          </p>
+          <p class="delta" id="today-delta" hidden></p>
+          <p class="today-compare" id="today-compare"></p>
+          <div id="today-goal" hidden></div>
+        </div>
+        <div class="totals-grid" id="totals-grid"></div>
+      </section>
+
+      <section class="wrap" id="history" aria-labelledby="history-h">
+        <div class="section-head">
+          <p class="overline">History</p>
+          <h2 id="history-h">Where the trek has been</h2>
+          <p>Every client writes one record per day, so this is the trek itself rather than a
+            running total. Pick a range; the split and the breakdown below follow it.</p>
+        </div>
+
+        <div class="control-row">
+          <div class="segmented" id="range-control" role="group" aria-label="History range"></div>
+        </div>
+
+        <p class="error" id="history-error" hidden></p>
+        <p class="empty-note" id="history-empty" hidden></p>
+
+        <div id="history-body">
+          <div id="history-chart"></div>
+
+          <h3 class="marker">
+            <span class="marker-text">Phone vs browser</span>
+            <span class="marker-rule" aria-hidden="true"></span>
+          </h3>
+          <div id="sources-rows"></div>
+          <p class="fine" id="sources-note" hidden></p>
+          <ul class="fine sync-list" id="sources-sync" hidden></ul>
+
+          <h3 class="marker">
+            <span class="marker-text">Where it went</span>
+            <span class="marker-rule" aria-hidden="true"></span>
+            <span class="marker-trailing" id="breakdown-count"></span>
+          </h3>
+          <div id="breakdown-rows"></div>
+
+          <details class="daylog">
+            <summary>
+              <span class="marker-text">Day log</span>
+              <span class="marker-trailing" id="daylog-count"></span>
+            </summary>
+            <div id="daylog-rows"></div>
+          </details>
+        </div>
+      </section>
+
+      <section class="wrap" id="records" aria-labelledby="records-h">
+        <div class="section-head">
+          <p class="overline">Records</p>
+          <h2 id="records-h">What you have already done</h2>
+        </div>
+        <p class="streak" id="streak">No streak yet</p>
+        <div id="records-rows"></div>
+
+        <h3 class="marker">
+          <span class="marker-text">Checkpoints</span>
+          <span class="marker-rule" aria-hidden="true"></span>
+          <span class="marker-trailing num" id="badge-count"></span>
+        </h3>
+        <ul class="badges" id="badges"></ul>
+        <p class="fine" id="badge-next" hidden></p>
+      </section>
+
+      <section class="wrap" id="board-section" aria-labelledby="board-h">
+        <div class="section-head">
+          <p class="overline">Leaderboard</p>
+          <h2 id="board-h">See how your week stacks up</h2>
+          <p>Boards rank on the shared unit, so a dense phone screen no longer wins by being
+            dense. Only trekkers who have opted in appear here.</p>
+        </div>
+
+        <div class="control-row">
+          <div class="segmented" id="board-kind" role="group" aria-label="Which board"></div>
+          <div class="segmented" id="board-period" role="group" aria-label="Board period"></div>
+        </div>
+
+        <p class="standing" id="board-standing" hidden></p>
+        <p class="error" id="board-error" hidden></p>
+        <ul class="board" id="board-rows"></ul>
+        <p class="fine" id="board-hidden" hidden>
+          Friends who have not turned leaderboards on stay hidden here.
+        </p>
+        <div class="control-row">
+          <button class="btn btn-ghost" type="button" id="board-more" hidden>Load more</button>
+          <button class="btn btn-ghost" type="button" id="board-refresh">Refresh</button>
+        </div>
+
+        <div id="podium" hidden>
+          <h3 class="marker">
+            <span class="marker-text">Last week's podium</span>
+            <span class="marker-rule" aria-hidden="true"></span>
+          </h3>
+          <ul class="podium" id="podium-row"></ul>
+        </div>
+      </section>
+
+      <section class="wrap" id="friends" aria-labelledby="friends-h">
+        <div class="section-head">
+          <p class="overline">Trek partners</p>
+          <h2 id="friends-h">Friend codes</h2>
+          <p>Anyone who enters your code sends you a request. Accept it and you land on each
+            other's boards — nothing is shared until both sides agree.</p>
+        </div>
+
+        <div class="code-block">
+          <p class="my-code num" id="my-code">————</p>
+          <div class="cta-row">
+            <button class="btn btn-ghost btn-small" type="button" id="copy-code">Copy code</button>
+            <button class="btn btn-ghost btn-small" type="button" id="share-invite">Share invite</button>
+          </div>
+          <p class="fine">
+            Invite link: <a id="invite-link" href="/i/">https://thumbtrek.app/i/</a>
+          </p>
+        </div>
+
+        <div id="requests" hidden>
+          <h3 class="marker">
+            <span class="marker-text">Trek requests</span>
+            <span class="marker-rule" aria-hidden="true"></span>
+            <span class="marker-trailing num" id="requests-count"></span>
+          </h3>
+          <ul class="people" id="requests-rows"></ul>
+        </div>
+
+        <h3 class="marker">
+          <span class="marker-text">Your trek partners</span>
+          <span class="marker-rule" aria-hidden="true"></span>
+        </h3>
+        <ul class="people" id="friend-list"></ul>
+
+        <form class="add-form" id="add-form">
+          <label for="add-code">Add by code</label>
+          <div class="add-row">
+            <input
+              id="add-code"
+              name="code"
+              type="text"
+              inputmode="latin"
+              autocomplete="off"
+              autocapitalize="characters"
+              spellcheck="false"
+              maxlength="40"
+              placeholder="ABCD-1234"
+              aria-describedby="add-help"
+            />
+            <button class="btn btn-primary" type="submit">Add</button>
+          </div>
+          <p class="fine" id="add-help">
+            A code, or a whole <code>thumbtrek.app/i/…</code> link — both work.
+          </p>
+        </form>
+        <p class="error" id="friends-error" hidden></p>
+      </section>
+
+      <section class="wrap" aria-label="What this page can and cannot do">
+        <p class="fine">
+          Distance only. ThumbTrek never reads what is on your screen, and this page never
+          writes one: it reads the day records your clients wrote, and the boards you opted
+          into. The only thing it changes is your friend list.
+        </p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="wrap">
+    <span>© ThumbTrek · Android sideload</span>
+    <span>
+      <a href="https://github.com/Aditya190803/ThumbTrek">GitHub</a>
+      ·
+      <a href="https://github.com/Aditya190803/ThumbTrek/releases">Releases</a>
+    </span>
+  </footer>
+
+  <script type="module" src="/app/main.js"></script>
+</body>
+</html>

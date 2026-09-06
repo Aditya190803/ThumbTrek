@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Trek invite — ThumbTrek</title>
+  <meta name="description" content="Someone wants to see who treks further. Add their ThumbTrek friend code." />
+  <meta property="og:title" content="A ThumbTrek invite" />
+  <meta property="og:description" content="Strava for scrolling. Add this trekker and see who goes further this week." />
+  <meta name="theme-color" content="#0c0f0b" />
+  <link rel="icon" href="/assets/mark.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="/app/app.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to the invite</a>
+
+  <header class="wrap nav">
+    <a class="brand" href="/">
+      <img src="/assets/mark.svg" width="32" height="32" alt="" />
+      ThumbTrek
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="/">Home</a>
+      <a href="/app">Dashboard</a>
+    </nav>
+  </header>
+
+  <div id="live" class="visually-hidden" role="status" aria-live="polite"></div>
+
+  <main id="main" class="wrap">
+    <section aria-labelledby="invite-h">
+      <div class="section-head">
+        <p class="overline">Trek invite</p>
+        <h1 id="invite-h">Someone wants to see who treks further.</h1>
+        <p>ThumbTrek measures how far your thumb travels while you scroll, and turns it into
+          metres. This code puts the two of you on each other's boards — and nothing else.</p>
+      </div>
+
+      <div class="code-block">
+        <p class="overline">Friend code</p>
+        <p class="my-code num" id="code">————</p>
+        <div class="cta-row">
+          <button class="btn btn-ghost btn-small" type="button" id="copy-code">Copy code</button>
+        </div>
+      </div>
+
+      <p class="error" id="invalid" hidden>
+        That link does not carry a valid friend code. Codes are eight characters — ask for
+        it again, or type it into the dashboard by hand.
+      </p>
+
+      <h2 class="marker">
+        <span class="marker-text">Add this trekker</span>
+        <span class="marker-rule" aria-hidden="true"></span>
+      </h2>
+
+      <div id="add-here">
+        <p id="add-state">Checking whether you are signed in…</p>
+        <div class="cta-row">
+          <button class="btn btn-primary" type="button" id="add-button" hidden>Add this trekker</button>
+          <button class="btn btn-primary" type="button" id="signin-button" hidden>Sign in with Google</button>
+          <a class="btn btn-ghost" href="/app">Open the dashboard</a>
+        </div>
+        <p class="error" id="add-error" hidden></p>
+      </div>
+
+      <h2 class="marker">
+        <span class="marker-text">Or add it on the phone</span>
+        <span class="marker-rule" aria-hidden="true"></span>
+      </h2>
+
+      <ol class="steps">
+        <li>
+          <a class="btn btn-primary btn-small" id="open-app" href="https://github.com/Aditya190803/ThumbTrek/releases/latest">Open ThumbTrek</a>
+          <span>Installed already? This opens the app. Otherwise it takes you to the APK.</span>
+        </li>
+        <li>Go to <strong>Social</strong>, then <strong>Add by code</strong>.</li>
+        <li>Paste <span class="num" id="code-inline">the code</span> and send the request.</li>
+      </ol>
+
+      <p class="fine">
+        A request goes both ways: they have to accept before either of you appears on the
+        other's board, and removing each other later drops both sides at once.
+      </p>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    <span>© ThumbTrek · Android sideload</span>
+    <span>
+      <a href="https://github.com/Aditya190803/ThumbTrek">GitHub</a>
+      ·
+      <a href="/app">Dashboard</a>
+    </span>
+  </footer>
+
+  <script type="module" src="/app/invite.js"></script>
+</body>
+</html>
