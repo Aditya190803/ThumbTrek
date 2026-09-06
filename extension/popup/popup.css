@@ -1,0 +1,216 @@
+/* Popup layout. The design system lives in ../ui/trek.css; this file only places things.
+
+   360px because that is the width at which a 3.75rem hero figure and a "That's 1.4× a
+   school bus" line both sit on one line at the default font size. Chrome caps a popup at
+   600px tall, so nothing here scrolls: the five things worth knowing fit, and the sixth
+   belongs on the options page. */
+
+body {
+  width: 360px;
+}
+
+.sheet {
+  padding: var(--s-3) var(--s-3) var(--s-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-3);
+}
+
+/* ————————————————————————————— Head ————————————————————————————— */
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  letter-spacing: -0.02em;
+}
+
+.mark {
+  width: 1.4rem;
+  height: 1.4rem;
+}
+
+/* ————————————————————————————— Hero ————————————————————————————— */
+
+/* No card. The contours *are* the container: survey linework behind the figure, barely
+   there, doing the job a border would do without adding a box to a screen of boxes. */
+.hero {
+  position: relative;
+  padding: var(--s-2) 0 var(--s-1);
+}
+
+.contours {
+  position: absolute;
+  inset: -0.4rem -0.6rem auto -0.6rem;
+  height: 6.5rem;
+  width: calc(100% + 1.2rem);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.contours path {
+  fill: none;
+  stroke: var(--moss);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Graded rather than uniform, so the panel has depth instead of looking like ruled paper. */
+.contours path:nth-child(1) { opacity: 0.16; }
+.contours path:nth-child(2) { opacity: 0.12; }
+.contours path:nth-child(3) { opacity: 0.09; }
+.contours path:nth-child(4) { opacity: 0.06; }
+
+.hero > *:not(.contours) {
+  position: relative;
+  z-index: 1;
+}
+
+.hero .overline {
+  display: block;
+  margin: 0 0 0.25rem;
+}
+
+.hero-line {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+}
+
+.comparison {
+  margin: 0.3rem 0 0;
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+}
+
+.hero-meta {
+  margin: var(--s-2) 0 0;
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  flex-wrap: wrap;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+/* ————————————————————————————— Sites ————————————————————————————— */
+
+#sites .measure-row:not(:last-child) {
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+/* ———————————————————————— The week's route ———————————————————————— */
+
+.spark {
+  margin: 0;
+}
+
+.spark svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+/* The baseline is drawn, not implied: a route needs ground to climb away from. */
+.spark .ground {
+  stroke: var(--hairline);
+  stroke-width: 1;
+}
+
+.spark .route {
+  fill: none;
+  stroke: var(--slate);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  /* Traced in once on open, then left at rest — the finished route is the resting state.
+     The dash length is set from the path's own measured length in popup.js, because a
+     hard-coded one clips or lags on a week with a different shape. */
+  animation: trace 900ms var(--ease) forwards;
+}
+
+/* The fill under the route reads volume without adding seven more marks to the sheet. */
+.spark .under {
+  fill: var(--slate);
+  opacity: 0.08;
+  stroke: none;
+}
+
+.spark .stop {
+  fill: var(--ground);
+  stroke: var(--slate);
+  stroke-width: 1.5;
+}
+
+/* Today is moss — the accent that means "you, now" everywhere else in the system. */
+.spark .stop.today {
+  fill: var(--moss);
+  stroke: var(--moss);
+}
+
+@keyframes trace {
+  from { stroke-dashoffset: var(--len); }
+  to { stroke-dashoffset: 0; }
+}
+
+.axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.35rem;
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 0.625rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+}
+
+/* ————————————————————————————— Foot ————————————————————————————— */
+
+.foot {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-3);
+  padding-top: var(--s-2);
+  border-top: 1px solid var(--hairline);
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.stat .figure {
+  font-size: 1.0625rem;
+  line-height: 1.15;
+}
+
+.stat .faint {
+  font-size: 0.6875rem;
+}
+
+.foot .btn {
+  margin-left: auto;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}

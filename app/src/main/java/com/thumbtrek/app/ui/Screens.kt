@@ -53,6 +53,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -95,8 +96,20 @@ private val GUTTER = 20.dp
 // Shell
 // ---------------------------------------------------------------------------------------
 
+/** Index of the Social panel in the nav bar, named so an invite can jump straight to it. */
+private const val SOCIAL_TAB = 2
+
+/**
+ * [pendingInvite] is a friend code that arrived by invite link. It jumps straight to the
+ * Social tab so the trek request is one tap from where the link left you, and is reported
+ * spent through [onInviteConsumed] so a rotation doesn't drag you back there.
+ */
 @Composable
-fun MainScreen(vm: DashboardViewModel) {
+fun MainScreen(
+    vm: DashboardViewModel,
+    pendingInvite: String? = null,
+    onInviteConsumed: () -> Unit = {},
+) {
     val context = LocalContext.current
     LifecycleResumeEffect(Unit) {
         vm.refreshTrackingState()
@@ -107,6 +120,10 @@ fun MainScreen(vm: DashboardViewModel) {
     val state by vm.state.collectAsStateWithLifecycle()
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val slideDuration = trekDuration(TrekDur.MEDIUM)
+
+    LaunchedEffect(pendingInvite) {
+        if (pendingInvite != null) tab = SOCIAL_TAB
+    }
 
     Scaffold(
         containerColor = Trek.ground,
@@ -135,7 +152,10 @@ fun MainScreen(vm: DashboardViewModel) {
             when (index) {
                 0 -> Dashboard(state)
                 1 -> History(state)
-                2 -> SocialScreen()
+                SOCIAL_TAB -> SocialScreen(
+                    inviteCode = pendingInvite,
+                    onInviteConsumed = onInviteConsumed,
+                )
                 else -> SettingsScreen()
             }
         }
@@ -393,8 +413,8 @@ private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Mo
 
 /**
  * The screen people open daily. The distance sits inside the instrument that measured it,
- * with the contour field behind and the streak in the break at the bottom of the dial, so
- * one glance answers "how far", "on what" and "am I still going".
+ * with the streak in the break at the bottom of the dial, so one glance answers "how far",
+ * "on what" and "am I still going".
  */
 @Composable
 private fun HeroDial(
@@ -415,9 +435,6 @@ private fun HeroDial(
             .semantics(mergeDescendants = true) { contentDescription = readout },
         contentAlignment = Alignment.TopCenter,
     ) {
-        // matchParentSize, not fillMaxSize: the hero lives in a scrolling column, so the
-        // height constraint here is unbounded and fillMaxSize would collapse to nothing.
-        ContourField(modifier = Modifier.matchParentSize())
         TrekGauge(
             slices = slices,
             modifier = Modifier

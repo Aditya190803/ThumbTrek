@@ -42,6 +42,37 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+
+            <!-- Invite links. `Identity.inviteLink` produces
+                 https://thumbtrek.adityamer.dev/i/<code>, and the web dashboard serves that URL,
+                 so a tapped invite has to be able to hand the code to the app.
+
+                 Two filters, because neither alone is enough:
+
+                 - The custom scheme works the moment the app is installed, with no server
+                   and no verification. It is what the invite page actually triggers.
+                 - The https filter is the one that makes a real link open the app, but on
+                   Android 12+ an unverified web filter is ignored by default — the user
+                   would have to enable "Open supported links" by hand. autoVerify fixes
+                   that only once web/.well-known/assetlinks.json carries the release
+                   certificate's SHA-256; until then this filter is simply inert, which is
+                   why the custom scheme is not redundant. See web/README.md. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="thumbtrek" android:host="i" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="thumbtrek.adityamer.dev"
+                    android:pathPrefix="/i/" />
+            </intent-filter>
         </activity>
 
         <!-- Invisible, finishes immediately. Exists so the "update ready" notification has a

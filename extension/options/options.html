@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ThumbTrek — Settings</title>
+  <link rel="stylesheet" href="../ui/trek.css" />
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <main class="wrap">
+    <header class="head">
+      <span class="brand">
+        <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <g stroke="#8BE6A0" stroke-width="2" stroke-linecap="round" fill="none">
+            <path d="M13 21 C13 17.5 19 17.5 19 21" />
+            <path d="M10 21 C10 14.5 22 14.5 22 21" />
+            <path d="M7 21 C7 11.5 25 11.5 25 21" />
+          </g>
+          <path d="M5 25.5 L11 23 L17 25 L25.5 20" stroke="#EDF1E6" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <circle cx="25.5" cy="20" r="2.2" fill="#F2B455" />
+        </svg>
+        ThumbTrek
+      </span>
+      <span class="overline">Settings</span>
+    </header>
+
+    <!-- ————————————————————————— Sites ————————————————————————— -->
+    <section>
+      <div class="section">
+        <span class="overline">Sites</span>
+        <span class="rule"></span>
+        <span class="trailing" id="tracked-count"></span>
+      </div>
+      <p class="lede">
+        Switching a site off stops it counting. It stays in this list — nothing you added is
+        forgotten until you remove it.
+      </p>
+
+      <div class="row">
+        <div class="row-text">
+          <strong>Track everything</strong>
+          <span class="faint">Count every site you scroll, not just the list below.</span>
+        </div>
+        <button class="toggle" id="track-everything" role="switch" aria-checked="false"
+                aria-label="Track every site"></button>
+      </div>
+
+      <div id="site-list" class="list"></div>
+
+      <form class="add" id="add-form">
+        <input type="text" id="add-input" placeholder="Add a site — e.g. news.ycombinator.com"
+               autocomplete="off" spellcheck="false" aria-label="Domain to add" />
+        <button class="btn btn-ghost" type="submit">Add</button>
+      </form>
+      <p class="note" id="add-note"></p>
+    </section>
+
+    <!-- ————————————————————————— Account ————————————————————————— -->
+    <section>
+      <div class="section">
+        <span class="overline">Leaderboard</span>
+        <span class="rule"></span>
+        <span class="trailing" id="sync-when"></span>
+      </div>
+      <p class="lede">
+        Everything above works with no account, forever. Signing in only syncs your trek
+        across devices — and by itself it publishes nothing.
+      </p>
+
+      <div class="panel warn" id="config-banner" hidden>
+        <strong>Sync isn't configured</strong>
+        <p id="config-message"></p>
+      </div>
+
+      <div class="row">
+        <div class="row-text">
+          <strong id="account-name">Not signed in</strong>
+          <span class="faint" id="account-detail">Sign in with Google to sync across devices.</span>
+        </div>
+        <button class="btn btn-ghost" id="auth-button" type="button">Sign in</button>
+      </div>
+
+      <div class="row">
+        <div class="row-text">
+          <strong>Publish to the leaderboard</strong>
+          <span class="faint">
+            Sends three distances and a name. Your per-site history stays private. Turning
+            this off deletes what this browser published.
+          </span>
+        </div>
+        <button class="toggle" id="opt-in" role="switch" aria-checked="false"
+                aria-label="Publish to the leaderboard"></button>
+      </div>
+
+      <div class="row">
+        <div class="row-text">
+          <strong>Publish anonymously</strong>
+          <span class="faint" id="handle-preview">Use a stable pseudonym instead of your Google name.</span>
+        </div>
+        <button class="toggle" id="anonymous" role="switch" aria-checked="false"
+                aria-label="Publish anonymously"></button>
+      </div>
+
+      <div class="row">
+        <div class="row-text">
+          <strong>Friend code</strong>
+          <span class="faint" id="friend-code">Sign in to get yours.</span>
+        </div>
+        <button class="btn btn-ghost" id="sync-button" type="button">Sync now</button>
+      </div>
+      <p class="note" id="sync-note"></p>
+    </section>
+
+    <!-- ————————————————————————— Data ————————————————————————— -->
+    <section>
+      <div class="section">
+        <span class="overline">Your data</span>
+        <span class="rule"></span>
+        <span class="trailing" id="row-count"></span>
+      </div>
+
+      <div class="row">
+        <div class="row-text">
+          <strong>Export CSV</strong>
+          <span class="faint">One line per site per day, in micrometres.</span>
+        </div>
+        <button class="btn btn-ghost" id="export-button" type="button">Export</button>
+      </div>
+
+      <div class="panel danger">
+        <strong>Delete local data</strong>
+        <p>
+          Erases every day, every site, and the sync bookkeeping in this browser. Your phone's
+          history and anything already published are not touched. This cannot be undone.
+        </p>
+        <button class="btn btn-danger" id="wipe-button" type="button"
+                data-armed="false">Delete everything</button>
+      </div>
+      <p class="note" id="data-note"></p>
+    </section>
+
+    <footer class="foot faint">
+      Measured in micrometres, shown in metres. A CSS pixel is 1/96 inch by definition —
+      that is the whole conversion.
+    </footer>
+  </main>
+
+  <script type="module" src="options.js"></script>
+</body>
+</html>

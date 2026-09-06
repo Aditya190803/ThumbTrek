@@ -1,0 +1,10 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.thumbtrek.app",
+      "sha256_cert_fingerprints": ["CB994B4EC2FFC3C7FF7FABB951EAD3AF2707F4F8C9C7C16D11A1E1A8EC795153"]
+    }
+  }
+]

@@ -1,0 +1,182 @@
+/* Options layout. The design system lives in ../ui/trek.css.
+
+   A settings page is where the "box everything" reflex is strongest, and where Surfaces.kt's
+   rule matters most: the only bordered panels here are the two that genuinely are discrete
+   objects — the unconfigured-sync banner you can act on, and the destructive action. Every
+   other group is an overline, a hairline rule, and rows separated by whitespace. */
+
+body {
+  padding: var(--s-5) var(--s-3) var(--s-5);
+}
+
+.wrap {
+  width: min(100%, 42rem);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--s-5);
+}
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-2);
+}
+
+.brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 1.125rem;
+  letter-spacing: -0.02em;
+}
+
+.mark {
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.lede {
+  margin: 0 0 var(--s-3);
+  color: var(--ink-muted);
+  max-width: 34rem;
+}
+
+/* A row is a label, an explanation, and one control. Aligned on a single right-hand edge so
+   the eye runs down the controls without hunting. */
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.row-text strong {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  color: var(--ink);
+}
+
+.row-text .faint {
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+/* The site list. Each entry carries its own domain as a monospaced-feeling key, because the
+   domain is the thing that has to match, not the friendly label. */
+.list {
+  margin: var(--s-2) 0 var(--s-3);
+}
+
+.site {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: 0.6rem 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.site-name {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+}
+
+.site-name b {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 0.9375rem;
+}
+
+.site-name span {
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.site .remove {
+  border: 0;
+  background: none;
+  color: var(--ink-faint);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0.2rem 0.4rem;
+  border-radius: var(--r-sm);
+}
+
+.site .remove:hover {
+  color: var(--danger);
+}
+
+.add {
+  display: flex;
+  gap: var(--s-2);
+  margin-top: var(--s-3);
+}
+
+.note {
+  margin: var(--s-2) 0 0;
+  min-height: 1.2em;
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+
+.note.error {
+  color: var(--danger);
+}
+
+.note.good {
+  color: var(--moss);
+}
+
+.panel p {
+  margin: 0.35rem 0 0;
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+  max-width: 38rem;
+}
+
+.panel strong {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: 0.9375rem;
+}
+
+.panel .btn {
+  margin-top: var(--s-3);
+}
+
+.panel.warn strong { color: var(--amber); }
+.panel.danger strong { color: var(--danger); }
+
+/* An armed destructive button says what the next click does, and looks different while it
+   waits. Two deliberate clicks, no modal — a dialog for one irreversible action in a
+   settings page is ceremony, but one click is an accident. */
+.btn-danger[data-armed="true"] {
+  background: var(--danger);
+  color: #2b0810;
+  border-color: var(--danger);
+}
+
+.foot {
+  padding-top: var(--s-3);
+  border-top: 1px solid var(--hairline);
+  font-size: 0.8125rem;
+  max-width: 38rem;
+}

@@ -55,6 +55,46 @@ class Prefs private constructor(context: Context) {
         get() = sp.getInt(KEY_NOTIFIED_RANK, Int.MAX_VALUE)
         set(value) = sp.edit().putInt(KEY_NOTIFIED_RANK, value).apply()
 
+    // --- day-ledger sync bookkeeping ---
+
+    /**
+     * What the server was last told each day's total was, as `yyyy-MM-dd=<µm>` lines.
+     * Diffing Room against this is what makes a routine sync push the two days that moved
+     * instead of re-uploading the user's whole history (see `social/SyncModel.dirtyDays`).
+     *
+     * SharedPreferences rather than a Room table, deliberately: this is disposable mirror
+     * state *about a remote*, not user data. Room stays the source of truth for every
+     * measurement, losing this costs one re-upload and never a metre, and a new Room table
+     * would mean a schema migration for something with nothing worth migrating. It also
+     * sits with the rest of the "what has the network already been told" bookkeeping above.
+     * A two-year history encodes to roughly 12 KB, which a single preference carries fine.
+     */
+    val syncedDayUm: Map<String, Long>
+        get() = decodeDayUm(sp.getString(KEY_SYNCED_DAY_UM, null))
+
+    /** Merges a just-committed batch in, so a failure part-way does not lose the rest. */
+    fun markDaysSynced(days: Map<String, Long>) {
+        if (days.isEmpty()) return
+        sp.edit().putString(KEY_SYNCED_DAY_UM, encodeDayUm(syncedDayUm + days)).apply()
+    }
+
+    /** Epoch millis of the last successful push, or 0 when this install never has. */
+    var lastSyncedAt: Long
+        get() = sp.getLong(KEY_LAST_SYNCED_AT, 0L)
+        set(value) = sp.edit().putLong(KEY_LAST_SYNCED_AT, value).apply()
+
+    /**
+     * Opting out takes the day ledger off the server, so the record of having pushed it
+     * has to go too — otherwise opting back in would backfill nothing and the history
+     * would stay missing until every day happened to change again.
+     */
+    fun clearSyncState() {
+        sp.edit()
+            .remove(KEY_SYNCED_DAY_UM)
+            .remove(KEY_LAST_SYNCED_AT)
+            .apply()
+    }
+
     private fun readTrackedApps(): Set<String> =
         sp.getStringSet(KEY_TRACKED_APPS, null) ?: TRACKED_APPS.keys
 
@@ -113,6 +153,8 @@ class Prefs private constructor(context: Context) {
         private const val KEY_KNOWN_REQUESTS = "known_request_uids"
         private const val KEY_NOTIFIED_RANK_WEEK = "notified_rank_week"
         private const val KEY_NOTIFIED_RANK = "notified_rank"
+        private const val KEY_SYNCED_DAY_UM = "synced_day_um"
+        private const val KEY_LAST_SYNCED_AT = "last_synced_at"
 
         /** `pkg|label` lines; labels never contain newlines and `|` is stripped on save. */
         fun encodeCustomApps(apps: Map<String, String>): String =
@@ -124,6 +166,20 @@ class Prefs private constructor(context: Context) {
                     val sep = line.indexOf('|')
                     if (sep <= 0 || sep == line.length - 1) return@mapNotNull null
                     line.take(sep) to line.drop(sep + 1)
+                }
+                .toMap()
+
+        /** `date=um` lines. Dates are fixed-width and µm are integers, so nothing escapes. */
+        fun encodeDayUm(days: Map<String, Long>): String =
+            days.entries.sortedBy { it.key }.joinToString("\n") { "${it.key}=${it.value}" }
+
+        fun decodeDayUm(raw: String?): Map<String, Long> =
+            raw.orEmpty().lineSequence()
+                .mapNotNull { line ->
+                    val sep = line.indexOf('=')
+                    if (sep <= 0) return@mapNotNull null
+                    val um = line.drop(sep + 1).toLongOrNull() ?: return@mapNotNull null
+                    line.take(sep) to um
                 }
                 .toMap()
 

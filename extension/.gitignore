@@ -1,0 +1,8 @@
+# The real Firebase config. config.example.js is the committed template; copy it to
+# config.js and fill it in. Kept out of git not because these values are secret -- a
+# Firebase web API key is a public identifier -- but because the file is per-checkout
+# and a committed copy would be silently stale for the next person.
+# Anchored: only the per-checkout secret at this directory's root. lib/config.js is the
+# committed loader that reads it and must stay tracked — a bare `config.js` pattern
+# would match at any depth and silently drop the loader too.
+/config.js

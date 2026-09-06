@@ -53,8 +53,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.TextStyle
@@ -132,44 +130,6 @@ fun Hairline(modifier: Modifier = Modifier, color: Color = Trek.hairlineSoft) {
             .fillMaxWidth()
             .height(1.dp)
             .background(color),
-    )
-}
-
-/**
- * Nested contour rings behind the hero. Reads as a topographic map at a glance and costs
- * one pass of stroked ovals. Purely decorative, so it is hidden from accessibility.
- */
-@Composable
-fun ContourField(
-    modifier: Modifier = Modifier,
-    color: Color = Trek.contour,
-    rings: Int = 9,
-    focus: Offset = Offset(0.82f, 0.14f),
-) {
-    Spacer(
-        modifier = modifier
-            .clearAndSetSemantics { }
-            .drawBehind {
-                clipRect {
-                    val cx = size.width * focus.x
-                    val cy = size.height * focus.y
-                    val step = size.minDimension * 0.115f
-                    val stroke = Stroke(width = 1.dp.toPx())
-                    repeat(rings) { i ->
-                        // Each ring drifts a little further from the focus. That drift is
-                        // what makes the set read as terrain rather than a bullseye.
-                        val r = step * (i + 1)
-                        val drift = i * step * 0.16f
-                        val rx = r * 1.28f
-                        drawOval(
-                            color = color,
-                            topLeft = Offset(cx - rx - drift, cy - r + drift * 0.4f),
-                            size = Size(rx * 2f, r * 2f),
-                            style = stroke,
-                        )
-                    }
-                }
-            },
     )
 }
 

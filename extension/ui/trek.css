@@ -1,0 +1,459 @@
+/* ThumbTrek — the survey-sheet system, ported from ui/Theme.kt and web/styles.css.
+   Shared by the popup and the options page.
+
+   This is the same instrument the app is. Three accents, each owning exactly one job:
+
+     moss   today, you, anything live
+     amber  streak heat and records — never decoration
+     slate  the past, and other people — context, not competition
+
+   And the structural rule from ui/Surfaces.kt, which is the easiest one to lose in a
+   browser: a bordered panel is used ONLY where the content genuinely is a discrete object.
+   Sections are separated by an overline, a hairline rule and whitespace. Boxing every group
+   is what made an earlier pass of the app "read as a stock dashboard", and a popup is
+   exactly the surface where that temptation is strongest.
+
+   Committed dark, like the landing page: the mark, the app and the contour language are all
+   built on the same near-black ground, so there is no light variant to fall back to. Every
+   colour is painted explicitly rather than inherited. */
+
+/* Bundled, not fetched. An extension that pulls a font from a CDN tells that CDN every time
+   the user opens their own scroll statistics, which is precisely the thing this extension
+   exists not to do — and it would break offline, where everything else still works.
+   Both files are the variable originals from app/src/main/res/font/, so one file per family
+   covers 400–700 the same way FontVariation does on Android. */
+@font-face {
+  font-family: "Space Grotesk";
+  src: url("../fonts/space_grotesk.ttf") format("truetype-variations");
+  font-weight: 400 700;
+  font-display: block;
+}
+
+@font-face {
+  font-family: "Manrope";
+  src: url("../fonts/manrope.ttf") format("truetype-variations");
+  font-weight: 400 700;
+  font-display: block;
+}
+
+:root {
+  --ground: #0c0f0b;
+  --ground-raised: #13170f;
+  --ground-sunken: #080a07;
+  --hairline: #262c1d;
+  --hairline-soft: #1a1f15;
+  --contour: #1b2114;
+  --ink: #edf1e6;
+  --ink-muted: #a9b39c;
+  --ink-faint: #79836d;
+  --moss: #8be6a0;
+  --on-moss: #05210f;
+  --moss-wash: #17281b;
+  --amber: #f2b455;
+  --amber-wash: #2a2113;
+  --slate: #8fb6cc;
+  --slate-wash: #16212a;
+  --danger: #f08497;
+  --danger-wash: #2b1319;
+
+  --display: "Space Grotesk", "Segoe UI", sans-serif;
+  --body: "Manrope", "Segoe UI", sans-serif;
+
+  --s-1: 0.35rem;
+  --s-2: 0.65rem;
+  --s-3: 1rem;
+  --s-4: 1.5rem;
+  --s-5: 2.25rem;
+
+  /* Tighter than Material's defaults, on purpose. This is an instrument; 28dp pills on
+     data panels read as a consumer toy. */
+  --r-sm: 0.55rem;
+  --r-md: 0.75rem;
+  --r-lg: 1rem;
+
+  /* Exponential ease-out: fast commit, long settle, no overshoot. TrekEase, in CSS. */
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--body);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--ink);
+  background: var(--ground);
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--moss);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Figures line up in columns everywhere in this UI. */
+.num {
+  font-variant-numeric: tabular-nums lining-nums;
+}
+
+/* ————————————————————— Section furniture, not cards ————————————————————— */
+
+/* SectionHead: a wide-tracked overline, a hairline rule running to the edge of the content
+   column, and an optional trailing value. */
+.section {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+  margin: 0 0 var(--s-2);
+}
+
+.overline {
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.section .rule {
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.section .trailing {
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+.hairline {
+  height: 1px;
+  background: var(--hairline-soft);
+  border: 0;
+  margin: var(--s-3) 0;
+}
+
+/* A bordered panel. Discrete objects only: a banner you can act on, one achievement,
+   one destructive action. Never a section wrapper. */
+.panel {
+  padding: var(--s-3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-md);
+  background: var(--ground-raised);
+}
+
+.panel.warn {
+  border-color: rgba(242, 180, 85, 0.35);
+  background: var(--amber-wash);
+}
+
+.panel.danger {
+  border-color: rgba(240, 132, 151, 0.35);
+  background: var(--danger-wash);
+}
+
+/* ————————————————————————————— Numbers ————————————————————————————— */
+
+/* The hero readout. Set far larger than anything near it because on this surface the
+   distance is not "a stat", it is the entire reason the surface exists. */
+.hero-figure {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: 3.75rem;
+  line-height: 1;
+  letter-spacing: -0.045em;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--ink);
+}
+
+/* Long figures step down a size, so a five-digit kilometre count never wraps or clips. */
+.hero-figure.long {
+  font-size: 2.85rem;
+  letter-spacing: -0.035em;
+}
+
+.hero-unit {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  color: var(--ink-muted);
+  margin-left: 0.3rem;
+}
+
+.figure {
+  font-family: var(--display);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums lining-nums;
+  letter-spacing: -0.01em;
+  color: var(--ink);
+}
+
+/* ———————————————————————— Rails, chips, rows ———————————————————————— */
+
+/* The one bar primitive: a sunken track with a filled portion. Site splits, day history
+   and badge progress all use it, so proportion looks the same wherever it appears and a
+   reader learns it once. */
+.rail {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--ground-sunken);
+  overflow: hidden;
+}
+
+.rail > i {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--moss);
+  /* Never narrower than the cap radius: a tiny value would otherwise render as a sliver
+     that reads like a rendering bug. */
+  min-width: 5px;
+  transition: width 520ms var(--ease);
+}
+
+.measure-row {
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.5rem 0;
+}
+
+.measure-row .line {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-2);
+}
+
+.measure-row .label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+.measure-row .value {
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums lining-nums;
+  color: var(--ink-muted);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+  white-space: nowrap;
+}
+
+/* Streak marker. Amber is reserved for this and for records, so it always means heat rather
+   than "look here". At zero it becomes a quiet invitation instead of vanishing — an element
+   that disappears teaches a new user nothing. */
+.chip.streak {
+  border-color: rgba(242, 180, 85, 0.35);
+  background: var(--amber-wash);
+  color: var(--amber);
+}
+
+.chip.streak .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+  animation: pulse 1800ms ease-in-out infinite alternate;
+}
+
+.chip.idle {
+  color: var(--ink-faint);
+}
+
+.chip.idle .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+}
+
+@keyframes pulse {
+  from { opacity: 0.5; }
+  to { opacity: 1; }
+}
+
+/* A percentage delta, coloured only by direction — never by judgement about the number. */
+.delta.up { color: var(--amber); }
+.delta.down { color: var(--slate); }
+
+/* ————————————————————————————— Controls ————————————————————————————— */
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.25rem;
+  padding: 0.45rem 1rem;
+  border-radius: var(--r-sm);
+  border: 1px solid transparent;
+  font-family: var(--body);
+  font-weight: 600;
+  font-size: 0.8125rem;
+  cursor: pointer;
+  transition: background 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease);
+}
+
+.btn:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+.btn-primary {
+  background: var(--moss);
+  color: var(--on-moss);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #a4efb5;
+}
+
+.btn-ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--hairline);
+}
+
+.btn-ghost:hover:not(:disabled) {
+  border-color: var(--ink-faint);
+  background: rgba(237, 241, 230, 0.04);
+}
+
+.btn-danger {
+  background: transparent;
+  color: var(--danger);
+  border-color: rgba(240, 132, 151, 0.4);
+}
+
+.btn-danger:hover:not(:disabled) {
+  background: var(--danger-wash);
+}
+
+/* A switch, not a checkbox: the state has to be readable at a glance in a list of ten. */
+.toggle {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2.4rem;
+  height: 1.35rem;
+  border-radius: 999px;
+  border: 1px solid var(--hairline);
+  background: var(--ground-sunken);
+  cursor: pointer;
+  padding: 0;
+  transition: background 200ms var(--ease), border-color 200ms var(--ease);
+}
+
+.toggle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0.18rem;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  transform: translateY(-50%);
+  transition: transform 200ms var(--ease), background 200ms var(--ease);
+}
+
+.toggle[aria-checked="true"] {
+  background: var(--moss-wash);
+  border-color: rgba(139, 230, 160, 0.45);
+}
+
+.toggle[aria-checked="true"]::after {
+  background: var(--moss);
+  transform: translateY(-50%) translateX(1.03rem);
+}
+
+input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.25rem;
+  padding: 0.4rem 0.7rem;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--hairline);
+  background: var(--ground-sunken);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 0.8125rem;
+}
+
+input[type="text"]::placeholder {
+  color: var(--ink-faint);
+}
+
+/* ————————————————————————————— States ————————————————————————————— */
+
+/* Zero state. Always names what will appear here and what the single next move is: a blank
+   screen with a shrug is how a new user decides the thing is broken. */
+.empty {
+  padding: var(--s-2) 0 var(--s-3);
+}
+
+.empty h3 {
+  margin: 0 0 0.2rem;
+  font-family: var(--display);
+  font-weight: 500;
+  font-size: 0.9375rem;
+  color: var(--ink);
+}
+
+.empty p {
+  margin: 0;
+  color: var(--ink-muted);
+  font-size: 0.8125rem;
+}
+
+.muted { color: var(--ink-muted); }
+.faint { color: var(--ink-faint); }
+.moss { color: var(--moss); }
+.amber { color: var(--amber); }
+.slate { color: var(--slate); }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}

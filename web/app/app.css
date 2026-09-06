@@ -1,0 +1,902 @@
+/* ThumbTrek dashboard.
+   Loaded after /styles.css and built entirely on its tokens — same ground, same moss,
+   amber and slate, same two typefaces, same 1.25 modular scale. Nothing here introduces a
+   colour or a size; if a value is not a var(), it is a geometry (a bar width, a podium
+   height), not a new decision.
+
+   The one structural rule carried over from the app (app/.../ui/Surfaces.kt): panels are
+   for things that genuinely are discrete objects — one person's row, one banner, one
+   achievement. Sections are separated by a marker and whitespace instead. Boxing every
+   group in a card is exactly what made the previous pass read as a stock dashboard, and it
+   was rejected there for the same reason it is avoided here. */
+
+/* ——————————————————————————————— Utility ——————————————————————————————— */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Off-screen until focused: the first tab on a data-heavy page should not be nav. */
+.skip-link {
+  position: absolute;
+  left: var(--s-3);
+  top: -4rem;
+  z-index: 10;
+  padding: 0.6rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--moss);
+  color: var(--on-moss);
+  font-family: var(--display);
+  font-weight: 600;
+  transition: top 140ms ease;
+}
+
+.skip-link:focus-visible {
+  top: var(--s-3);
+}
+
+.mono {
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+  font-size: var(--t-sm);
+  color: var(--amber);
+  word-break: break-word;
+}
+
+code {
+  font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
+  font-size: 0.92em;
+  color: var(--ink-muted);
+}
+
+.error {
+  margin: var(--s-3) 0 0;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(240, 132, 151, 0.4);
+  border-radius: 0.55rem;
+  background: #2b1319;
+  color: #f5d3d9;
+  font-size: var(--t-sm);
+}
+
+.empty-note {
+  margin: var(--s-3) 0 0;
+  color: var(--ink-muted);
+  max-width: 44rem;
+}
+
+.empty {
+  padding: var(--s-3) 0;
+}
+
+.empty h3 {
+  margin: 0 0 var(--s-1);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--t-md);
+  letter-spacing: -0.02em;
+}
+
+.empty p {
+  margin: 0;
+  color: var(--ink-muted);
+  max-width: 38rem;
+  font-size: var(--t-sm);
+}
+
+/* ——————————————————————————————— Chrome ——————————————————————————————— */
+
+.account {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.account-name {
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--ink);
+  font-size: var(--t-sm);
+}
+
+.avatar {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  object-fit: cover;
+  border: 1px solid var(--hairline);
+  flex: 0 0 auto;
+}
+
+.avatar-blank {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--moss-wash);
+  color: var(--moss);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--t-sm);
+}
+
+.btn-small {
+  min-height: 2.2rem;
+  padding: 0.35rem 0.8rem;
+  font-size: var(--t-xs);
+}
+
+/* A state banner, not a card: full-bleed hairline band across the top of the data. */
+.connection {
+  width: min(100% - 2 * var(--gutter), var(--max));
+  margin: var(--s-4) auto 0;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid rgba(242, 180, 85, 0.35);
+  border-radius: 0.55rem;
+  background: #2a2113;
+  color: #f6e3c4;
+  font-size: var(--t-sm);
+}
+
+/* ——————————————————————————————— Section furniture ——————————————————————————————— */
+
+/* The app's SectionHead: a wide-tracked overline, a hairline running to the edge of the
+   content column, and an optional trailing figure. Survey-sheet furniture, not a card. */
+.marker {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  margin: var(--s-5) 0 var(--s-3);
+  font-weight: 400;
+  font-size: var(--t-base);
+}
+
+.marker-text,
+.marker-trailing {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.marker-trailing {
+  color: var(--ink-muted);
+}
+
+.marker-rule {
+  flex: 1;
+  height: 1px;
+  background: var(--hairline);
+}
+
+.control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  align-items: center;
+  margin-bottom: var(--s-4);
+}
+
+/* ——————————————————————————————— Segmented control ——————————————————————————————— */
+
+.segmented {
+  display: inline-flex;
+  padding: 3px;
+  gap: 3px;
+  border: 1px solid var(--hairline-soft);
+  border-radius: 0.55rem;
+  background: var(--ground-sunken);
+}
+
+.segment {
+  min-height: 2.4rem;
+  padding: 0.4rem 0.9rem;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--t-xs);
+  cursor: pointer;
+  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+}
+
+.segment:hover {
+  color: var(--ink-muted);
+}
+
+.segment[aria-pressed="true"] {
+  background: var(--ground-raised);
+  border-color: var(--hairline);
+  color: var(--ink);
+}
+
+/* ——————————————————————————————— Today ——————————————————————————————— */
+
+.today {
+  margin-bottom: var(--s-5);
+}
+
+.today-figure {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(3rem, 11vw, 5.5rem);
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  color: var(--moss);
+}
+
+.today-figure .unit {
+  font-size: 0.3em;
+  font-weight: 600;
+  color: var(--ink-faint);
+  margin-left: 0.25em;
+  letter-spacing: 0;
+}
+
+.today-compare {
+  margin: var(--s-3) 0 0;
+  font-size: var(--t-md);
+  color: var(--ink);
+  max-width: 34rem;
+}
+
+.delta {
+  margin: var(--s-2) 0 0;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--t-xs);
+  letter-spacing: 0.02em;
+}
+
+/* Coloured only by direction — never by a judgement about the number. */
+.delta-up { color: var(--amber); }
+.delta-down { color: var(--slate); }
+
+#today-goal {
+  margin-top: var(--s-3);
+  max-width: 30rem;
+}
+
+.totals-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: var(--s-4);
+  border-top: 1px solid var(--hairline);
+  padding-top: var(--s-4);
+}
+
+.readout-cell p {
+  margin: 0;
+}
+
+.readout-figure {
+  margin-top: var(--s-1) !important;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: var(--t-lg);
+  letter-spacing: -0.03em;
+  color: var(--ink);
+}
+
+.readout-figure .unit {
+  font-size: 0.62em;
+  font-weight: 600;
+  color: var(--ink-faint);
+  margin-left: 0.15em;
+}
+
+/* ——————————————————————————————— Charts ——————————————————————————————— */
+
+.chart-figure {
+  margin: 0 0 var(--s-4);
+}
+
+/* Wide ranges scroll inside the figure rather than pushing the page sideways. */
+.chart-scroll {
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+}
+
+.chart {
+  width: 100%;
+  min-width: 20rem;
+  height: auto;
+}
+
+.chart-base {
+  stroke: var(--hairline);
+  stroke-width: 1;
+}
+
+.bar {
+  fill: var(--moss);
+  opacity: 0.55;
+}
+
+/* Amber marks the bucket you are standing in — the same reservation the app makes. */
+.bar-current {
+  fill: var(--amber);
+  opacity: 1;
+}
+
+.bar-label {
+  fill: var(--ink-faint);
+  font-family: var(--display);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.bar-label-current {
+  fill: var(--ink);
+}
+
+.chart-caption {
+  margin-top: var(--s-2);
+  color: var(--ink-faint);
+  font-size: var(--t-xs);
+}
+
+/* ——————————————————————————————— Measure rows ——————————————————————————————— */
+
+.measure {
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.measure-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: 0.45rem;
+}
+
+.measure-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--t-sm);
+  color: var(--ink);
+}
+
+.measure-note {
+  font-size: var(--t-xs);
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+}
+
+.measure-value {
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--t-sm);
+  color: var(--ink-muted);
+}
+
+.dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  border-radius: 999px;
+  flex: 0 0 auto;
+  align-self: center;
+}
+
+.dot-moss { background: var(--moss); }
+.dot-slate { background: var(--slate); }
+
+.rail {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--ground-sunken);
+  overflow: hidden;
+}
+
+.rail-thin {
+  height: 3px;
+}
+
+.rail-fill {
+  height: 100%;
+  border-radius: 999px;
+  /* Never narrower than the cap: a sliver reads like a rendering bug, not a small value. */
+  min-width: 5px;
+  transition: width 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.rail-moss { background: var(--moss); }
+.rail-slate { background: var(--slate); }
+
+.sync-list {
+  list-style: none;
+  padding: 0;
+  margin: var(--s-2) 0 0;
+}
+
+/* ——————————————————————————————— Day log ——————————————————————————————— */
+
+.daylog {
+  margin-top: var(--s-5);
+  border-top: 1px solid var(--hairline);
+}
+
+.daylog summary {
+  display: flex;
+  align-items: center;
+  gap: var(--s-3);
+  padding: var(--s-3) 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.daylog summary::-webkit-details-marker {
+  display: none;
+}
+
+.daylog summary::after {
+  content: "▾";
+  margin-left: auto;
+  color: var(--ink-faint);
+  transition: transform 160ms ease;
+}
+
+.daylog[open] summary::after {
+  transform: rotate(180deg);
+}
+
+.daylog-month {
+  margin: var(--s-4) 0 var(--s-2);
+}
+
+/* ——————————————————————————————— Records ——————————————————————————————— */
+
+/* Amber is reserved for streak heat and records, so it always means heat rather than
+   "look here". At zero the marker becomes a quiet invitation instead of vanishing —
+   an element that disappears teaches a new user nothing. */
+.streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 var(--s-4);
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  color: var(--ink-faint);
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--t-xs);
+}
+
+.streak::before {
+  content: "";
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 999px;
+  background: currentColor;
+}
+
+.streak-live {
+  border-color: rgba(242, 180, 85, 0.35);
+  background: #2a2113;
+  color: var(--amber);
+}
+
+.ledger {
+  padding: 0.7rem 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.ledger-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--s-3);
+}
+
+.ledger-label {
+  flex: 1;
+  color: var(--ink);
+}
+
+.ledger-value {
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: var(--t-lg);
+  letter-spacing: -0.02em;
+  color: var(--amber);
+}
+
+.badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
+  gap: var(--s-2);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.badge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.85rem 0.5rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--ground-raised);
+  text-align: center;
+}
+
+.badge-earned {
+  border-color: rgba(139, 230, 160, 0.4);
+  background: var(--moss-wash);
+}
+
+.badge-emoji {
+  font-size: 1.35rem;
+  line-height: 1;
+  filter: grayscale(1);
+  opacity: 0.55;
+}
+
+.badge-earned .badge-emoji {
+  filter: none;
+  opacity: 1;
+}
+
+.badge-label {
+  font-size: var(--t-xs);
+  color: var(--ink-faint);
+}
+
+.badge-earned .badge-label {
+  color: var(--moss);
+}
+
+.badge .rail {
+  width: 100%;
+}
+
+/* ——————————————————————————————— Leaderboard ——————————————————————————————— */
+
+.standing {
+  margin: 0 0 var(--s-3);
+  font-family: var(--display);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.board {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--s-2);
+}
+
+/* One person's row IS a discrete object, so it gets a panel. Sections around it do not. */
+.board-row {
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--ground-raised);
+}
+
+.board-row-me {
+  border-color: rgba(139, 230, 160, 0.4);
+  background: var(--moss-wash);
+}
+
+.board-head {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin-bottom: 0.5rem;
+}
+
+.rank {
+  min-width: 1.6rem;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: var(--t-sm);
+  color: var(--ink-faint);
+}
+
+/* Gold, silver, bronze for the top three; everyone else a plain tabular figure, which
+   keeps the eye on the podium without turning the list into confetti. */
+.rank-1 { color: #f2c55c; }
+.rank-2 { color: #c9d2c2; }
+.rank-3 { color: #d09a66; }
+
+.board-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-value {
+  font-family: var(--display);
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.board-row .fine {
+  margin: 0.5rem 0 0;
+}
+
+.icon-button {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.icon-button:hover {
+  color: var(--ink);
+  border-color: var(--hairline);
+}
+
+.podium {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--s-2);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.podium-slot {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  text-align: center;
+  min-width: 0;
+}
+
+.podium-name,
+.podium-value {
+  font-size: var(--t-xs);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.podium-value {
+  color: var(--ink-faint);
+}
+
+.podium-block {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: var(--t-lg);
+}
+
+.podium-1 .podium-block { height: 4.6rem; background: rgba(242, 197, 92, 0.16); border: 1px solid rgba(242, 197, 92, 0.5); color: #f2c55c; }
+.podium-2 .podium-block { height: 3.4rem; background: rgba(201, 210, 194, 0.16); border: 1px solid rgba(201, 210, 194, 0.5); color: #c9d2c2; }
+.podium-3 .podium-block { height: 2.5rem; background: rgba(208, 154, 102, 0.16); border: 1px solid rgba(208, 154, 102, 0.5); color: #d09a66; }
+
+/* ——————————————————————————————— Friends ——————————————————————————————— */
+
+.code-block {
+  padding: var(--s-4);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: var(--ground-sunken);
+  max-width: 26rem;
+}
+
+.my-code {
+  margin: 0 0 var(--s-3);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: var(--t-xl);
+  letter-spacing: 0.08em;
+  color: var(--ink);
+}
+
+.code-block .fine {
+  margin-top: var(--s-3) !important;
+  word-break: break-all;
+}
+
+.code-block a {
+  color: var(--moss);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.people {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--s-2);
+}
+
+.request,
+.friend {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.55rem 0;
+  border-bottom: 1px solid var(--hairline-soft);
+  min-height: 3rem;
+}
+
+.request-name,
+.friend-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tag {
+  padding: 0.15rem 0.5rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  font-size: var(--t-xs);
+  color: var(--ink-faint);
+}
+
+.add-form {
+  margin-top: var(--s-5);
+  max-width: 26rem;
+}
+
+.add-form label {
+  display: block;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--t-xs);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  margin-bottom: var(--s-2);
+}
+
+.add-row {
+  display: flex;
+  gap: var(--s-2);
+}
+
+.add-row input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.85rem;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid var(--hairline);
+  border-radius: 0.55rem;
+  background: var(--ground-sunken);
+  color: var(--ink);
+  font-family: var(--display);
+  font-size: var(--t-base);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.add-row input::placeholder {
+  color: var(--ink-faint);
+  letter-spacing: 0.06em;
+}
+
+.add-row input:focus-visible {
+  outline: 2px solid var(--moss);
+  outline-offset: 2px;
+  border-color: var(--moss);
+}
+
+/* ——————————————————————————————— Invite steps ——————————————————————————————— */
+
+/* A real ordered list: these steps happen in order, on a device that is not this one, and
+   the number is the only thing keeping someone's place while they switch to it. */
+.steps {
+  margin: 0;
+  padding-left: 1.4rem;
+  display: grid;
+  gap: var(--s-3);
+  color: var(--ink-muted);
+  max-width: 38rem;
+}
+
+.steps li {
+  padding-left: 0.2rem;
+}
+
+.steps li::marker {
+  font-family: var(--display);
+  font-weight: 700;
+  color: var(--moss);
+}
+
+.steps .btn {
+  margin-right: 0.6rem;
+  vertical-align: middle;
+}
+
+.steps strong {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* ——————————————————————————————— Signed-out panel ——————————————————————————————— */
+
+.promise {
+  position: absolute;
+  inset: auto var(--s-4) var(--s-4) var(--s-4);
+  list-style: none;
+  padding: 0.8rem 0.95rem;
+  margin: 0;
+  border: 1px solid var(--hairline);
+  border-radius: 0.65rem;
+  background: rgba(8, 10, 7, 0.72);
+  backdrop-filter: blur(10px);
+  display: grid;
+  gap: 0.35rem;
+  font-size: var(--t-xs);
+  color: var(--ink-muted);
+}
+
+.promise li::before {
+  content: "— ";
+  color: var(--moss);
+}
+
+/* ——————————————————————————————— Responsive ——————————————————————————————— */
+
+@media (max-width: 640px) {
+  .account-name {
+    display: none;
+  }
+
+  .segmented {
+    width: 100%;
+  }
+
+  .segment {
+    flex: 1;
+  }
+
+  .podium-name,
+  .podium-value {
+    font-size: 0.7rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rail-fill,
+  .segment,
+  .skip-link,
+  .daylog summary::after {
+    transition: none;
+  }
+}

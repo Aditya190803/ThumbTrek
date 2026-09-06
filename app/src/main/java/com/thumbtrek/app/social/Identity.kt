@@ -33,7 +33,7 @@ fun formatFriendCode(code: String): String =
 
 /**
  * Accepts what people actually paste: lower case, spaces, the grouping dash, or the
- * whole `https://thumbtrek.app/i/<code>` invite link.
+ * whole `https://thumbtrek.adityamer.dev/i/<code>` invite link.
  */
 fun normalizeFriendCode(input: String): String =
     input.trim()
@@ -71,7 +71,7 @@ fun anonymousHandle(uid: String): String {
     return String.format(Locale.US, "%s %s #%04d", adjective, noun, number)
 }
 
-fun inviteLink(code: String): String = "https://thumbtrek.app/i/$code"
+fun inviteLink(code: String): String = "https://thumbtrek.adityamer.dev/i/$code"
 
 fun inviteMessage(code: String): String =
     "I'm tracking how far my thumb scrolls with ThumbTrek. Add me with code " +
