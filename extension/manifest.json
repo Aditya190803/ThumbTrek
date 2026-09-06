@@ -2,6 +2,7 @@
   "manifest_version": 3,
   "name": "ThumbTrek",
   "version": "0.1.0",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsParh9u9DvRPu/UFQhJl8tv9I5oza18aCy87VRNMPsbm6rY82FGaYt2nnDAyfxajknB5uQRgrfj7aOnltQLv2bQHiK7g3NcRBHOAbMTTVLPOtJ9RFJY5OY8dcBkyBRjn8L3ToTKO/22SnrEosuh1o+zN5mrEYbAfe1VJV4liIhuEyb3jbJZCxTDf1rUn0O7zb9l9ORIW++xastYGM4CoeBE+pWX+GTBAPy9ws5jwjWONLLvDM8oX+cMtXftNrPOlVaHj3KMVdVwC+ql9dyHI5niXNT9tfuprDQvtx0QpZmNiIlzGHpwsfVGrX1XhsopoYi46PyiNVt9SnUuhQJnyUwIDAQAB",
   "description": "Strava for scrolling. Measures how far your thumb actually travels through feeds, in metres.",
   "minimum_chrome_version": "116",
   "icons": {

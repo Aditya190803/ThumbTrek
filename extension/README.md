@@ -81,28 +81,35 @@ because a committed copy would be silently stale for the next checkout.
 > minted when one is registered — the **`</>`** button on that Project settings screen. Until
 > then those two values genuinely do not exist and cannot be guessed.
 
-### 2. Pin the extension id
+### 2. The extension id is pinned — register this redirect URI once
 
 `launchWebAuthFlow` redirects to `https://<extension-id>.chromiumapp.org/`, and that URI has
 to be registered against the OAuth client *before* sign-in will work. An unpacked extension's
-id is derived from its path, so it changes on a different machine — which would silently
-break the redirect.
+id is normally derived from its path, so it would change on every machine — which is why
+this repo pins it: `manifest.json` carries a committed `key` (public half of
+`thumbtrek-extension.pem`, which lives next to the release keystore, gitignored, backed up
+the same way). Every checkout of this repo loads as the same extension:
 
-Pin it by adding a `key` to `manifest.json`:
+```
+ID:            hnpbmamhbbhafanpjjedajgddbholoed
+Redirect URI:  https://hnpbmamhbbhafanpjjedajgddbholoed.chromiumapp.org/
+```
+
+Register that URI once (step 3) and every install — yours, a tester's, any machine — signs
+in with zero per-machine setup. (The Chrome Web Store will assign a *different*, permanent
+id at publish time; that URI gets added alongside, same step, and the pinned key is what
+keeps pre-store testers stable until then.)
+
+If the private key is ever lost, generate a new one the same way and update the manifest:
 
 ```sh
-# From a packed .crx, or from the Web Store listing's "Public key" field.
-# chrome://extensions → Pack extension produces a .pem; the public half goes in the manifest.
-openssl rsa -in key.pem -pubout -outform DER | openssl base64 -A
+# New private key (gitignored — back it up with the release keystore).
+openssl genrsa -out thumbtrek-extension.pem 2048
+# The public half goes in manifest.json as "key".
+openssl rsa -in thumbtrek-extension.pem -pubout -outform DER | openssl base64 -A
 ```
 
-```json
-{ "key": "MIIBIjANBgkqhki...", "manifest_version": 3 }
-```
-
-The id shown on `chrome://extensions` after reloading is the one to use below. You can also
-just read it off that page and skip pinning while developing on one machine — it only has to
-be stable, not chosen.
+A new key means a new id, so the redirect URI below has to be re-registered too.
 
 ### 3. The OAuth client
 
