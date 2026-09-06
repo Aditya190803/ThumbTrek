@@ -1,5 +1,0 @@
-# The real Firebase Web App config. firebase-config.example.js is the committed
-# template; copy it to firebase-config.js and fill it in per deployment. Kept out of
-# git so a stale committed copy can't shadow a real one (and so per-environment values
-# stay per-environment). Anchored: only the file at app/'s root.
-/app/firebase-config.js
