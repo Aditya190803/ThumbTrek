@@ -1,0 +1,11 @@
+{
+  "name": "thumbtrek-extension",
+  "private": true,
+  "version": "0.1.0",
+  "description": "ThumbTrek browser companion. Buildless: this file exists only so node treats .js as ESM when running the tests, and so `npm test` has somewhere to live. There are no dependencies and there is never a build step -- what is in this directory is what the browser loads.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "icons": "node tools/make-icons.mjs"
+  }
+}

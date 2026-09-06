@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>ThumbTrek</title>
+  <link rel="stylesheet" href="../ui/trek.css" />
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <!-- Everything below renders from IndexedDB alone. No account, no network, no exceptions:
+       contract §5 makes local storage the source of truth and the network a mirror, so this
+       surface has to be complete without either. -->
+  <main class="sheet">
+    <header class="head">
+      <span class="brand">
+        <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+          <g stroke="#8BE6A0" stroke-width="2" stroke-linecap="round" fill="none">
+            <path d="M13 21 C13 17.5 19 17.5 19 21" />
+            <path d="M10 21 C10 14.5 22 14.5 22 21" />
+            <path d="M7 21 C7 11.5 25 11.5 25 21" />
+          </g>
+          <path d="M5 25.5 L11 23 L17 25 L25.5 20" stroke="#EDF1E6" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" fill="none" />
+          <circle cx="25.5" cy="20" r="2.2" fill="#F2B455" />
+        </svg>
+        ThumbTrek
+      </span>
+      <span class="overline" id="today-label"></span>
+    </header>
+
+    <!-- The hero. Contour lines behind the figure, not a card around it. -->
+    <section class="hero" aria-labelledby="hero-figure">
+      <svg class="contours" viewBox="0 0 320 120" preserveAspectRatio="none" aria-hidden="true">
+        <path d="M-10 104 C60 92 110 114 170 100 C230 86 280 106 330 92" />
+        <path d="M-10 82 C60 66 110 90 170 74 C230 58 280 80 330 64" />
+        <path d="M-10 60 C60 40 110 66 170 48 C230 30 280 54 330 36" />
+        <path d="M-10 38 C60 14 110 42 170 22 C230 2 280 28 330 8" />
+      </svg>
+      <p class="overline">Today's trek</p>
+      <p class="hero-line">
+        <span class="hero-figure num" id="hero-figure">0</span><span class="hero-unit" id="hero-unit">m</span>
+      </p>
+      <p class="comparison" id="comparison"></p>
+      <p class="hero-meta">
+        <span class="chip idle" id="streak"><span class="dot"></span><span id="streak-text">No streak yet</span></span>
+        <span class="delta" id="delta"></span>
+      </p>
+    </section>
+
+    <section>
+      <div class="section">
+        <span class="overline">Today's sites</span>
+        <span class="rule"></span>
+        <span class="trailing" id="site-count"></span>
+      </div>
+      <div id="sites"></div>
+    </section>
+
+    <section>
+      <div class="section">
+        <span class="overline">Last 7 days</span>
+        <span class="rule"></span>
+        <span class="trailing" id="week-total"></span>
+      </div>
+      <!-- A route across the week rather than a bar chart: same survey language as the
+           landing page's hero, and a line reads a trend faster than seven columns do. -->
+      <figure class="spark" id="spark-figure">
+        <svg viewBox="0 0 300 74" id="spark" role="img" aria-labelledby="spark-caption"></svg>
+        <figcaption class="axis" id="spark-axis"></figcaption>
+        <span id="spark-caption" class="visually-hidden"></span>
+      </figure>
+    </section>
+
+    <footer class="foot">
+      <div class="stat">
+        <span class="overline">Best day</span>
+        <span class="figure num" id="best-day">—</span>
+        <span class="faint" id="best-day-when"></span>
+      </div>
+      <div class="stat">
+        <span class="overline">All time</span>
+        <span class="figure num" id="all-time">—</span>
+        <span class="faint" id="badge-count"></span>
+      </div>
+      <button class="btn btn-ghost" id="open-options" type="button">Settings</button>
+    </footer>
+  </main>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
