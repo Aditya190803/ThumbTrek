@@ -93,10 +93,27 @@ code {
 
 /* ——————————————————————————————— Chrome ——————————————————————————————— */
 
+/* Auth gating, CSS layer. JS toggles `hidden` on these two; the rules below decide what
+   `hidden` *allows*. The body default in index.html is data-auth="out", so a signed-out
+   visitor can never see the account cluster — not before JS runs, not if auth resolves
+   slowly, not if a stale script shows it. NOTE the :not([hidden]): an author display rule
+   beats the UA [hidden] rule, so without it the cluster would stick visible. */
 .account {
-  display: inline-flex;
+  display: none;
   align-items: center;
   gap: 0.5rem;
+}
+
+body[data-auth="in"] #account:not([hidden]) {
+  display: inline-flex;
+}
+
+#signin-head {
+  display: none;
+}
+
+body[data-auth="out"] #signin-head:not([hidden]) {
+  display: inline-flex;
 }
 
 .account-name {
@@ -144,6 +161,121 @@ code {
   background: #2a2113;
   color: #f6e3c4;
   font-size: var(--t-sm);
+}
+
+/* ——————————————————————————————— App bar ——————————————————————————————— */
+
+/* Deliberately not the site nav: no marketing links, a hairline underneath, and a
+   Dashboard tag so the signed-in tool never reads as a second landing page. */
+.appbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: var(--s-3) 0;
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+.appbar .brand {
+  font-size: var(--t-base);
+}
+
+.appbar .brand img {
+  width: 1.7rem;
+  height: 1.7rem;
+}
+
+.appbar-tag {
+  margin-left: 0.35rem;
+  padding: 0.22rem 0.65rem;
+  border: 1px solid var(--hairline);
+  border-radius: 999px;
+  font-family: var(--display);
+  font-weight: 600;
+  font-size: var(--t-xs);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--ink-faint);
+  white-space: nowrap;
+}
+
+.appbar-side {
+  display: flex;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+/* ——————————————————————————————— Gateway ——————————————————————————————— */
+
+/* The signed-out state is one bordered panel with the single action — the landing page
+   already made the case, so nothing here pitches. The contour map survives underneath
+   as a cropped banner: same motif, opposite composition, so the two pages rhyme
+   without repeating. */
+.gateway-wrap {
+  display: grid;
+  gap: var(--s-5);
+  padding: var(--s-6) 0 var(--s-section);
+}
+
+.gateway {
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius);
+  background: linear-gradient(160deg, var(--ground-raised), var(--ground-sunken));
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  padding: clamp(1.5rem, 4vw, 3rem);
+  max-width: 56rem;
+}
+
+.gateway h1 {
+  margin: var(--s-3) 0 var(--s-4);
+  font-family: var(--display);
+  font-weight: 700;
+  font-size: clamp(2rem, 6vw, 3.25rem);
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  text-wrap: balance;
+}
+
+.gateway h1 span {
+  color: var(--moss);
+}
+
+.gateway-list {
+  margin: var(--s-4) 0 var(--s-5);
+  font-size: var(--t-sm);
+}
+
+.gateway-map {
+  max-height: 15rem;
+}
+
+.gateway-map svg {
+  height: 15rem;
+}
+
+/* ——————————————————————————————— Skeletons ————————————————————————————— */
+
+/* Loading reads as the shape of what is coming, not a sentence about waiting. Widths
+   are passed inline per row so each list shimmers in its own rhythm. */
+.skel {
+  display: grid;
+  gap: 0.6rem;
+  padding: 0.4rem 0;
+}
+
+.skel i {
+  display: block;
+  height: 0.9rem;
+  border-radius: 0.4rem;
+  background: linear-gradient(90deg, var(--ground-raised), var(--hairline-soft), var(--ground-raised));
+  background-size: 200% 100%;
+  animation: skel-sweep 1.2s ease infinite;
+}
+
+@keyframes skel-sweep {
+  to {
+    background-position: -200% 0;
+  }
 }
 
 /* ——————————————————————————————— Section furniture ——————————————————————————————— */
@@ -896,7 +1028,9 @@ code {
   .rail-fill,
   .segment,
   .skip-link,
-  .daylog summary::after {
+  .daylog summary::after,
+  .skel i {
     transition: none;
+    animation: none;
   }
 }
