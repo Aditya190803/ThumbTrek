@@ -3,7 +3,7 @@
 Strava for scrolling. Tracks how far your thumb travels in Instagram, YouTube, X and Reddit,
 turns it into trek stats, streaks, charts, shareable cards, and weekly friend/global leaderboards.
 
-Version **0.3.0**.
+Version **0.4.0**.
 
 ## The three clients
 
@@ -302,8 +302,8 @@ per IP, comfortably above a six-hourly check.
 
 ```
 # 1. Bump both in app/build.gradle.kts â€” the updater compares versionCode:
-#      versionCode = 5
-#      versionName = "0.3.0"
+#      versionCode = 6
+#      versionName = "0.4.0"
 # 2. Commit, then tag. The annotation message becomes the in-app release notes.
 git tag -a v0.2.0 -m "Fixes X, adds Y"
 git push origin v0.2.0
