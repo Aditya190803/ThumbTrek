@@ -73,6 +73,24 @@ People scroll for hours a day without any sense of the physical/attention cost. 
 - Daily summary notification ("You trekked 340m today — 12% more than yesterday")
 - Streak reminders (optional, off by default to avoid becoming another nagging app)
 
+### 5.6 Browser Extension
+
+Desktop scrolling is the other half of the habit, and unlike iOS it is actually measurable.
+
+- MV3 extension measuring scroll distance on the same four feeds by default, plus any domain
+  the user adds, or everything
+- Fully functional with **no account**: today's trek, per-site breakdown, streak, records,
+  badges and history all computed locally from IndexedDB
+- Signing in is optional and only buys two things: sync to the same account as the phone, and
+  the leaderboard
+
+### 5.7 Web Dashboard
+
+- The signed-in view at `/app`: totals, history charts, per-site and per-app breakdowns,
+  streak, records, badges, the leaderboard, and friend management
+- Shows the **per-source split** — how much of the trek was thumb and how much was browser
+- Read-only. The dashboard never originates distance; it renders what the clients measured
+
 ---
 
 ## 6. Out of Scope for MVP
@@ -119,9 +137,13 @@ People scroll for hours a day without any sense of the physical/attention cost. 
 
 ## 10. Release Scope
 
-Version 0.0.1 ships the tracking engine, per-app controls, dashboard/history charts,
+Version 0.0.1 shipped the tracking engine, per-app controls, dashboard/history charts,
 streaks, notifications, friend/global leaderboards, anonymous handles, invite sharing,
-and shareable stat cards. A desktop/browser companion remains a possible future direction.
+and shareable stat cards.
+
+The current scope adds the desktop half that §8 flagged as the realistic alternative to iOS:
+a browser extension, cross-device sync, and a web dashboard. See
+[`docs/sync-protocol.md`](docs/sync-protocol.md) for the contract the three clients share.
 
 ---
 
@@ -130,3 +152,12 @@ and shareable stat cards. A desktop/browser companion remains a possible future 
 1. Each supported app can be enabled or disabled independently; all four start enabled.
 2. Leaderboard publishing is fully opt-in and supports anonymous handles.
 3. Version 0.0.1 is free and contains no ads or premium tier.
+4. **Every client is offline-first.** An account is never required to track, and never
+   required to see your own numbers. It buys sync and the leaderboard, nothing else.
+5. **Distances sync in micrometres, not pixels.** Pixels are device-relative — a denser
+   screen logged more of them for identical physical travel, so the board had a latent bias
+   toward dense phones and could not have absorbed a browser's CSS pixel at all.
+6. **Browser and phone distance are combined on the leaderboard, but stored separately.**
+   Open question worth revisiting: a mouse wheel is not a thumb, so a heavy desktop user can
+   out-scroll a phone user cheaply. Keeping `sources` split means the board can be changed to
+   rank phone-only, or to show two boards, without a migration or any data loss.

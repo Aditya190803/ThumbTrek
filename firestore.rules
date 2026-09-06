@@ -2,10 +2,11 @@ rules_version = '2';
 
 // Paste into Firebase Console → Firestore Database → Rules.
 //
-// Composite indexes the boards need (Firestore Console → Indexes, or accept the
+// Composite indexes the boards need (deploy firestore.indexes.json, or accept the
 // auto-link in the first error):
-//   users:  weekKey  ASC, weekPixels  DESC
-//   users:  monthKey ASC, monthPixels DESC
+//   users:  weekKey  ASC, weekUm  DESC
+//   users:  monthKey ASC, monthUm DESC
+// The legacy weekPixels/monthPixels pairs stay indexed until the last old client is gone.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -17,38 +18,82 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == uid;
     }
 
+    // Distances that cross the network are integer micrometres (`*Um`) — pixels are not
+    // comparable between a 560dpi phone, a 320dpi phone and a browser's CSS pixel.
+    // See docs/sync-protocol.md §1. The `*Pixels` fields are legacy: still written by the
+    // Android app so old builds keep appearing on the board, never ranked on.
+    function nonNegInt(value) {
+      return value is int && value >= 0;
+    }
+
     // users/{uid}: { displayName, photoUrl, friendCode, weekKey, weekPixels,
-    //                monthKey, monthPixels, totalPixels }
+    //                monthKey, monthPixels, totalPixels,
+    //                weekUm, monthUm, totalUm, sources }
     // A doc only exists while its owner has opted in — leaving the leaderboard deletes it.
-    // Readable by any signed-in user because that *is* the global board; it holds three
-    // distance numbers and a name the owner chose (possibly an anonymous handle), nothing more.
+    // Readable by any signed-in user because that *is* the global board; it holds a handful
+    // of distance numbers and a name the owner chose (possibly an anonymous handle).
+    // Per-day history is NOT here — it lives in the private days subcollection below.
     match /users/{uid} {
       function validScore() {
-        return request.resource.data.keys().hasOnly(
+        let data = request.resource.data;
+        return data.keys().hasOnly(
                  ['displayName', 'photoUrl', 'friendCode',
-                  'weekKey', 'weekPixels', 'monthKey', 'monthPixels', 'totalPixels']
+                  'weekKey', 'weekPixels', 'monthKey', 'monthPixels', 'totalPixels',
+                  'weekUm', 'monthUm', 'totalUm', 'sources']
                )
-               && request.resource.data.displayName is string
-               && request.resource.data.displayName.size() <= 64
-               && request.resource.data.photoUrl is string
-               && request.resource.data.photoUrl.size() <= 512
-               && request.resource.data.friendCode is string
-               && request.resource.data.friendCode.size() <= 16
-               && request.resource.data.weekKey is string
-               && request.resource.data.weekKey.size() <= 16
-               && request.resource.data.weekPixels is int
-               && request.resource.data.weekPixels >= 0
-               && request.resource.data.monthKey is string
-               && request.resource.data.monthKey.size() <= 16
-               && request.resource.data.monthPixels is int
-               && request.resource.data.monthPixels >= 0
-               && request.resource.data.totalPixels is int
-               && request.resource.data.totalPixels >= 0;
+               && data.displayName is string
+               && data.displayName.size() <= 64
+               && data.photoUrl is string
+               && data.photoUrl.size() <= 512
+               && data.friendCode is string
+               && data.friendCode.size() <= 16
+               && data.weekKey is string
+               && data.weekKey.size() <= 16
+               && data.monthKey is string
+               && data.monthKey.size() <= 16
+               && (!('weekPixels' in data) || nonNegInt(data.weekPixels))
+               && (!('monthPixels' in data) || nonNegInt(data.monthPixels))
+               && (!('totalPixels' in data) || nonNegInt(data.totalPixels))
+               && (!('weekUm' in data) || nonNegInt(data.weekUm))
+               && (!('monthUm' in data) || nonNegInt(data.monthUm))
+               && (!('totalUm' in data) || nonNegInt(data.totalUm))
+               // sources: { android: {...}, web: {...} } — one entry per client kind.
+               // Contents aren't walked field-by-field (rules can't iterate a map), but the
+               // whole document is only ever writable by its owner, so the blast radius of
+               // a malformed entry is the owner's own board row.
+               && (!('sources' in data)
+                   || (data.sources is map && data.sources.keys().size() <= 8));
       }
 
       allow read: if signedIn();
       allow create, update: if isSelf(uid) && validScore();
       allow delete: if isSelf(uid);
+
+      // users/{uid}/days/{date}__{source} = { date, source, um, apps, updatedAt }
+      // The per-day, per-source ledger the web dashboard charts. Private to its owner:
+      // opting in to the leaderboard publishes three totals, never a day-by-day history.
+      // One doc per source per day means no two clients ever write the same document,
+      // so concurrent phone + extension syncs cannot clobber each other.
+      match /days/{dayId} {
+        function validDay() {
+          let data = request.resource.data;
+          return data.keys().hasOnly(['date', 'source', 'um', 'apps', 'updatedAt'])
+                 && data.date is string
+                 && data.date.size() == 10
+                 && data.source is string
+                 && data.source.size() <= 16
+                 // The doc id is the composite key; a mismatch would let one source
+                 // overwrite another's day by choosing a misleading id.
+                 && dayId == data.date + '__' + data.source
+                 && nonNegInt(data.um)
+                 && (!('apps' in data)
+                     || (data.apps is map && data.apps.keys().size() <= 64));
+        }
+
+        allow read: if isSelf(uid);
+        allow create, update: if isSelf(uid) && validDay();
+        allow delete: if isSelf(uid);
+      }
 
       // Friendship edges carry { since, status }: "pending" until the other side
       // accepts, "accepted" after. Old edges with no status read as accepted.
@@ -86,21 +131,24 @@ service cloud.firestore {
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
     }
 
-    // archive/{weekKey}/scores/{uid} = { displayName, photoUrl, pixels }:
+    // archive/{weekKey}/scores/{uid} = { displayName, photoUrl, pixels, um }:
     // one frozen copy of every week's board so last week's podium survives the weekly
     // reset. You can write your own row into any week's archive (the client knows the
     // week key better than the rules can compute it), but never anybody else's.
+    // `um` is the ranked figure; `pixels` is kept for rows frozen before the unit change.
     match /archive/{weekKey}/scores/{uid} {
       allow read: if signedIn();
       allow create, update: if isSelf(uid)
                             && request.resource.data.keys().hasOnly(
-                                 ['displayName', 'photoUrl', 'pixels'])
+                                 ['displayName', 'photoUrl', 'pixels', 'um'])
                             && request.resource.data.displayName is string
                             && request.resource.data.displayName.size() <= 64
                             && request.resource.data.photoUrl is string
                             && request.resource.data.photoUrl.size() <= 512
-                            && request.resource.data.pixels is int
-                            && request.resource.data.pixels >= 0;
+                            && (!('pixels' in request.resource.data)
+                                || nonNegInt(request.resource.data.pixels))
+                            && (!('um' in request.resource.data)
+                                || nonNegInt(request.resource.data.um));
       allow delete: if isSelf(uid);
     }
   }

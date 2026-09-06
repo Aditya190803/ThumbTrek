@@ -16,6 +16,8 @@ import com.thumbtrek.app.social.LeaderboardEntry
 import com.thumbtrek.app.social.Period
 import com.thumbtrek.app.social.PodiumEntry
 import com.thumbtrek.app.social.SocialRepository
+import com.thumbtrek.app.social.SourceTotals
+import com.thumbtrek.app.social.SyncStatus
 import com.thumbtrek.app.stats.monthKey
 import com.thumbtrek.app.stats.totalThisMonth
 import com.thumbtrek.app.stats.totalThisWeek
@@ -54,6 +56,10 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
         val totalCount: Int? = null,
         val requests: List<FriendRequest> = emptyList(),
         val podium: List<PodiumEntry> = emptyList(),
+        /** Who is writing into my board row — this phone, a browser, both. */
+        val sources: List<SourceTotals> = emptyList(),
+        /** Epoch millis of this phone's last successful push; null before the first. */
+        val lastSyncedAt: Long? = null,
         val busy: Boolean = false,
         val error: String? = null,
     )
@@ -67,6 +73,7 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
         val friendCount: Int = 0,
         val requests: List<FriendRequest> = emptyList(),
         val podium: List<PodiumEntry> = emptyList(),
+        val sync: SyncStatus = SyncStatus(),
     )
 
     private val repo = SocialRepository(app)
@@ -108,6 +115,8 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
             myRank = boardState.myRank,
             requests = boardState.requests,
             podium = boardState.podium,
+            sources = boardState.sync.sources,
+            lastSyncedAt = boardState.sync.lastSyncedAt,
             busy = isBusy,
             error = err,
         )
@@ -202,12 +211,23 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
 
     fun removeFriend(uid: String) = respondToRequest(uid, accept = false)
 
-    /** Pushes all three scores, then reloads the visible board. */
+    /**
+     * Publishes this phone's totals, pushes the day ledger, then reloads the visible board.
+     *
+     * The board row goes first and is shown as soon as it lands: the ledger push can be a
+     * full-history backfill on the first sync after opting in, and a slow backfill must not
+     * hold up the thing the user is actually looking at.
+     */
     fun refresh() {
         if (!published()) return
         guarded("Couldn't load leaderboard") {
             val current = state.value
-            repo.syncScore(current.weekPx, current.monthPx, current.totalPx)
+            val sync = repo.syncScore(current.weekPx, current.monthPx, current.totalPx)
+            board.value = board.value.copy(sync = sync)
+            repo.syncDays(dao.allRows())
+            board.value = board.value.copy(
+                sync = sync.copy(lastSyncedAt = prefs.lastSyncedAt.takeIf { it > 0L }),
+            )
             loadBoard()
         }
     }
@@ -254,6 +274,8 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
             friendCount = friends.size,
             requests = requests,
             podium = podium,
+            // Loading a board doesn't re-read the source split; carry the last sync's.
+            sync = board.value.sync,
         )
         maybeNotify(requests, rank)
     }

@@ -3,7 +3,30 @@
 Strava for scrolling. Tracks how far your thumb travels in Instagram, YouTube, X and Reddit,
 turns it into trek stats, streaks, charts, shareable cards, and weekly friend/global leaderboards.
 
-Version **0.2.1**.
+Version **0.3.0**.
+
+## The three clients
+
+| Directory    | What it is                                                                    |
+|--------------|-------------------------------------------------------------------------------|
+| `app/`       | The Android app. Accessibility service, Room storage, Compose UI, the widget.  |
+| `extension/` | The browser extension (MV3). Measures scrolling on the web.                    |
+| `web/`       | The marketing site, plus the signed-in dashboard at `/app`.                    |
+
+All three work **offline with no account**. Signing in is only ever needed to sync across
+devices and to see the leaderboard. They interoperate through one contract:
+[`docs/sync-protocol.md`](docs/sync-protocol.md) — read it before changing any of them.
+
+Two things in that contract are worth knowing up front:
+
+- **Distances that cross the network are integer micrometres, not pixels.** Pixels are not
+  comparable across devices: metres are `pixels / densityDpi`, so a 560dpi phone logged 1.75x
+  the pixels of a 320dpi phone for the same physical thumb travel, and the board quietly
+  favoured dense screens. A browser's CSS pixel relates to neither. The `*Pixels` fields are
+  still written for back-compat but nothing ranks on them.
+- **Each client writes only its own `source`.** The board row keeps a per-source split
+  (`sources.android`, `sources.web`) and a combined total. That is what lets a phone and a
+  browser sync to one account without the last writer clobbering the other.
 
 ## What ships
 
@@ -40,10 +63,13 @@ but sign-in will fail until you swap in a real one:
 4. **Authentication â†’ Sign-in method â†’ enable Google.**
 5. **Firestore Database â†’ Create database** (production mode, any region).
 6. **Firestore â†’ Rules**: paste the contents of [`firestore.rules`](firestore.rules) and publish.
-7. **Firestore â†’ Indexes**: create these two composite indexes (or click the link in the
-   first leaderboard error â€” Firestore will offer to build them):
-   - `users`: `weekKey` Ascending, `weekPixels` Descending
-   - `users`: `monthKey` Ascending, `monthPixels` Descending
+7. **Firestore -> Indexes**: deploy [`firestore.indexes.json`](firestore.indexes.json)
+   (`firebase deploy --only firestore:indexes`), or create them by hand -- or click the link
+   in the first leaderboard error, which offers to build whichever one is missing:
+   - `users`: `weekKey` Ascending, `weekUm` Descending
+   - `users`: `monthKey` Ascending, `monthUm` Descending
+   - `users`: `weekKey` Ascending, `weekPixels` Descending *(legacy, until old clients age out)*
+   - `users`: `monthKey` Ascending, `monthPixels` Descending *(legacy)*
 8. Google Sign-In needs **every** signing key's SHA-1 registered in
    **Project settings → Your apps → SHA certificate fingerprints**:
    ```
@@ -82,11 +108,24 @@ No screen content is ever read â€” the service config requests no node-look
 
 ## Data model
 
-- **Local (Room)**: `daily_scroll(packageName, date, pixels)`
-- **Cloud (Firestore)**: `users/{uid}` stores the opted-in weekly score and public identity;
-  `users/{uid}/friends/{friendUid}` stores friendship edges; `friendCodes/{code}` resolves invites.
-  The weekly reset is just `weekKey` (ISO week, e.g. `2026-W31`) changing â€” old docs stop
-  matching the leaderboard query. Scores sync when the Social tab is opened/refreshed.
+Full detail in [`docs/sync-protocol.md`](docs/sync-protocol.md); the shape of it:
+
+- **Local (Room)**: `daily_scroll(packageName, date, pixels)`. Raw pixels, device-local.
+  Metres are computed at display time. This is the source of truth and always works offline.
+- **Local (extension)**: the same table in IndexedDB, keyed by `(date, domain)` in micrometres.
+- **Cloud (Firestore)**, only after leaderboard opt-in:
+  - `users/{uid}` -- the **public** board row: identity, the combined `weekUm`/`monthUm`/
+    `totalUm`, the per-source split, and the legacy `*Pixels` fields. Readable by any signed-in
+    user, because that is what a global leaderboard is.
+  - `users/{uid}/days/{date}__{source}` -- the **private** per-day, per-source ledger, readable
+    only by its owner. This is what the web dashboard charts and what lets history survive a
+    reinstall. One document per source per day, so a phone and a browser syncing at the same
+    moment never write the same document.
+  - `users/{uid}/friends/{friendUid}` stores friendship edges; `friendCodes/{code}` resolves
+    invites; `archive/{weekKey}/scores/{uid}` freezes each week's board for the podium.
+
+  The weekly reset is still just `weekKey` (ISO week, e.g. `2026-W31`) changing -- old docs
+  stop matching the leaderboard query, and no server job is involved.
 
 ## Release signing
 
@@ -263,8 +302,8 @@ per IP, comfortably above a six-hourly check.
 
 ```
 # 1. Bump both in app/build.gradle.kts â€” the updater compares versionCode:
-#      versionCode = 4
-#      versionName = "0.2.1"
+#      versionCode = 5
+#      versionName = "0.3.0"
 # 2. Commit, then tag. The annotation message becomes the in-app release notes.
 git tag -a v0.2.0 -m "Fixes X, adds Y"
 git push origin v0.2.0

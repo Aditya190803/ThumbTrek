@@ -61,16 +61,34 @@ import coil.compose.AsyncImage
 import com.thumbtrek.app.social.LeaderboardEntry
 import com.thumbtrek.app.social.Period
 import com.thumbtrek.app.social.PodiumEntry
+import com.thumbtrek.app.social.SOURCE_ANDROID
+import com.thumbtrek.app.social.SOURCE_WEB
 import com.thumbtrek.app.social.formatFriendCode
 import com.thumbtrek.app.social.inviteMessage
+import com.thumbtrek.app.social.micrometresToMeters
+import com.thumbtrek.app.social.sourceLabel
+import com.thumbtrek.app.social.syncedAgo
+import com.thumbtrek.app.social.weekUmIn
 import com.thumbtrek.app.stats.formatDistance
 import com.thumbtrek.app.stats.pixelsToMeters
+import com.thumbtrek.app.stats.weekKey
 import kotlinx.coroutines.delay
 
 private val GUTTER = 20.dp
 
+/**
+ * [inviteCode] is a friend code that arrived by invite link (`thumbtrek://i/<code>` or
+ * https://thumbtrek.app/i/<code>). It is prefilled into the add-a-trekker box rather than
+ * sent automatically: adding someone is a social act, and a link tapped by accident should
+ * not silently fire a request at a stranger.
+ */
 @Composable
-fun SocialScreen(modifier: Modifier = Modifier, vm: SocialViewModel = viewModel()) {
+fun SocialScreen(
+    modifier: Modifier = Modifier,
+    vm: SocialViewModel = viewModel(),
+    inviteCode: String? = null,
+    onInviteConsumed: () -> Unit = {},
+) {
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val dpi = remember { context.resources.displayMetrics.densityDpi }
@@ -83,6 +101,15 @@ fun SocialScreen(modifier: Modifier = Modifier, vm: SocialViewModel = viewModel(
     }
     LaunchedEffect(state.friendCount) {
         codeInput = ""
+    }
+    // Declared after the clearing effect on purpose: both run on first composition, in
+    // declaration order, so an invite that arrives with the screen wins the box instead of
+    // being wiped by the initial friend-count emission.
+    LaunchedEffect(inviteCode) {
+        if (inviteCode != null) {
+            codeInput = inviteCode
+            onInviteConsumed()
+        }
     }
 
     removeTarget?.let { target ->
@@ -147,7 +174,7 @@ fun SocialScreen(modifier: Modifier = Modifier, vm: SocialViewModel = viewModel(
         }
 
         if (state.podium.isNotEmpty()) {
-            item("podium") { PodiumBlock(state.podium, dpi) }
+            item("podium") { PodiumBlock(state.podium) }
         }
 
         item("invite") { FriendCodeBlock(state, vm, codeInput, { codeInput = it }, context) }
@@ -208,7 +235,6 @@ fun SocialScreen(modifier: Modifier = Modifier, vm: SocialViewModel = viewModel(
                     entry = entry,
                     period = state.period,
                     leaderScore = leader,
-                    dpi = dpi,
                     isMe = entry.uid == state.myUid,
                     expanded = expandedUid == entry.uid,
                     removable = state.board == SocialViewModel.Board.FRIENDS &&
@@ -295,8 +321,14 @@ private fun SignInPitch(
 }
 
 /**
- * Just-in-time consent. The exact three fields that leave the phone are listed at the
- * moment of the ask, next to the switch that decides whether your name is one of them.
+ * Just-in-time consent. Exactly what leaves the phone is listed at the moment of the ask,
+ * next to the switch that decides whether your name is one of them.
+ *
+ * The list now has two halves, because syncing does. Three distances and a name are
+ * *published* — anyone signed in can read them, that is the board. The day-by-day history
+ * is *synced*, to your account only, so the dashboard on another device can chart it and
+ * so it survives a reinstall. Rolling both into one "here's what we upload" line would be
+ * the easy copy and the dishonest one: they have different audiences.
  */
 @Composable
 private fun ConsentPanel(state: SocialViewModel.UiState, vm: SocialViewModel) {
@@ -313,11 +345,18 @@ private fun ConsentPanel(state: SocialViewModel.UiState, vm: SocialViewModel) {
             ConsentLine("Your profile photo", "skipped entirely when anonymous")
             Hairline(modifier = Modifier.padding(vertical = 12.dp))
             ConsentLine("Three distances", "this week, this month, all time")
+            Hairline(modifier = Modifier.padding(vertical = 12.dp))
+            ConsentLine(
+                "Your day-by-day history",
+                "private to your account — never on the board",
+            )
         }
         Text(
-            "That is the whole upload. Never your history, your per-app split, or anything " +
-                "you scrolled past. Boards reset every Monday, and switching this off deletes " +
-                "your score from them.",
+            "The first three are the board: anyone signed in can see them. Your history and " +
+                "per-app split sync privately, so your own dashboard can chart them and they " +
+                "survive a reinstall — nobody else can read them. Never a URL, a message, or " +
+                "anything you scrolled past. Boards reset every Monday, and switching this " +
+                "off deletes all of it from the server.",
             style = MaterialTheme.typography.bodyMedium,
             color = Trek.inkMuted,
         )
@@ -389,9 +428,65 @@ private fun MyStanding(state: SocialViewModel.UiState, vm: SocialViewModel, dpi:
             )
         }
 
+        SyncSplit(state)
         AnonymousToggle(state, vm)
         TextButton(onClick = { vm.setOptIn(false) }) {
             Text("Leave the leaderboard", color = Trek.inkFaint)
+        }
+    }
+}
+
+/**
+ * Where the figures on your row came from, and when they last moved.
+ *
+ * The phone stopped being the only writer the day the browser extension shipped, and a
+ * total that silently doubles reads as a bug rather than as a feature. Naming each source
+ * also gives someone who has just installed the extension somewhere to watch it show up.
+ *
+ * A section head and measure rows rather than a card: this is part of your standing, not a
+ * separate object, and boxing it is exactly what Surfaces.kt rejected.
+ */
+@Composable
+private fun SyncSplit(state: SocialViewModel.UiState) {
+    Column {
+        SectionHead(
+            "Sources",
+            trailing = syncedAgo(state.lastSyncedAt)?.uppercase() ?: "NOT SYNCED YET",
+        )
+        if (state.sources.isEmpty()) {
+            // Before the first sync lands there is nothing true to show, and a zeroed row
+            // would claim the phone had contributed nothing.
+            Text(
+                "Your first sync is still on its way.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Trek.inkFaint,
+            )
+        } else {
+            // Read through the same gate the rollup uses, so a client that stopped syncing
+            // last week shows the nothing it contributed rather than last week's figure
+            // under this week's heading.
+            val thisWeek = weekKey()
+            val weekly = state.sources.associateWith { it.weekUmIn(thisWeek) }
+            val leader = weekly.values.max().coerceAtLeast(1L)
+            state.sources.forEach { source ->
+                val um = weekly.getValue(source)
+                MeasureRow(
+                    label = sourceLabel(source.source),
+                    value = formatDistance(micrometresToMeters(um)),
+                    fraction = um.toFloat() / leader,
+                    // Moss is this device; everything arriving from elsewhere is slate, the
+                    // same distinction the leaderboard already draws between you and others.
+                    color = if (source.source == SOURCE_ANDROID) Trek.moss else Trek.slate,
+                )
+            }
+        }
+        if (state.sources.none { it.source == SOURCE_WEB }) {
+            Text(
+                "Add the browser extension and your desktop scrolling lands here too, on " +
+                    "the same board row.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Trek.inkFaint,
+            )
         }
     }
 }
@@ -402,7 +497,7 @@ private fun MyStanding(state: SocialViewModel.UiState, vm: SocialViewModel, dpi:
  * of different heights reads as a result.
  */
 @Composable
-private fun PodiumBlock(podium: List<PodiumEntry>, dpi: Int) {
+private fun PodiumBlock(podium: List<PodiumEntry>) {
     // Second, first, third: the shape everyone already knows.
     val order = listOf(1, 0, 2).filter { it <= podium.lastIndex }
     val heights = mapOf(0 to 74.dp, 1 to 54.dp, 2 to 40.dp)
@@ -422,7 +517,7 @@ private fun PodiumBlock(podium: List<PodiumEntry>, dpi: Int) {
                         .weight(1f)
                         .semantics(mergeDescendants = true) {
                             contentDescription = "Number ${index + 1}, ${entry.displayName}, " +
-                                formatDistance(pixelsToMeters(entry.pixels, dpi))
+                                formatDistance(micrometresToMeters(entry.um))
                         },
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -436,7 +531,7 @@ private fun PodiumBlock(podium: List<PodiumEntry>, dpi: Int) {
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        formatDistance(pixelsToMeters(entry.pixels, dpi)),
+                        formatDistance(micrometresToMeters(entry.um)),
                         style = MaterialTheme.typography.labelSmall,
                         color = Trek.inkFaint,
                         maxLines = 1,
@@ -579,7 +674,6 @@ private fun BoardRow(
     entry: LeaderboardEntry,
     period: Period,
     leaderScore: Long,
-    dpi: Int,
     isMe: Boolean,
     expanded: Boolean,
     removable: Boolean,
@@ -587,7 +681,7 @@ private fun BoardRow(
     onRemove: () -> Unit,
 ) {
     val score = entry.score(period)
-    val meters = pixelsToMeters(score, dpi)
+    val meters = micrometresToMeters(score)
     val fraction = if (leaderScore > 0) score.toFloat() / leaderScore else 0f
     val name = if (isMe) "${entry.displayName} (you)" else entry.displayName
 
@@ -651,8 +745,8 @@ private fun BoardRow(
         )
         if (expanded) {
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                DetailRow("This month", pixelsToMeters(entry.monthPixels, dpi))
-                DetailRow("All time", pixelsToMeters(entry.totalPixels, dpi))
+                DetailRow("This month", micrometresToMeters(entry.monthUm))
+                DetailRow("All time", micrometresToMeters(entry.totalUm))
             }
         }
     }
