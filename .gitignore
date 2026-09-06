@@ -33,3 +33,6 @@ app/google-services.json
 
 # Sideload staging (built APKs served over LAN)
 .serve/
+
+# Local agent tooling config
+.commandcode/
