@@ -33,6 +33,77 @@ fun trekStreak(activeDates: Collection<LocalDate>, today: LocalDate = LocalDate.
     return streak
 }
 
+/** Default daily limit in metres: about one football pitch. Achievable but disciplined. */
+const val DEFAULT_DAILY_LIMIT_M = 100.0
+
+/** Hard bounds for the limit editor, so a typo can't create an unwinnable game. */
+const val MIN_DAILY_LIMIT_M = 10.0
+const val MAX_DAILY_LIMIT_M = 10_000.0
+
+/** One free limit change per ISO week; further changes need premium (PRD §11). */
+const val FREE_LIMIT_EDITS_PER_WEEK = 1
+
+/**
+ * Paywall master switch. Off during the 1-month free data window: limits and streaks stay
+ * free while clean-streak retention is measured, and billing is decided on that data.
+ * The weekly quota + Premium machinery underneath keeps recording edits, so flipping this
+ * to true later enforces the paywall with history already in place — no migration.
+ */
+const val BILLING_ENFORCED = false
+
+/** A day is clean when its trek stays at or under the limit. Zero counts: not scrolling
+ * is the ultimate under-limit day. A non-positive limit is misconfiguration, never clean. */
+fun isCleanDay(meters: Double, limitMeters: Double): Boolean =
+    limitMeters > 0 && meters <= limitMeters
+
+/**
+ * Consecutive clean days ending today, for the limit theme (PRD §11): the streak that
+ * rewards scrolling *less*, not more.
+ *
+ * [dayMeters] maps each tracked date to that day's metres; a date with no entry reads as
+ * 0 m (no scrolling measured). Unlike [trekStreak] there is no yesterday fallback: a day
+ * over the limit today means the streak is broken *today*, and showing yesterday's number
+ * would pretend otherwise. The streak never extends before [firstDay] (the earliest
+ * tracked date, or null when there is no history), so a fresh install doesn't inherit an
+ * infinite pre-install abstinence streak.
+ */
+fun limitStreak(
+    dayMeters: Map<LocalDate, Double>,
+    limitMeters: Double,
+    today: LocalDate = LocalDate.now(),
+    firstDay: LocalDate? = dayMeters.keys.minOrNull(),
+): Int {
+    if (limitMeters <= 0) return 0
+    var streak = 0
+    var cursor = today
+    while (true) {
+        if (firstDay != null && cursor.isBefore(firstDay)) break
+        // A date with no entry reads as 0 m (nothing measured); the gameable edge --
+        // disabling tracking reads as abstinence -- is documented, not solved, in v1.
+        if ((dayMeters[cursor] ?: 0.0) > limitMeters) break
+        streak++
+        if (firstDay == null) break // no history: today alone counts once
+        cursor = cursor.minusDays(1)
+    }
+    return streak
+}
+
+/**
+ * Free limit edits remaining this week, given the stored edit week/count. While the
+ * paywall is off ([BILLING_ENFORCED] == false) this is unbounded — the quota still
+ * *records* every edit, so the billing decision later has real edits-per-week data.
+ */
+fun freeLimitEditsLeft(
+    editWeekKey: String?,
+    editCount: Int,
+    today: LocalDate = LocalDate.now(),
+    billingEnforced: Boolean = BILLING_ENFORCED,
+): Int {
+    if (!billingEnforced) return Int.MAX_VALUE
+    if (editWeekKey != weekKey(today)) return FREE_LIMIT_EDITS_PER_WEEK
+    return (FREE_LIMIT_EDITS_PER_WEEK - editCount).coerceAtLeast(0)
+}
+
 fun totalThisWeek(days: Map<LocalDate, Long>, today: LocalDate = LocalDate.now()): Long {
     val monday = today.with(DayOfWeek.MONDAY)
     return days.filterKeys { it in monday..today }.values.sum()

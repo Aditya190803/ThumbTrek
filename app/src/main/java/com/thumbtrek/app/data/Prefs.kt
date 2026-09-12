@@ -2,6 +2,11 @@ package com.thumbtrek.app.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.thumbtrek.app.stats.BILLING_ENFORCED
+import com.thumbtrek.app.stats.DEFAULT_DAILY_LIMIT_M
+import com.thumbtrek.app.stats.FREE_LIMIT_EDITS_PER_WEEK
+import com.thumbtrek.app.stats.MAX_DAILY_LIMIT_M
+import com.thumbtrek.app.stats.MIN_DAILY_LIMIT_M
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -40,6 +45,69 @@ class Prefs private constructor(context: Context) {
     private val _anonymous = MutableStateFlow(sp.getBoolean(KEY_ANONYMOUS, false))
     /** Publish as an anonymous handle instead of the Google display name (PRD §5.4). */
     val anonymous: StateFlow<Boolean> = _anonymous.asStateFlow()
+
+    // --- daily limit (PRD §11: the streak that rewards scrolling less) ---
+
+    private val _dailyLimitM = MutableStateFlow(sp.getFloat(KEY_DAILY_LIMIT_M, DEFAULT_DAILY_LIMIT_M.toFloat()))
+    /** Single daily cap in metres. Stay at or under it and the day is clean. */
+    val dailyLimitM: StateFlow<Float> = _dailyLimitM.asStateFlow()
+
+    private val _premium = MutableStateFlow(sp.getBoolean(KEY_PREMIUM, false))
+    /**
+     * Play Billing stub. Always false until billing lands; the weekly-gate logic reads it
+     * so the paywall is a flag flip, not a rewrite, when it does.
+     */
+    val premium: StateFlow<Boolean> = _premium.asStateFlow()
+
+    /** ISO week of the last limit edit, or null when the limit never changed. */
+    var limitEditWeek: String?
+        get() = sp.getString(KEY_LIMIT_EDIT_WEEK, null)
+        private set(value) = sp.edit().putString(KEY_LIMIT_EDIT_WEEK, value).apply()
+
+    /** Limit edits already spent inside [limitEditWeek]. */
+    var limitEditCount: Int
+        get() = sp.getInt(KEY_LIMIT_EDIT_COUNT, 0)
+        private set(value) = sp.edit().putInt(KEY_LIMIT_EDIT_COUNT, value).apply()
+
+    /**
+     * True when this edit costs nothing: the paywall is in its free data window, or
+     * premium, or the week's free change is unspent. The week is derived from [weekKey]
+     * so the quota resets itself with no job.
+     */
+    fun canEditLimitFree(todayWeekKey: String): Boolean {
+        if (!BILLING_ENFORCED || _premium.value) return true
+        if (limitEditWeek != todayWeekKey) return true
+        return limitEditCount < FREE_LIMIT_EDITS_PER_WEEK
+    }
+
+    /** Result of [trySetDailyLimit]: applied, or blocked until premium. */
+    sealed interface LimitEditResult {
+        /** New limit saved; [freeLeft] is this week's remaining free changes. */
+        data class Applied(val freeLeft: Int) : LimitEditResult
+        /** Week's free change is spent and premium is off. Nothing was written. */
+        data object NeedsPremium : LimitEditResult
+    }
+
+    /**
+     * Sets the daily limit in metres, enforcing the weekly free-edit quota. Values are
+     * clamped to [MIN_DAILY_LIMIT_M]..[MAX_DAILY_LIMIT_M] so a typo can't create an
+     * unwinnable game. Premium bypasses the quota but still records the edit.
+     */
+    fun trySetDailyLimit(meters: Float, todayWeekKey: String): LimitEditResult {
+        if (!canEditLimitFree(todayWeekKey)) return LimitEditResult.NeedsPremium
+        val clamped = meters.coerceIn(MIN_DAILY_LIMIT_M.toFloat(), MAX_DAILY_LIMIT_M.toFloat())
+        sp.edit().putFloat(KEY_DAILY_LIMIT_M, clamped).apply()
+        _dailyLimitM.value = clamped
+        if (limitEditWeek != todayWeekKey) {
+            limitEditWeek = todayWeekKey
+            limitEditCount = 1
+        } else {
+            limitEditCount += 1
+        }
+        val freeLeft = if (!BILLING_ENFORCED || _premium.value) Int.MAX_VALUE
+            else (FREE_LIMIT_EDITS_PER_WEEK - limitEditCount).coerceAtLeast(0)
+        return LimitEditResult.Applied(freeLeft)
+    }
 
     // --- social notification bookkeeping (so each event nags exactly once) ---
 
@@ -155,6 +223,10 @@ class Prefs private constructor(context: Context) {
         private const val KEY_NOTIFIED_RANK = "notified_rank"
         private const val KEY_SYNCED_DAY_UM = "synced_day_um"
         private const val KEY_LAST_SYNCED_AT = "last_synced_at"
+        private const val KEY_DAILY_LIMIT_M = "daily_limit_m"
+        private const val KEY_LIMIT_EDIT_WEEK = "limit_edit_week"
+        private const val KEY_LIMIT_EDIT_COUNT = "limit_edit_count"
+        private const val KEY_PREMIUM = "is_premium"
 
         /** `pkg|label` lines; labels never contain newlines and `|` is stripped on save. */
         fun encodeCustomApps(apps: Map<String, String>): String =

@@ -12,6 +12,10 @@ import com.thumbtrek.app.stats.comparison
 import com.thumbtrek.app.stats.dailyBuckets
 import com.thumbtrek.app.stats.dayOverDayDelta
 import com.thumbtrek.app.stats.formatDistance
+import com.thumbtrek.app.stats.BILLING_ENFORCED
+import com.thumbtrek.app.stats.freeLimitEditsLeft
+import com.thumbtrek.app.stats.isCleanDay
+import com.thumbtrek.app.stats.limitStreak
 import com.thumbtrek.app.stats.monthKey
 import com.thumbtrek.app.stats.monthlyBuckets
 import com.thumbtrek.app.stats.percentDelta
@@ -294,6 +298,83 @@ class StatsTest {
         assertEquals("2026-07", monthKey(LocalDate.of(2026, 7, 31)))
         assertEquals("2026-08", monthKey(today))
         assertTrue(monthKey(LocalDate.of(2026, 7, 31)) != monthKey(LocalDate.of(2026, 8, 1)))
+    }
+
+    // --- daily limit: the streak that rewards scrolling less ---
+
+    @Test
+    fun `a clean day stays at or under the limit`() {
+        assertTrue(isCleanDay(0.0, 100.0)) // abstinence is the ultimate under-limit day
+        assertTrue(isCleanDay(100.0, 100.0)) // exactly at the limit still counts
+        assertTrue(isCleanDay(62.5, 100.0))
+        assertFalse(isCleanDay(100.1, 100.0))
+        assertFalse(isCleanDay(0.0, 0.0)) // a non-positive limit is misconfiguration
+        assertFalse(isCleanDay(50.0, -10.0))
+    }
+
+    @Test
+    fun `limit streak counts consecutive clean days ending today`() {
+        val days = mapOf(
+            today to 40.0,
+            today.minusDays(1) to 90.0,
+            today.minusDays(2) to 0.0,
+        )
+        assertEquals(3, limitStreak(days, 100.0, today))
+    }
+
+    @Test
+    fun `limit streak is zero the moment today goes over`() {
+        // Unlike trekStreak there is no yesterday fallback: over today means broken today.
+        val days = mapOf(
+            today to 150.0,
+            today.minusDays(1) to 10.0,
+            today.minusDays(2) to 10.0,
+        )
+        assertEquals(0, limitStreak(days, 100.0, today))
+    }
+
+    @Test
+    fun `limit streak breaks on a dirty day in the middle`() {
+        val days = mapOf(
+            today to 20.0,
+            today.minusDays(1) to 500.0,
+            today.minusDays(2) to 20.0,
+            today.minusDays(3) to 20.0,
+        )
+        assertEquals(1, limitStreak(days, 100.0, today))
+    }
+
+    @Test
+    fun `limit streak treats missing days as zero but never pre-install`() {
+        // A day with no rows is 0 m and clean, but the streak stops at the first tracked day.
+        val days = mapOf(
+            today to 20.0,
+            today.minusDays(2) to 20.0, // yesterday missing: tracking off or no scrolling
+        )
+        assertEquals(3, limitStreak(days, 100.0, today))
+        // Fresh install with no history: today alone counts once.
+        assertEquals(1, limitStreak(emptyMap(), 100.0, today))
+        assertEquals(0, limitStreak(emptyMap(), 0.0, today))
+    }
+
+    @Test
+    fun `free limit edits reset with the ISO week`() {
+        val thisWeek = weekKey(today)
+        val lastWeek = weekKey(today.minusDays(7))
+        // Quota enforced: one free change per week.
+        assertEquals(1, freeLimitEditsLeft(null, 0, today, billingEnforced = true))
+        assertEquals(1, freeLimitEditsLeft(lastWeek, 1, today, billingEnforced = true))
+        assertEquals(0, freeLimitEditsLeft(thisWeek, 1, today, billingEnforced = true))
+        assertEquals(0, freeLimitEditsLeft(thisWeek, 99, today, billingEnforced = true))
+    }
+
+    @Test
+    fun `free data window makes every limit edit free`() {
+        // BILLING_ENFORCED == false: quota records but never blocks, so the billing
+        // decision later has real edits-per-week data.
+        assertFalse(BILLING_ENFORCED)
+        assertEquals(Int.MAX_VALUE, freeLimitEditsLeft(null, 0, today))
+        assertEquals(Int.MAX_VALUE, freeLimitEditsLeft(weekKey(today), 99, today))
     }
 
     @Test
