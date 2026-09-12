@@ -340,9 +340,9 @@ private fun ConsentPanel(state: SocialViewModel.UiState, vm: SocialViewModel) {
             color = Trek.ink,
         )
         TrekPanel {
-            ConsentLine("Your name", "or an anonymous handle, your call")
+            ConsentLine("An anonymous handle", "or your Google name, your call")
             Hairline(modifier = Modifier.padding(vertical = 12.dp))
-            ConsentLine("Your profile photo", "skipped entirely when anonymous")
+            ConsentLine("No profile photo", "unless you switch your name on")
             Hairline(modifier = Modifier.padding(vertical = 12.dp))
             ConsentLine("Three distances", "this week, this month, all time")
             Hairline(modifier = Modifier.padding(vertical = 12.dp))
@@ -826,6 +826,11 @@ private fun RemoveFriendDialog(name: String, onConfirm: () -> Unit, onDismiss: (
     )
 }
 
+/**
+ * Opt-in to be named: everyone treks under a stable pseudonym unless they flip this on.
+ * The switch reads as the reveal (checked = Google name and photo on the boards), so the
+ * default-off position matches the default-anonymous account.
+ */
 @Composable
 private fun AnonymousToggle(state: SocialViewModel.UiState, vm: SocialViewModel) {
     Row(
@@ -835,7 +840,7 @@ private fun AnonymousToggle(state: SocialViewModel.UiState, vm: SocialViewModel)
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text("Trek anonymously", style = MaterialTheme.typography.bodyLarge, color = Trek.ink)
+            Text("Show my name", style = MaterialTheme.typography.bodyLarge, color = Trek.ink)
             Text(
                 if (state.anonymous) {
                     "Boards show \"${state.myName}\" and no photo"
@@ -848,8 +853,8 @@ private fun AnonymousToggle(state: SocialViewModel.UiState, vm: SocialViewModel)
         }
         Spacer(modifier = Modifier.width(12.dp))
         Switch(
-            checked = state.anonymous,
-            onCheckedChange = { vm.setAnonymous(it) },
+            checked = !state.anonymous,
+            onCheckedChange = { vm.setAnonymous(!it) },
             enabled = !state.busy,
             colors = SwitchDefaults.colors(
                 checkedThumbColor = Trek.onMoss,

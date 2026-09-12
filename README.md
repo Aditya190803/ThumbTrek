@@ -32,7 +32,7 @@ Two things in that contract are worth knowing up front:
 
 - Per-app opt-in tracking for Instagram, YouTube, X, and Reddit — plus any other installed app you add in Settings
 - Dashboard ring chart, seven-day history, per-app trends, streaks, records, and achievement badges
-- Fully opt-in social publishing, friend codes/invites with a request→accept flow, anonymous handles
+- Fully opt-in social publishing, friend codes/invites with a request→accept flow, anonymous by default with opt-in to show your name
 - Weekly, monthly, and all-time boards; friends and global tabs; server-paginated global board; last week's podium
 - Friend management: accept/decline requests, remove friends, local nudges for new requests and rank slips
 - Daily summaries, optional streak reminders, PNG stat-card sharing, and full CSV data export

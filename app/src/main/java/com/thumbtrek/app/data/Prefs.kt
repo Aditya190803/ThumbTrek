@@ -42,8 +42,12 @@ class Prefs private constructor(context: Context) {
     /** No score leaves the device until this is on. */
     val leaderboardOptIn: StateFlow<Boolean> = _leaderboardOptIn.asStateFlow()
 
-    private val _anonymous = MutableStateFlow(sp.getBoolean(KEY_ANONYMOUS, false))
-    /** Publish as an anonymous handle instead of the Google display name (PRD §5.4). */
+    private val _anonymous = MutableStateFlow(sp.getBoolean(KEY_ANONYMOUS, true))
+    /**
+     * Anonymous by default: boards show a stable pseudonym and no photo until the user
+     * opts into their Google name. Flipping the default is a clean migration — anyone
+     * who explicitly chose keeps their stored value; only the never-chosen inherit true.
+     */
     val anonymous: StateFlow<Boolean> = _anonymous.asStateFlow()
 
     // --- daily limit (PRD §11: the streak that rewards scrolling less) ---

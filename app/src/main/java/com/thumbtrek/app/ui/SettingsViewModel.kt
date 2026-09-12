@@ -32,7 +32,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         val customApps: Map<String, String> = emptyMap(),
         val streakReminder: Boolean = false,
         val leaderboardOptIn: Boolean = false,
-        val anonymous: Boolean = false,
+        val anonymous: Boolean = true,
         // --- daily limit ---
         val limitM: Float = 100f,
         val freeEditsLeft: Int = 1,
