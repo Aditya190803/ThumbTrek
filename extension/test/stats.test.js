@@ -218,7 +218,7 @@ test('week over week compares the same stretch of last week', () => {
 });
 
 test('badges earn at their milestones', () => {
-  const all = badges(1_000_000, 9_000, 365);
+  const all = badges(1_000_000, 9_000, 365, 30);
   assert.ok(all.every((b) => b.earned));
   assert.equal(badges(0, 0, 0).length, all.length);
   assert.ok(badges(0, 0, 0).every((b) => !b.earned));
@@ -238,8 +238,17 @@ test('the badge ladder is the same list, in the same order, as the phone', () =>
     'first_trek', 'banana', 'kilometer', 'bridge', 'fivek', 'burj_day', 'tenk',
     'half_marathon', 'everest', 'marathon', 'ultra', 'century', 'quarter_million',
     'half_million', 'million', 'streak_3', 'streak_7', 'streak_14', 'streak_30',
-    'streak_100', 'streak_365',
+    'streak_100', 'streak_365', 'clean_3', 'clean_7', 'clean_14', 'clean_30',
   ]);
+});
+
+test('clean badges track the under-limit run, not the trek streak', () => {
+  const week = badges(0, 0, 0, 7);
+  assert.equal(week.find((b) => b.id === 'clean_3').earned, true);
+  assert.equal(week.find((b) => b.id === 'clean_7').earned, true);
+  assert.equal(week.find((b) => b.id === 'clean_14').earned, false);
+  const trekker = badges(1_000_000, 9_000, 365, 0);
+  assert.ok(trekker.filter((b) => b.id.startsWith('clean_')).every((b) => !b.earned));
 });
 
 test('monthKey resets monthly like weekKey does weekly', () => {

@@ -15,9 +15,11 @@ import com.thumbtrek.app.MainActivity
 import com.thumbtrek.app.R
 import com.thumbtrek.app.ThumbTrekApp
 import com.thumbtrek.app.widget.TrekWidgetProvider
+import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.data.ScrollDatabase
 import com.thumbtrek.app.stats.comparison
 import com.thumbtrek.app.stats.formatDistance
+import com.thumbtrek.app.stats.isCleanDay
 import com.thumbtrek.app.stats.pixelsToMeters
 import java.time.LocalDate
 import kotlin.math.roundToInt
@@ -59,12 +61,19 @@ class DailySummaryWorker(
         )
 
         val headline = "You trekked ${formatDistance(meters)} yesterday$trend."
+        val limitM = Prefs.get(applicationContext).dailyLimitM.value.toDouble()
+        val verdict = if (isCleanDay(meters, limitM)) {
+            "Clean — under your ${formatDistance(limitM)} limit."
+        } else {
+            "Over your ${formatDistance(limitM)} limit by " +
+                formatDistance(meters - limitM) + "."
+        }
 
         val notification = NotificationCompat.Builder(applicationContext, ThumbTrekApp.DAILY_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("ThumbTrek")
             .setContentText(headline)
-            .setStyle(NotificationCompat.BigTextStyle().bigText("$headline ${comparison(meters)}"))
+            .setStyle(NotificationCompat.BigTextStyle().bigText("$headline $verdict ${comparison(meters)}"))
             .setContentIntent(openApp)
             .setAutoCancel(true)
             .build()

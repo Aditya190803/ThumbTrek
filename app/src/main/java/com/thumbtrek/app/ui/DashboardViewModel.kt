@@ -73,6 +73,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         val todayPx = perApp.sumOf { it.pixels }
         val todayMeters = pixelsToMeters(todayPx, dpi)
         val dayMeters = byDate.mapValues { pixelsToMeters(it.value, dpi) }
+        val cleanRun = limitStreak(dayMeters, limitM.toDouble())
         UiState(
             trackingEnabled = enabled,
             todayPx = todayPx,
@@ -89,10 +90,11 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 totalMeters = pixelsToMeters(byDate.values.sum(), dpi),
                 bestDayMeters = pixelsToMeters(byDate.values.maxOrNull() ?: 0L, dpi),
                 streak = trekStreak(byDate.keys),
+                cleanStreak = cleanRun,
             ),
             limitM = limitM,
             todayClean = isCleanDay(todayMeters, limitM.toDouble()),
-            cleanStreak = limitStreak(dayMeters, limitM.toDouble()),
+            cleanStreak = cleanRun,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())
 

@@ -12,6 +12,7 @@ import com.thumbtrek.app.stats.BILLING_ENFORCED
 import com.thumbtrek.app.stats.freeLimitEditsLeft
 import com.thumbtrek.app.stats.weekKey
 import com.thumbtrek.app.track.ScrollTrackerService
+import com.thumbtrek.app.work.LimitNudgeWorker
 import com.thumbtrek.app.work.StreakReminderWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -31,6 +32,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         /** User-added packages: pkg -> label captured at add time. */
         val customApps: Map<String, String> = emptyMap(),
         val streakReminder: Boolean = false,
+        val limitNudge: Boolean = false,
         val leaderboardOptIn: Boolean = false,
         val anonymous: Boolean = true,
         // --- daily limit ---
@@ -54,6 +56,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         trackedApps = prefs.trackedApps.value,
         customApps = prefs.customApps.value,
         streakReminder = prefs.streakReminder.value,
+        limitNudge = prefs.limitNudge.value,
         leaderboardOptIn = prefs.leaderboardOptIn.value,
         anonymous = prefs.anonymous.value,
         limitM = prefs.dailyLimitM.value,
@@ -71,9 +74,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         prefs.trackedApps,
         prefs.customApps,
         prefs.streakReminder,
+        prefs.limitNudge,
         prefs.leaderboardOptIn,
-    ) { tracked, custom, reminder, leaderboard ->
-        PrefSnapshot(tracked, custom, reminder, leaderboard)
+    ) { tracked, custom, reminder, nudge, leaderboard ->
+        PrefSnapshot(tracked, custom, reminder, nudge, leaderboard)
     }
 
     /**
@@ -105,6 +109,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             trackedApps = snap.tracked,
             customApps = snap.custom,
             streakReminder = snap.reminder,
+            limitNudge = snap.nudge,
             leaderboardOptIn = snap.leaderboard,
             anonymous = anon,
             limitM = limit.limitM,
@@ -118,6 +123,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         val tracked: Set<String>,
         val custom: Map<String, String>,
         val reminder: Boolean,
+        val nudge: Boolean,
         val leaderboard: Boolean,
     )
 
@@ -164,6 +170,12 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         prefs.setStreakReminder(enabled)
         if (enabled) StreakReminderWorker.schedule(getApplication())
         else StreakReminderWorker.cancel(getApplication())
+    }
+
+    fun setLimitNudge(enabled: Boolean) {
+        prefs.setLimitNudge(enabled)
+        if (enabled) LimitNudgeWorker.schedule(getApplication())
+        else LimitNudgeWorker.cancel(getApplication())
     }
 
     fun setLeaderboardOptIn(enabled: Boolean) = prefs.setLeaderboardOptIn(enabled)

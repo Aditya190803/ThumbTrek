@@ -9,6 +9,7 @@ import androidx.work.WorkManager
 import com.thumbtrek.app.work.DailySummaryWorker
 import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.widget.TrekWidgetProvider
+import com.thumbtrek.app.work.LimitNudgeWorker
 import com.thumbtrek.app.work.StreakReminderWorker
 import java.time.Duration
 import java.time.LocalDateTime
@@ -35,6 +36,13 @@ class ThumbTrekApp : Application() {
         )
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(
+                LimitNudgeWorker.LIMIT_CHANNEL_ID,
+                "Limit nudges",
+                NotificationManager.IMPORTANCE_LOW,
+            ),
+        )
+        getSystemService(NotificationManager::class.java).createNotificationChannel(
+            NotificationChannel(
                 SOCIAL_CHANNEL_ID,
                 "Social",
                 NotificationManager.IMPORTANCE_DEFAULT,
@@ -49,6 +57,7 @@ class ThumbTrekApp : Application() {
                 .build(),
         )
         if (Prefs.get(this).streakReminder.value) StreakReminderWorker.schedule(this)
+        if (Prefs.get(this).limitNudge.value) LimitNudgeWorker.schedule(this)
         TrekWidgetProvider.updateAll(this)
     }
 

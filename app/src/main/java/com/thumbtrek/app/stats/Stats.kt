@@ -104,6 +104,21 @@ fun freeLimitEditsLeft(
     return (FREE_LIMIT_EDITS_PER_WEEK - editCount).coerceAtLeast(0)
 }
 
+/** Warn once today's trek reaches this fraction of the limit. Below it: silence. */
+const val LIMIT_WARN_FRACTION = 0.8
+
+/**
+ * Which limit nudge (if any) today has earned: 0 none, 1 approaching (at 80% of the
+ * limit), 2 breached (over it). Pure so the worker stays thin and this is unit-tested;
+ * the worker adds the only stateful rule — one notification per level per day.
+ */
+fun limitNudgeLevel(todayMeters: Double, limitMeters: Double): Int {
+    if (limitMeters <= 0 || todayMeters <= 0) return 0
+    if (todayMeters > limitMeters) return 2
+    if (todayMeters >= limitMeters * LIMIT_WARN_FRACTION) return 1
+    return 0
+}
+
 fun totalThisWeek(days: Map<LocalDate, Long>, today: LocalDate = LocalDate.now()): Long {
     val monday = today.with(DayOfWeek.MONDAY)
     return days.filterKeys { it in monday..today }.values.sum()
@@ -296,9 +311,16 @@ private fun badge(
 
 /**
  * Local achievements computed from history alone — no server, no extra storage.
- * [totalMeters] is the all-time distance, [bestDayMeters] the longest single day.
+ * [totalMeters] is the all-time distance, [bestDayMeters] the longest single day,
+ * [cleanStreak] the current under-limit run (PRD §11.7). The clean ladder rewards scrolling
+ * less, on purpose: it is the counterweight to the distance ladder, not a duplicate.
  */
-fun badges(totalMeters: Double, bestDayMeters: Double, streak: Int): List<Badge> = listOf(
+fun badges(
+    totalMeters: Double,
+    bestDayMeters: Double,
+    streak: Int,
+    cleanStreak: Int = 0,
+): List<Badge> = listOf(
     badge("first_trek", "👣", "First steps", totalMeters, 1.0,
         "Complete your first trek"),
     badge("banana", "🍌", "Banana", totalMeters, 100.0,
@@ -341,4 +363,12 @@ fun badges(totalMeters: Double, bestDayMeters: Double, streak: Int): List<Badge>
         "Keep a 100-day streak"),
     badge("streak_365", "👑", "Year-round trekker", streak.toDouble(), 365.0,
         "Keep a 365-day streak"),
+    badge("clean_3", "🧼", "Clean slate", cleanStreak.toDouble(), 3.0,
+        "Stay under your limit 3 days in a row"),
+    badge("clean_7", "🛡️", "Under control", cleanStreak.toDouble(), 7.0,
+        "Stay under your limit 7 days in a row"),
+    badge("clean_14", "🧘", "Steady mind", cleanStreak.toDouble(), 14.0,
+        "Stay under your limit 14 days in a row"),
+    badge("clean_30", "🏵️", "Month of restraint", cleanStreak.toDouble(), 30.0,
+        "Stay under your limit 30 days in a row"),
 )

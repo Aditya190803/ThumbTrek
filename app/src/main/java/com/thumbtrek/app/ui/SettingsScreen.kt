@@ -87,10 +87,19 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
     var exportNote by remember { mutableStateOf<String?>(null) }
 
     // PRD 5.5 reminders are a notification, and on Android 13+ that needs a runtime grant.
+    // The grant callback enables whichever toggle asked for it — hardcoding one toggle here
+    // is how a limit-nudge tap would silently switch on the streak reminder instead.
+    var pendingNotifyToggle by remember { mutableStateOf<String?>(null) }
     val notificationPermission = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { granted ->
-        if (granted) vm.setStreakReminder(true)
+        if (granted) {
+            when (pendingNotifyToggle) {
+                "limit" -> vm.setLimitNudge(true)
+                else -> vm.setStreakReminder(true)
+            }
+        }
+        pendingNotifyToggle = null
     }
 
     Column(
@@ -238,9 +247,23 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
                 checked = state.streakReminder,
                 onCheckedChange = { enabled ->
                     if (enabled && needsNotificationPermission(context)) {
+                        pendingNotifyToggle = "streak"
                         notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
                     } else {
                         vm.setStreakReminder(enabled)
+                    }
+                },
+            )
+            ToggleRow(
+                title = "Limit nudge",
+                subtitle = "One heads-up near 80% of your limit, one if you pass it",
+                checked = state.limitNudge,
+                onCheckedChange = { enabled ->
+                    if (enabled && needsNotificationPermission(context)) {
+                        pendingNotifyToggle = "limit"
+                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        vm.setLimitNudge(enabled)
                     }
                 },
             )
