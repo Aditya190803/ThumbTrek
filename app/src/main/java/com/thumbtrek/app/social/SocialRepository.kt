@@ -93,8 +93,10 @@ private const val PODIUM_SCAN = 20
  *                 sources: { android: {...}, web: {...} } }
  * users/{uid}/days/{date}__android = { date, source, um, apps, updatedAt } — the private
  * per-day ledger the web dashboard charts, and what makes history survive a reinstall.
- * users/{uid}/friends/{friendUid} = { since, status } — status is "accepted" or
- * "pending"; edges written before requests existed have no status field and read as
+ * users/{uid}/friends/{friendUid} = { since, status, name?, photo? } — status is "accepted"
+ * or "pending"; name/photo are the WRITER's real Google identity, readable only by the
+ * edge's owner, so friends see each other's real names while the public row stays
+ * anonymous. Edges written before requests existed have no status field and read as
  * accepted, so old friendships survive without migration.
  * friendCodes/{code} = { uid } — the invite lookup index.
  * archive/{weekKey}/scores/{uid} = { displayName, photoUrl, pixels, um } — one frozen copy
@@ -277,7 +279,30 @@ class SocialRepository(private val context: Context) {
                 SetOptions.merge(),
             ).await()
         registerFriendCode(current)
+        // Re-stamp my real identity onto accepted friends' lists: Google names and photos
+        // change, and edges written before identity existed carry nothing. This is also
+        // the migration — one publish heals every old friendship without a backfill job.
+        refreshEdgeIdentity(current)
         return SyncStatus(sources, prefs.lastSyncedAt.takeIf { it > 0L })
+    }
+
+    /**
+     * Merge-stamps my real identity onto every accepted friend's copy of our edge, so
+     * their friends board keeps showing the current me. Writes go to THEIR lists (the
+     * edges they read); my own list is untouched — it carries their handwriting, not mine.
+     * Friend lists are small, so one batch per publish is cheaper than tracking renames.
+     */
+    private suspend fun refreshEdgeIdentity(current: String) {
+        val friends = friendsOf(current).get().await().documents
+            .filter { it.getString(FIELD_STATUS) != STATUS_PENDING }
+            .map { it.id }
+        if (friends.isEmpty()) return
+        val patch = requestIdentityFields(displayName, photoUrl)
+        val batch = db.batch()
+        friends.forEach { friend ->
+            batch.set(friendsOf(friend).document(current), patch, SetOptions.merge())
+        }
+        batch.commit().await()
     }
 
     /**
@@ -381,6 +406,11 @@ class SocialRepository(private val context: Context) {
     }
 
     // --- friends ---------------------------------------------------------------
+    // Friends see each other's REAL identity; the anonymous handle is global-only.
+    // The channel is the edge itself: every edge write stamps the WRITER's Google name
+    // and photo, and edges are readable only by their owner (see firestore.rules), so a
+    // real name in an edge is visible to exactly one friend, never the board. Readers
+    // use the identity on their OWN list — i.e. the other side's handwriting.
 
     /** Accepted friends only; edges predating request semantics count as accepted. */
     suspend fun friendUids(): List<String> {
@@ -390,20 +420,45 @@ class SocialRepository(private val context: Context) {
             .map { it.id }
     }
 
+    /**
+     * Real identities as friends declared them, keyed by friend uid — read from the edge
+     * docs on MY list, which carry the OTHER side's handwriting. Absent for old edges
+     * (written before identity) and for anyone who never re-synced since.
+     */
+    suspend fun friendIdentities(): Map<String, Pair<String, String>> {
+        val current = auth.currentUser?.uid ?: return emptyMap()
+        return friendsOf(current).get().await().documents
+            .filter { it.getString(FIELD_STATUS) != STATUS_PENDING }
+            .mapNotNull { doc ->
+                val name = doc.getString(FIELD_NAME)?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                doc.id to (name to doc.getString(FIELD_PHOTO).orEmpty())
+            }
+            .toMap()
+    }
+
     /** Requests I've received and not answered yet, newest bookkeeping aside. */
     suspend fun incomingRequests(): List<FriendRequest> {
         val current = auth.currentUser?.uid ?: return emptyList()
         val pending = friendsOf(current).get().await().documents
             .filter { it.getString(FIELD_STATUS) == STATUS_PENDING }
-            .map { it.id }
         if (pending.isEmpty()) return emptyList()
-        return pending.chunked(QUERY_CHUNK).flatMap { chunk ->
+        // The requester's edge carries their real identity; the public row is the
+        // fallback for requests sent by old builds. Keyed by uid so each request shows
+        // the name its sender put on it, not whatever the row query returns first.
+        val rows = pending.map { it.id }.chunked(QUERY_CHUNK).flatMap { chunk ->
             db.collection("users")
                 .whereIn(FieldPath.documentId(), chunk)
                 .get()
                 .await()
                 .documents
-                .map { FriendRequest(it.id, entryName(it), entryPhoto(it)) }
+        }.associateBy { it.id }
+        return pending.map { edge ->
+            val row = rows[edge.id]
+            val name = edge.getString(FIELD_NAME)?.takeIf { it.isNotBlank() }
+                ?: row?.let(::entryName) ?: "Trekker"
+            val photo = edge.getString(FIELD_PHOTO)?.takeIf { it.isNotBlank() }
+                ?: row?.let(::entryPhoto).orEmpty()
+            FriendRequest(edge.id, name, photo)
         }
     }
 
@@ -435,7 +490,7 @@ class SocialRepository(private val context: Context) {
         val edge = mapOf(
             "since" to FieldValue.serverTimestamp(),
             FIELD_STATUS to STATUS_PENDING,
-        )
+        ) + requestIdentityFields(displayName, photoUrl)
         val batch = db.batch()
         batch.set(friendsOf(current).document(friend), edge)
         batch.set(friendsOf(friend).document(current), edge)
@@ -459,9 +514,12 @@ class SocialRepository(private val context: Context) {
         } else {
             // merge, not update: the other side's edge may already be gone if they
             // removed us first — recreating a bare accepted edge keeps things symmetric.
-            val edge = mapOf(FIELD_STATUS to newStatus)
-            batch.set(friendsOf(current).document(friendUid), edge, SetOptions.merge())
-            batch.set(friendsOf(friendUid).document(current), edge, SetOptions.merge())
+            // Asymmetric on purpose: my own edge keeps the requester's handwriting
+            // (status-only merge preserves their identity), while their edge gets my
+            // identity stamped so I show up real-named on their friends board.
+            val (ownPatch, theirPatch) = acceptEdgePatches(displayName, photoUrl)
+            batch.set(friendsOf(current).document(friendUid), ownPatch, SetOptions.merge())
+            batch.set(friendsOf(friendUid).document(current), theirPatch, SetOptions.merge())
         }
         batch.commit().await()
     }
@@ -472,6 +530,11 @@ class SocialRepository(private val context: Context) {
      * Me plus [friends], client-sorted for every period (friend lists are small enough
      * that chunked `whereIn` beats a composite index). A friend whose doc still carries
      * last period's key shows as zero rather than dropping off.
+     *
+     * Names come from the edge handwriting, not the public rows: this board is a private
+     * audience, so everyone here shows real-named — including me, so my own row reads
+     * the way my friends read me. Friends whose edges predate identity fall back to
+     * whatever their public row publishes.
      */
     suspend fun friendBoard(friends: List<String>, period: Period): List<LeaderboardEntry> {
         val current = auth.currentUser?.uid ?: return emptyList()
@@ -486,7 +549,13 @@ class SocialRepository(private val context: Context) {
                 .documents
                 .mapTo(entries) { it.toEntry(dpi) }
         }
-        return entries.sortedByDescending { it.score(period) }
+        val names = friendIdentities() + (current to (displayName to photoUrl))
+        return entries
+            .map { entry ->
+                val edge = names[entry.uid]
+                withEdgeIdentity(entry, edge?.first, edge?.second)
+            }
+            .sortedByDescending { it.score(period) }
     }
 
     /**
@@ -577,11 +646,47 @@ class SocialRepository(private val context: Context) {
         const val FIELD_STATUS = "status"
         const val STATUS_PENDING = "pending"
         const val STATUS_ACCEPTED = "accepted"
+        /** Writer's real identity on a friend edge — friends-only, never the board. */
+        const val FIELD_NAME = "name"
+        const val FIELD_PHOTO = "photo"
 
         fun entryName(doc: DocumentSnapshot): String =
             (doc.getString("displayName"))?.takeIf { it.isNotBlank() } ?: "Trekker"
 
         fun entryPhoto(doc: DocumentSnapshot): String = doc.getString("photoUrl").orEmpty()
+
+        /**
+         * Identity half of a request edge: the writer's real Google name and photo,
+         * clamped to the lengths firestore.rules enforces. Pure so the handshake is
+         * unit-tested without Firestore.
+         */
+        fun requestIdentityFields(realName: String, realPhoto: String): Map<String, String> =
+            mapOf(
+                FIELD_NAME to realName.take(64).ifBlank { "Trekker" },
+                FIELD_PHOTO to realPhoto.take(512),
+            )
+
+        /**
+         * Accept handshake as (ownEdgePatch, theirEdgePatch). Mine carries status only —
+         * a full rewrite would clobber the requester's handwriting with my own name.
+         * Theirs gets status plus my identity, so I arrive real-named on their board.
+         */
+        fun acceptEdgePatches(
+            realName: String,
+            realPhoto: String,
+        ): Pair<Map<String, String>, Map<String, String>> =
+            mapOf(FIELD_STATUS to STATUS_ACCEPTED) to
+                (mapOf(FIELD_STATUS to STATUS_ACCEPTED) + requestIdentityFields(realName, realPhoto))
+
+        /** A friends-board entry re-addressed to its edge identity, if it has one. */
+        fun withEdgeIdentity(
+            entry: LeaderboardEntry,
+            edgeName: String?,
+            edgePhoto: String?,
+        ): LeaderboardEntry {
+            val name = edgeName?.takeIf { it.isNotBlank() } ?: return entry
+            return entry.copy(displayName = name, photoUrl = edgePhoto.orEmpty())
+        }
     }
 }
 

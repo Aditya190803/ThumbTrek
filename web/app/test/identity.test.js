@@ -19,6 +19,7 @@ import { createHash } from 'node:crypto';
 import {
   FRIEND_CODE_LENGTH,
   anonymousHandle,
+  edgeIdentity,
   formatFriendCode,
   friendCode,
   inviteLink,
@@ -122,4 +123,18 @@ test('invite links are the ones the phone already shares', () => {
   const message = inviteMessage('ABCD1234');
   assert.match(message, /ABCD-1234/);
   assert.equal(normalizeFriendCode(message.split('\n').pop()), 'ABCD1234');
+});
+
+test('edge identity carries the writer\'s real name within rule limits', () => {
+  assert.deepEqual(edgeIdentity('Ada Lovelace', 'https://pic/x.png'), {
+    name: 'Ada Lovelace',
+    photo: 'https://pic/x.png',
+  });
+  // Clamped to firestore.rules, blank names fall back — a rule rejection would silently
+  // drop the whole request batch.
+  const long = edgeIdentity('n'.repeat(100), 'p'.repeat(600));
+  assert.equal(long.name.length, 64);
+  assert.equal(long.photo.length, 512);
+  assert.equal(edgeIdentity('  ', null).name, 'Trekker');
+  assert.deepEqual(edgeIdentity(null, undefined), { name: 'Trekker', photo: '' });
 });

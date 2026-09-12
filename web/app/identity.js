@@ -71,6 +71,20 @@ export async function anonymousHandle(uid) {
 }
 
 /**
+ * Identity half of a friend edge: the writer's real Google name and photo, clamped to
+ * the lengths firestore.rules enforces. Mirrors SocialRepository.requestIdentityFields —
+ * a blank name falls back to 'Trekker' so a rule rejection can never silently drop the
+ * whole request batch.
+ */
+export function edgeIdentity(displayName, photoURL) {
+  const name = String(displayName ?? '').slice(0, 64);
+  return {
+    name: /^\s*$/.test(name) ? 'Trekker' : name,
+    photo: String(photoURL ?? '').slice(0, 512),
+  };
+}
+
+/**
  * The link Identity.kt hands to the phone's share sheet. /i/<code> is rewritten to the
  * invite page in web/vercel.json, so a link the app produced today resolves on the site.
  */

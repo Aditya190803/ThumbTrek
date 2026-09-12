@@ -198,6 +198,24 @@ export async function loadPodium(archivedWeekKey) {
 // ---------------------------------------------------------------------------------------
 
 /**
+ * Real identities as friends declared them, keyed by friend uid — read from the edge
+ * docs on MY list, which carry the OTHER side's handwriting. Same source the phone's
+ * friendIdentities() reads; absent for old edges and anyone who never re-synced since.
+ */
+export async function loadEdgeIdentities(uid) {
+  const { db, storeMod } = await firebase();
+  const snap = await storeMod.getDocs(storeMod.collection(db, 'users', uid, 'friends'));
+  const out = new Map();
+  for (const d of snap.docs) {
+    const name = d.data()?.name;
+    if (typeof name === 'string' && name.trim()) {
+      out.set(d.id, { name, photo: d.data()?.photo ?? '' });
+    }
+  }
+  return out;
+}
+
+/**
  * The friend list, live. Each edge carries `{ since, status }`; an edge written before
  * requests existed has no status at all and reads as accepted, so old friendships survive
  * without a migration.

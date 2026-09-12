@@ -3,7 +3,10 @@ package com.thumbtrek.app
 import com.thumbtrek.app.data.DailyScroll
 import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.social.BATCH_LIMIT
+import com.thumbtrek.app.social.LeaderboardEntry
 import com.thumbtrek.app.social.MAX_APP_KEYS
+import com.thumbtrek.app.social.Period
+import com.thumbtrek.app.social.SocialRepository
 import com.thumbtrek.app.social.SOURCE_ANDROID
 import com.thumbtrek.app.social.SourceTotals
 import com.thumbtrek.app.social.combine
@@ -381,8 +384,7 @@ class SyncModelTest {
     // --- sync freshness ------------------------------------------------------------------
 
     @Test
-    fun `last synced reads as an age, and as nothing before the first sync`() {
-        val now = 1_000_000_000L
+    fun `last synced reads as an age, and as nothing before the first sync`() {        val now = 1_000_000_000L
         assertNull(syncedAgo(null, now))
         assertNull(syncedAgo(0L, now))
         assertEquals("just now", syncedAgo(now - 30_000, now))
@@ -391,5 +393,41 @@ class SyncModelTest {
         assertEquals("5 days ago", syncedAgo(now - 5 * 86_400_000L, now))
         // Another client's clock running ahead reads as fresh, never as a negative age.
         assertNotNull(syncedAgo(now + 5_000, now))
+    }
+
+    // --- friend edge identity ----------------------------------------------------------
+
+    @Test
+    fun `request edges carry the writer's real identity within rule limits`() {
+        val fields = SocialRepository.requestIdentityFields("Ada Lovelace", "https://pic/x.png")
+        assertEquals("Ada Lovelace", fields["name"])
+        assertEquals("https://pic/x.png", fields["photo"])
+        // Clamped to firestore.rules, blank names fall back — a rule rejection would
+        // silently drop the whole request batch.
+        val long = SocialRepository.requestIdentityFields("n".repeat(100), "p".repeat(600))
+        assertEquals(64, long["name"]!!.length)
+        assertEquals(512, long["photo"]!!.length)
+        assertEquals("Trekker", SocialRepository.requestIdentityFields("  ", "")["name"])
+    }
+
+    @Test
+    fun `accept stamps only the other side, preserving the requester's handwriting`() {
+        val (own, their) = SocialRepository.acceptEdgePatches("Bob", "https://pic/b.png")
+        assertEquals(mapOf("status" to "accepted"), own)
+        assertEquals("accepted", their["status"])
+        assertEquals("Bob", their["name"])
+        assertEquals("https://pic/b.png", their["photo"])
+    }
+
+    @Test
+    fun `friends board prefers edge identity, global rows untouched`() {
+        val row = LeaderboardEntry("u1", "Silent Scroller #0001", "", 10L, 10L, 10L)
+        val real = SocialRepository.withEdgeIdentity(row, "Bob", "https://pic/b.png")
+        assertEquals("Bob", real.displayName)
+        assertEquals("https://pic/b.png", real.photoUrl)
+        assertEquals(10L, real.score(Period.WEEK)) // scores never come from the edge
+        // Old edges with no identity read through unchanged.
+        assertEquals(row, SocialRepository.withEdgeIdentity(row, null, null))
+        assertEquals(row, SocialRepository.withEdgeIdentity(row, "  ", "x"))
     }
 }

@@ -150,8 +150,10 @@ a browser extension, cross-device sync, and a web dashboard. See
 ## 11. Shipped Product Decisions
 
 1. Each supported app can be enabled or disabled independently; all four start enabled.
-2. Leaderboard publishing is fully opt-in and anonymous by default — boards show a stable
-   pseudonym and no photo until the user switches their name on.
+2. Leaderboard publishing is fully opt-in and anonymous by default — the global board
+   shows a stable pseudonym and no photo until the user switches their name on. Friends
+   are exempt: each side's friend edge carries the writer's real identity (readable only
+   by its owner), so people you added see the real you.
 3. Version 0.0.1 is free and contains no ads or premium tier.
 4. **Every client is offline-first.** An account is never required to track, and never
    required to see your own numbers. It buys sync and the leaderboard, nothing else.

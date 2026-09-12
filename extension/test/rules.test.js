@@ -41,6 +41,15 @@ function validDay(dayId, data) {
       || (data.apps !== null && typeof data.apps === 'object' && Object.keys(data.apps).length <= 64));
 }
 
+/** firestore.rules, match /users/{uid}/friends/{friendUid} → validEdge(). */
+function validEdge(data) {
+  const allowed = ['since', 'status', 'name', 'photo'];
+  return Object.keys(data).every((key) => allowed.includes(key))
+    && (!('status' in data) || ['pending', 'accepted'].includes(data.status))
+    && (!('name' in data) || (typeof data.name === 'string' && data.name.length <= 64))
+    && (!('photo' in data) || (typeof data.photo === 'string' && data.photo.length <= 512));
+}
+
 /** firestore.rules, match /users/{uid} → validScore(). */
 function validScore(data) {
   const allowed = ['displayName', 'photoUrl', 'friendCode', 'weekKey', 'weekPixels',
@@ -173,4 +182,17 @@ test('sources stays inside the 8-key limit with two clients', () => {
   );
   assert.equal(Object.keys(merged.sources).length, 2);
   assert.ok(validScore(merged));
+});
+
+test('friend edges carry identity inside the rule limits', () => {
+  // Old edges (status only) and new ones (with the writer's real identity) both pass;
+  // anything else — or an over-long name — is rejected, which would silently drop the
+  // whole request/accept batch.
+  assert.ok(validEdge({ status: 'pending' }));
+  assert.ok(validEdge({
+    status: 'accepted', name: 'Ada Lovelace', photo: 'https://pic/x.png',
+  }));
+  assert.equal(validEdge({ status: 'pending', nickname: 'Ada' }), false);
+  assert.equal(validEdge({ status: 'accepted', name: 'x'.repeat(65) }), false);
+  assert.equal(validEdge({ status: 'blocked' }), false);
 });

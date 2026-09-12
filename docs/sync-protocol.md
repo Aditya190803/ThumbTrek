@@ -132,8 +132,12 @@ Clients only need to push days they changed. Backfill on first sign-in is a `set
 ### Unchanged collections
 
 `users/{uid}/friends/{friendUid}`, `friendCodes/{code}`, and `archive/{weekKey}/scores/{uid}`
-keep their current shape and semantics. The archive stores `pixels`; it gains an optional
-`um` field written alongside, ranked on when present.
+keep their current shape and semantics, with one addition: friend edges gain optional
+`name` (≤64) and `photo` (≤512) carrying the WRITER's real Google identity. Edges are
+readable only by their owner, so this is how friends see each other's real names while
+the public board row stays anonymous — the global handle never leaks through this
+channel. Old edges without them read through unchanged. The archive stores `pixels`; it
+gains an optional `um` field written alongside, ranked on when present.
 
 ---
 
