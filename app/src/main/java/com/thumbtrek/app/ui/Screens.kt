@@ -77,6 +77,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.thumbtrek.app.data.appName
 import com.thumbtrek.app.share.shareTrekCard
 import com.thumbtrek.app.stats.Badge
+import com.thumbtrek.app.stats.AppSeries
+import com.thumbtrek.app.stats.Bucket
 import com.thumbtrek.app.stats.LANDMARKS
 import com.thumbtrek.app.stats.comparison
 import com.thumbtrek.app.stats.dailyBuckets
@@ -88,6 +90,7 @@ import com.thumbtrek.app.stats.weekOverWeekDelta
 import com.thumbtrek.app.stats.weeklyBuckets
 import com.thumbtrek.app.widget.TrekWidgetProvider
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 private val GUTTER = 20.dp
@@ -771,6 +774,11 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
         }
 
         item("range") {
+            // Latest period selected up front, so the detail below answers "how far was
+            // that bar" before the first tap. Reset per range; tapping the active bar
+            // clears back to an unselected chart.
+            var selected by rememberSaveable(range) { mutableIntStateOf(buckets.lastIndex) }
+            val haptics = LocalHapticFeedback.current
             Column {
                 TrekSegmented(RANGES, range, onSelect = { range = it })
                 Spacer(modifier = Modifier.height(18.dp))
@@ -779,7 +787,24 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
                         ChartBar(it.label, pixelsToMeters(it.pixels, dpi).toFloat())
                     },
                     highlight = buckets.lastIndex,
+                    selected = selected,
+                    onSelect = { tapped ->
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        selected = if (tapped == selected) -1 else tapped
+                    },
                 )
+                Spacer(modifier = Modifier.height(14.dp))
+                buckets.getOrNull(selected)?.let { bucket ->
+                    PeriodDetail(
+                        bucket = bucket,
+                        range = range,
+                        dpi = dpi,
+                        trends = state.appTrends,
+                        customLabels = state.customLabels,
+                        dateFormat = dateFormat,
+                        monthFormat = monthFormat,
+                    )
+                }
             }
         }
 
@@ -887,10 +912,87 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
     }
 }
 
+/**
+ * The tapped bar, read back: full period label, total, and — for single days — the per-app
+ * split rebuilt from the 14-day trend window (which always covers the 7-day chart). Weeks
+ * and months have no per-app ledger, so they read as a total plus the landmark line.
+ */
+@Composable
+private fun PeriodDetail(
+    bucket: Bucket,
+    range: Int,
+    dpi: Int,
+    trends: List<AppSeries>,
+    customLabels: Map<String, String>,
+    dateFormat: DateTimeFormatter,
+    monthFormat: DateTimeFormatter,
+) {
+    val meters = pixelsToMeters(bucket.pixels, dpi)
+    val title = when (range) {
+        0 -> LocalDate.parse(bucket.key).format(dateFormat)
+        1 -> "Week of ${bucket.label}"
+        else -> YearMonth.parse(bucket.key).format(monthFormat)
+    }
+    val noun = when (range) {
+        0 -> "day"
+        1 -> "week"
+        else -> "month"
+    }
+    val split = remember(bucket.key, trends) {
+        if (range != 0) return@remember emptyList()
+        trends.mapNotNull { trend ->
+            trend.points.find { it.key == bucket.key }?.let { trend.packageName to it.pixels }
+        }.sortedByDescending { it.second }
+    }
+
+    TrekPanel {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                title,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleLarge,
+                color = Trek.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                formatDistance(meters),
+                style = MaterialTheme.typography.headlineSmall,
+                color = if (meters > 0.0) Trek.moss else Trek.inkFaint,
+                maxLines = 1,
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            if (meters > 0.0) comparison(meters) else "No trek logged that $noun.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Trek.inkMuted,
+        )
+        if (range == 0 && meters > 0.0) {
+            Spacer(modifier = Modifier.height(10.dp))
+            if (split.isEmpty()) {
+                Text(
+                    "Nothing measured that day.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Trek.inkFaint,
+                )
+            } else {
+                split.forEach { (pkg, px) ->
+                    ChartLegendRow(
+                        color = chartColor(pkg),
+                        label = appName(pkg, customLabels),
+                        value = formatDistance(pixelsToMeters(px, dpi)),
+                        modifier = Modifier.padding(vertical = 3.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
 /** A record: label on the left, figure on the right, the "why" underneath in small type. */
 @Composable
-private fun LedgerLine(label: String, value: String, caption: String, accent: Color) {
-    Column(
+private fun LedgerLine(label: String, value: String, caption: String, accent: Color) {    Column(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)

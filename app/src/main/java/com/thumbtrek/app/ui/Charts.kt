@@ -3,6 +3,7 @@ package com.thumbtrek.app.ui
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +31,10 @@ import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -228,6 +232,8 @@ fun TrekGauge(
  *
  * @param bars ordered oldest to newest.
  * @param highlight index drawn in the accent colour, normally today. -1 for none.
+ * @param selected index the user tapped, drawn ink-dark with the rest dimmed. -1 for none.
+ * @param onSelect tap handler; null renders a static chart with no touch handling.
  */
 @Composable
 fun HistoryBars(
@@ -238,11 +244,16 @@ fun HistoryBars(
     accentColor: Color = Trek.moss,
     height: Dp = 132.dp,
     maxInlineLabels: Int = 8,
+    selected: Int = -1,
+    onSelect: ((Int) -> Unit)? = null,
 ) {
     if (bars.isEmpty()) return
     val max = bars.maxOf { it.value }.coerceAtLeast(1f)
     val track = Trek.groundSunken
+    // Palette reads are @Composable, so resolve them before the draw scope below.
+    val selectedColor = Trek.ink
     val motion = LocalTrekMotion.current
+    val hasSelection = selected in bars.indices
 
     // Same rule as the gauge: play once when data first exists, then hold. Keying on the
     // values would replay the whole sweep every time today's column ticks up.
@@ -257,12 +268,27 @@ fun HistoryBars(
         }
     }
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(
+        modifier = modifier.semantics {
+            if (onSelect != null) {
+                contentDescription = "History chart. Tap a bar to see that period's distance."
+            }
+        },
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Canvas(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(height)
-                .clearAndSetSemantics { },
+                .clearAndSetSemantics { }
+                .pointerInput(bars.size, onSelect) {
+                    if (onSelect == null) return@pointerInput
+                    detectTapGestures { offset ->
+                        // Slots tile the width edge to edge, so x alone picks the column.
+                        val slot = size.width / bars.size
+                        onSelect((offset.x / slot).toInt().coerceIn(0, bars.size - 1))
+                    }
+                },
         ) {
             val slot = size.width / bars.size
             val barWidth = (slot * 0.54f).coerceAtMost(22.dp.toPx()).coerceAtLeast(2f)
@@ -286,14 +312,23 @@ fun HistoryBars(
                 val barHeight = target * local
                 if (barHeight <= 0f) return@forEachIndexed
                 drawRoundRect(
-                    color = if (index == highlight) accentColor else barColor,
+                    color = when {
+                        index == selected -> selectedColor
+                        hasSelection -> barColor.copy(alpha = 0.4f)
+                        index == highlight -> accentColor
+                        else -> barColor
+                    },
                     topLeft = Offset(x, size.height - barHeight),
                     size = Size(barWidth, barHeight),
                     cornerRadius = corner,
                 )
             }
         }
-        ChartAxisLabels(bars.map { it.label }, maxInlineLabels, highlight)
+        ChartAxisLabels(
+            bars.map { it.label },
+            maxInlineLabels,
+            if (hasSelection) selected else highlight,
+        )
     }
 }
 
