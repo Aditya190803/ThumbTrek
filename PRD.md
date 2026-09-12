@@ -161,3 +161,15 @@ a browser extension, cross-device sync, and a web dashboard. See
    Open question worth revisiting: a mouse wheel is not a thumb, so a heavy desktop user can
    out-scroll a phone user cheaply. Keeping `sources` split means the board can be changed to
    rank phone-only, or to show two boards, without a migration or any data loss.
+7. **The streak that matters rewards scrolling less, not more.** A single daily limit
+   (default 100 m) defines a *clean day*: finish at or under it — zero included — and the
+   clean-days counter advances; go over and it resets to zero the same day. The original
+   activity streak stays beside it, so nothing already shipped (badges, reminders, boards)
+   changes meaning. The limit is per-device and local-only in v1; a combined cross-device
+   limit is a follow-up once phone + browser totals reconcile in one place.
+8. **The limit itself is the paywall, never the streak — but not yet.** Limits and streaks
+   stay free for the first month while clean-streak retention is measured; billing is
+   decided on that data. The weekly quota + Premium machinery is already built and keeps
+   recording edits behind a `BILLING_ENFORCED = false` flag, so switching enforcement on
+   later needs no migration. A broken streak can't be bought back — only tomorrow under
+   the limit starts a new run.
