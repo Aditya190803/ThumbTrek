@@ -63,6 +63,32 @@ class Prefs private constructor(context: Context) {
      */
     val premium: StateFlow<Boolean> = _premium.asStateFlow()
 
+    // --- limit nudge (opt-in, at most one notification per level per day) ---
+
+    private val _limitNudge = MutableStateFlow(sp.getBoolean(KEY_LIMIT_NUDGE, false))
+    /** Warn at 80% of the limit and on breach. Off by default, like every nag. */
+    val limitNudge: StateFlow<Boolean> = _limitNudge.asStateFlow()
+
+    /** yyyy-MM-dd the last nudge fired, so each level nags exactly once per day. */
+    var lastLimitNudgeDay: String?
+        get() = sp.getString(KEY_LAST_NUDGE_DAY, null)
+        private set(value) = sp.edit().putString(KEY_LAST_NUDGE_DAY, value).apply()
+
+    /** The level (1 warn, 2 breach) already fired on [lastLimitNudgeDay]. */
+    var lastLimitNudgeLevel: Int
+        get() = sp.getInt(KEY_LAST_NUDGE_LEVEL, 0)
+        private set(value) = sp.edit().putInt(KEY_LAST_NUDGE_LEVEL, value).apply()
+
+    fun recordLimitNudge(day: String, level: Int) {
+        lastLimitNudgeDay = day
+        lastLimitNudgeLevel = level
+    }
+
+    fun setLimitNudge(enabled: Boolean) {
+        sp.edit().putBoolean(KEY_LIMIT_NUDGE, enabled).apply()
+        _limitNudge.value = enabled
+    }
+
     /** ISO week of the last limit edit, or null when the limit never changed. */
     var limitEditWeek: String?
         get() = sp.getString(KEY_LIMIT_EDIT_WEEK, null)
@@ -231,6 +257,9 @@ class Prefs private constructor(context: Context) {
         private const val KEY_LIMIT_EDIT_WEEK = "limit_edit_week"
         private const val KEY_LIMIT_EDIT_COUNT = "limit_edit_count"
         private const val KEY_PREMIUM = "is_premium"
+        private const val KEY_LIMIT_NUDGE = "limit_nudge"
+        private const val KEY_LAST_NUDGE_DAY = "last_nudge_day"
+        private const val KEY_LAST_NUDGE_LEVEL = "last_nudge_level"
 
         /** `pkg|label` lines; labels never contain newlines and `|` is stripped on save. */
         fun encodeCustomApps(apps: Map<String, String>): String =
