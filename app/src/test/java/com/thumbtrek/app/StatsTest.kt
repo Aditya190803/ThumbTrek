@@ -15,6 +15,7 @@ import com.thumbtrek.app.stats.formatDistance
 import com.thumbtrek.app.stats.BILLING_ENFORCED
 import com.thumbtrek.app.stats.freeLimitEditsLeft
 import com.thumbtrek.app.stats.isCleanDay
+import com.thumbtrek.app.stats.limitNudgeLevel
 import com.thumbtrek.app.stats.limitStreak
 import com.thumbtrek.app.stats.monthKey
 import com.thumbtrek.app.stats.monthlyBuckets
@@ -274,7 +275,7 @@ class StatsTest {
 
     @Test
     fun `badges earn at their milestones`() {
-        val all = badges(totalMeters = 1_000_000.0, bestDayMeters = 9_000.0, streak = 365)
+        val all = badges(totalMeters = 1_000_000.0, bestDayMeters = 9_000.0, streak = 365, cleanStreak = 30)
         assertTrue(all.all { it.earned })
         // Every badge reports which target it tracks.
         assertEquals(all.size, badges(0.0, 0.0, 0).size)
@@ -375,6 +376,27 @@ class StatsTest {
         assertFalse(BILLING_ENFORCED)
         assertEquals(Int.MAX_VALUE, freeLimitEditsLeft(null, 0, today))
         assertEquals(Int.MAX_VALUE, freeLimitEditsLeft(weekKey(today), 99, today))
+    }
+
+    @Test
+    fun `clean badges track the under-limit run, not the trek streak`() {
+        val week = badges(0.0, 0.0, streak = 0, cleanStreak = 7)
+        assertTrue(week.first { it.id == "clean_3" }.earned)
+        assertTrue(week.first { it.id == "clean_7" }.earned)
+        assertFalse(week.first { it.id == "clean_14" }.earned)
+        // A long trek streak alone earns no clean badge.
+        val trekker = badges(1_000_000.0, 9_000.0, streak = 365, cleanStreak = 0)
+        assertTrue(trekker.filter { it.id.startsWith("clean_") }.none { it.earned })
+    }
+
+    @Test
+    fun `limit nudge levels fire at eighty percent and at breach`() {
+        assertEquals(0, limitNudgeLevel(0.0, 100.0)) // nothing scrolled: silence
+        assertEquals(0, limitNudgeLevel(79.9, 100.0))
+        assertEquals(1, limitNudgeLevel(80.0, 100.0)) // boundary warns
+        assertEquals(1, limitNudgeLevel(99.9, 100.0))
+        assertEquals(2, limitNudgeLevel(100.1, 100.0))
+        assertEquals(0, limitNudgeLevel(50.0, 0.0)) // misconfigured limit: silence
     }
 
     @Test

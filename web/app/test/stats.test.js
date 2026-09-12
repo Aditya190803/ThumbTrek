@@ -254,10 +254,18 @@ test('the landmark ladder gives progress something to aim at', () => {
 // --- badges ---------------------------------------------------------------------------
 
 test('badges earn at their milestones', () => {
-  const all = badges(1_000_000, 9_000, 365);
+  const all = badges(1_000_000, 9_000, 365, 30);
   assert.ok(all.every((b) => b.earned));
   assert.equal(badges(0, 0, 0).length, all.length);
   assert.ok(badges(0, 0, 0).every((b) => !b.earned));
+});
+
+test('clean badges track the under-limit run, not the trek streak', () => {
+  const week = badges(0, 0, 0, 7);
+  assert.equal(week.find((b) => b.id === 'clean_30').earned, false);
+  assert.equal(week.find((b) => b.id === 'clean_7').earned, true);
+  const trekker = badges(1_000_000, 9_000, 365, 0);
+  assert.ok(trekker.filter((b) => b.id.startsWith('clean_')).every((b) => !b.earned));
 });
 
 test('badge progress clamps to one', () => {
