@@ -43,6 +43,12 @@ Four things in `content/measure-core.js` are less obvious than they look:
   the next real scroll measures from where the page actually is.
 - **Batching.** Pixels are accumulated locally and flushed every five seconds, plus on
   `visibilitychange` and `pagehide`. Never a message per scroll event.
+- **YouTube Shorts is a pager, not a scroller.** `/shorts/<id>` never moves any scroll
+  container — the video swaps through history navigation — so the scroll listener sees
+  nothing and a Shorts session would read as zero. Each *new* Short banks one viewport
+  height through the accumulator's `add()`, detected via history patching plus
+  wheel/touch/key/popstate listeners (counting URL changes, not wheel deltas, so a bounce
+  that changes nothing banks nothing). The web equivalent of Android's `PAGED` path.
 
 Distance is filed under the **registrable domain** — `youtube.com`, not `www.youtube.com` —
 so one site is one row. `twitter.com` folds into `x.com`.
