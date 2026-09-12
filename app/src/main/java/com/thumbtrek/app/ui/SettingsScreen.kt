@@ -27,8 +27,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -44,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -51,7 +55,15 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.thumbtrek.app.data.TRACKED_APPS
+import com.thumbtrek.app.data.Prefs
+import com.thumbtrek.app.data.appName
 import com.thumbtrek.app.share.DataExporter
+import com.thumbtrek.app.stats.BILLING_ENFORCED
+import com.thumbtrek.app.stats.MAX_DAILY_LIMIT_M
+import com.thumbtrek.app.stats.MIN_DAILY_LIMIT_M
+import com.thumbtrek.app.stats.formatDistance
+import com.thumbtrek.app.stats.pixelsToMeters
+import com.thumbtrek.app.track.ScrollDiagnostics
 import com.thumbtrek.app.update.UpdateSettingsContent
 import kotlinx.coroutines.launch
 
@@ -168,6 +180,53 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
                     color = Trek.danger,
                 )
             }
+        }
+
+        // ---- Daily limit --------------------------------------------------------------
+        Column {
+            SectionHead("Daily limit", trailing = "${state.limitM.toInt()} M / DAY")
+            Text(
+                "Stay at or under this far a day and the day counts as clean. Clean days in " +
+                    "a row are the streak that matters here — this one rewards scrolling less, " +
+                    "not more.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Trek.inkMuted,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            LimitEditor(vm = vm, currentM = state.limitM)
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                when {
+                    !BILLING_ENFORCED -> "Free while ThumbTrek finds its feet — change your " +
+                        "limit as often as you like for now."
+                    state.premium -> "Premium: unlimited changes."
+                    state.freeEditsLeft > 0 -> "One free change per week — yours is still " +
+                        "available this week."
+                    else -> "This week's free change is used. The quota resets Monday; " +
+                        "Premium (coming soon) unlocks unlimited changes."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = Trek.inkFaint,
+            )
+        }
+
+        // ---- Tracking diagnostics -----------------------------------------------------
+        Column {
+            SectionHead("Tracking diagnostics", trailing = "DEBUG")
+            Text(
+                "Proof that measurement works. Open YouTube, scroll the home feed and a " +
+                    "few Shorts, then come back here: its row should have moved. Foreground " +
+                    "sightings without pixels mean events arrive but bank nothing; nothing at " +
+                    "all means the toggle above or the system Accessibility switch. Counts " +
+                    "reset with the process and never leave this phone.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Trek.inkMuted,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            DiagnosticsTable(
+                trackedApps = state.trackedApps,
+                customLabels = state.customApps,
+            )
         }
 
         // ---- Notifications ------------------------------------------------------------
@@ -483,3 +542,187 @@ private fun needsNotificationPermission(context: Context): Boolean =
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
         PackageManager.PERMISSION_GRANTED
+
+// ---------------------------------------------------------------------------------------
+// Daily limit editor
+// ---------------------------------------------------------------------------------------
+
+/**
+ * The limit editor. Saves through the weekly free-edit quota in [Prefs]: the first change
+ * each ISO week is free, further ones need premium, and the result line says which one
+ * just happened so "Save" never looks dead.
+ */
+@Composable
+private fun LimitEditor(vm: SettingsViewModel, currentM: Float) {
+    var input by remember(currentM) { mutableStateOf(currentM.toInt().toString()) }
+    var error by remember { mutableStateOf<String?>(null) }
+    val result by vm.limitEdit.collectAsStateWithLifecycle()
+
+    Row(verticalAlignment = Alignment.Top) {
+        OutlinedTextField(
+            value = input,
+            onValueChange = {
+                // Digits only; the range check happens on save, where it can explain itself.
+                input = it.filter { char -> char.isDigit() }.take(5)
+                error = null
+                vm.clearLimitEdit()
+            },
+            modifier = Modifier.weight(1f),
+            label = { Text("Metres per day") },
+            singleLine = true,
+            isError = error != null,
+            supportingText = error?.let { { Text(it) } },
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = Trek.ink,
+                unfocusedTextColor = Trek.ink,
+                errorTextColor = Trek.ink,
+                focusedLabelColor = Trek.inkFaint,
+                unfocusedLabelColor = Trek.inkFaint,
+                errorLabelColor = Trek.danger,
+                focusedBorderColor = Trek.moss,
+                unfocusedBorderColor = Trek.hairline,
+                errorBorderColor = Trek.danger,
+            ),
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        TrekButton(
+            "Save",
+            onClick = {
+                val value = input.toFloatOrNull()
+                error = when {
+                    value == null -> "Enter a number, e.g. 100."
+                    value < MIN_DAILY_LIMIT_M.toFloat() || value > MAX_DAILY_LIMIT_M.toFloat() ->
+                        "Between ${MIN_DAILY_LIMIT_M.toInt()} and " +
+                            "${MAX_DAILY_LIMIT_M.toInt()} m, so a typo can't break the game."
+                    else -> null
+                }
+                if (error == null && value != null) vm.trySetLimit(value)
+            },
+        )
+    }
+    when (val applied = result) {
+        is Prefs.LimitEditResult.Applied -> {
+            Spacer(modifier = Modifier.height(8.dp))
+            val noun = if (applied.freeLeft == 1) "change" else "changes"
+            Text(
+                when {
+                    !BILLING_ENFORCED -> "Saved. Limits are free for now — change it whenever."
+                    applied.freeLeft == Int.MAX_VALUE -> "Saved. Premium: unlimited changes."
+                    else -> "Saved. ${applied.freeLeft} free $noun left this week."
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = Trek.moss,
+            )
+        }
+        Prefs.LimitEditResult.NeedsPremium -> {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                "This week's free change is used — the quota resets Monday. Premium " +
+                    "(coming soon) unlocks unlimited changes. Nothing was changed.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Trek.danger,
+            )
+        }
+        null -> Unit
+    }
+}
+
+// ---------------------------------------------------------------------------------------
+// Tracking diagnostics
+// ---------------------------------------------------------------------------------------
+
+/**
+ * Per-app proof that measurement works, read straight from [ScrollDiagnostics]. The
+ * service and the UI share a process, so this is live counters, not a log scrape: scroll
+ * YouTube, come back, and its row moves. Apps with no row yet show as idle rather than
+ * vanishing, so "YouTube measures nothing" and "YouTube never heard a scroll" read
+ * differently — which is the entire point of the diagnostics.
+ */
+@Composable
+private fun DiagnosticsTable(
+    trackedApps: Set<String>,
+    customLabels: Map<String, String>,
+) {
+    val context = LocalContext.current
+    val dpi = remember { context.resources.displayMetrics.densityDpi }
+    val revision by ScrollDiagnostics.revision.collectAsStateWithLifecycle()
+    val snapshot = remember(revision) { ScrollDiagnostics.snapshot() }
+    val byPkg = remember(snapshot) { snapshot.associateBy { it.packageName } }
+    var clearedNote by remember { mutableStateOf(false) }
+
+    val packages = remember(trackedApps, customLabels, snapshot) {
+        (TRACKED_APPS.keys + customLabels.keys + snapshot.map { it.packageName })
+            .distinct()
+            .sortedWith(
+                compareBy<String> { it !in trackedApps }.thenBy { appName(it, customLabels) },
+            )
+    }
+
+    TrekPanel(padding = PaddingValues(4.dp)) {
+        if (packages.isEmpty()) {
+            Text(
+                "Nothing tracked yet — switch an app on above and its row appears here.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Trek.inkFaint,
+                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
+            )
+        }
+        packages.forEachIndexed { index, pkg ->
+            val diag = byPkg[pkg]
+            val countedPx = diag?.countedPixels ?: 0L
+            val detail = when {
+                pkg !in trackedApps -> "off"
+                diag == null -> "idle — no scroll heard yet"
+                else -> "fg=${diag.foregroundSightings} · " +
+                    "${formatDistance(pixelsToMeters(countedPx, dpi))}" +
+                    (diag.dominantPath?.let { " · $it" } ?: "")
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(min = 48.dp)
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SeriesDot(chartColor(pkg))
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        appName(pkg, customLabels),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = if (pkg in trackedApps) Trek.ink else Trek.inkFaint,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        detail,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Trek.inkFaint,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+            if (index < packages.lastIndex) Hairline(modifier = Modifier.padding(horizontal = 14.dp))
+        }
+    }
+    Spacer(modifier = Modifier.height(10.dp))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        TrekGhostButton(
+            text = "Reset counters",
+            onClick = {
+                ScrollDiagnostics.clear()
+                clearedNote = true
+            },
+        )
+        if (clearedNote) {
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                "Counters cleared — scroll a feed to start them again.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Trek.inkFaint,
+            )
+        }
+    }
+}

@@ -376,6 +376,13 @@ private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Mo
             delta = dayOverDayDelta(byDate),
         )
 
+        LimitGlance(
+            todayMeters = todayMeters,
+            limitM = state.limitM,
+            clean = state.todayClean,
+            cleanStreak = state.cleanStreak,
+        )
+
         if (todayMeters > 0.0) {
             LandmarkReading(todayMeters)
         }
@@ -491,6 +498,58 @@ private fun LandmarkReading(meters: Double) {
             )
             Text(
                 "${formatDistance(next.meters - meters)} to go before ${next.label}.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Trek.inkMuted,
+            )
+        }
+    }
+}
+
+/**
+ * The limit theme, given the dashboard slot right under the hero dial. Today's trek against
+ * the daily cap, with the clean-days counter beside it: the streak that rewards scrolling
+ * less sits next to the trek streak in the dial, not instead of it.
+ */
+@Composable
+private fun LimitGlance(
+    todayMeters: Double,
+    limitM: Float,
+    clean: Boolean,
+    cleanStreak: Int,
+) {
+    val limit = limitM.toDouble().coerceAtLeast(1.0)
+    val caption = when {
+        !clean -> "Over the limit today — tomorrow under ${formatDistance(limit)} starts a new run."
+        cleanStreak > 1 -> "$cleanStreak clean days in a row — stay under ${formatDistance(limit)} to keep it."
+        else -> "On track — finish today under ${formatDistance(limit)} for a clean day."
+    }
+    Column {
+        SectionHead(
+            "Daily limit",
+            trailing = if (cleanStreak > 0) "$cleanStreak CLEAN" else null,
+        )
+        TrekPanel {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    if (clean) "On track" else "Over limit",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = if (clean) Trek.ink else Trek.danger,
+                )
+                Text(
+                    "${formatDistance(todayMeters)} of ${formatDistance(limit)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Trek.inkMuted,
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Rail(
+                fraction = (todayMeters / limit).toFloat(),
+                color = if (clean) Trek.moss else Trek.danger,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                caption,
                 style = MaterialTheme.typography.bodySmall,
                 color = Trek.inkMuted,
             )

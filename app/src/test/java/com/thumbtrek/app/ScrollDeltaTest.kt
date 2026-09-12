@@ -187,6 +187,42 @@ class ScrollDeltaTest {
         assertTrue(!ScrollPath.OUT_OF_RANGE.counted)
     }
 
+    // --- YouTube: the shapes com.google.android.youtube actually emits ---
+    // These pin the contract the deep audit verified, so a future "optimisation" of the
+    // priority order can't silently zero YouTube while Instagram keeps working.
+
+    @Test
+    fun `youtube home feed RecyclerView deltas count as pixels`() {
+        // Classic Views report honest deltas; RecyclerView leaves scrollY at 0 forever.
+        val delta = resolve(ScrollSample(scrollDeltaY = 640, scrollY = 0), previous = 0)
+        assertEquals(640, delta.pixels)
+        assertEquals(ScrollPath.PIXEL_DELTA, delta.path)
+    }
+
+    @Test
+    fun `youtube Shorts pager swipe counts a full screen, not pseudo-units`() {
+        // A Shorts swipe advances the Compose pager pseudo-offset exactly 500 per page
+        // however tall the page is; banking the raw 500 would undercount ~5x on a phone.
+        val delta = resolve(
+            ScrollSample(scrollDeltaY = UNDEFINED_SCROLL, scrollY = 1500, maxScrollY = 1600),
+            previous = 1000,
+        )
+        assertEquals(screen, delta.pixels)
+        assertEquals(ScrollPath.PAGED, delta.path)
+    }
+
+    @Test
+    fun `youtube comments position stream diffs honestly`() {
+        // Nested scrollers that only fill scrollY/maxScrollY (Compose verticalScroll,
+        // API 26/27) diff like pixels.
+        val delta = resolve(
+            ScrollSample(scrollDeltaY = UNDEFINED_SCROLL, scrollY = 2600, maxScrollY = 12000),
+            previous = 2100,
+        )
+        assertEquals(500, delta.pixels)
+        assertEquals(ScrollPath.PIXEL_POSITION, delta.path)
+    }
+
     // --- diagnostics ---
 
     @After

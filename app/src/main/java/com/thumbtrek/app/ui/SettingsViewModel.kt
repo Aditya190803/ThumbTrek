@@ -8,6 +8,9 @@ import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.thumbtrek.app.data.Prefs
+import com.thumbtrek.app.stats.BILLING_ENFORCED
+import com.thumbtrek.app.stats.freeLimitEditsLeft
+import com.thumbtrek.app.stats.weekKey
 import com.thumbtrek.app.track.ScrollTrackerService
 import com.thumbtrek.app.work.StreakReminderWorker
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +33,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         val streakReminder: Boolean = false,
         val leaderboardOptIn: Boolean = false,
         val anonymous: Boolean = false,
+        // --- daily limit ---
+        val limitM: Float = 100f,
+        val freeEditsLeft: Int = 1,
+        val premium: Boolean = false,
     )
 
     private val prefs = Prefs.get(app)
@@ -49,6 +56,15 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         streakReminder = prefs.streakReminder.value,
         leaderboardOptIn = prefs.leaderboardOptIn.value,
         anonymous = prefs.anonymous.value,
+        limitM = prefs.dailyLimitM.value,
+        freeEditsLeft = freeLimitEditsLeft(prefs.limitEditWeek, prefs.limitEditCount),
+        premium = prefs.premium.value,
+    )
+
+    /** Last limit-edit attempt: null until the user tries to save. */
+    private val _limitEdit = MutableStateFlow<Prefs.LimitEditResult?>(null)
+    val limitEdit = _limitEdit.stateIn(
+        viewModelScope, SharingStarted.WhileSubscribed(5_000), null,
     )
 
     private val prefState = combine(
@@ -60,11 +76,30 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         PrefSnapshot(tracked, custom, reminder, leaderboard)
     }
 
+    /**
+     * Limit half of the settings state. Folded into one flow because this coroutines
+     * version has no 6-way combine overload; [_limitEdit] rides along so the free-edits
+     * counter refreshes even when the saved value is unchanged (same-value writes don't
+     * re-emit dailyLimitM).
+     */
+    private data class LimitSnapshot(
+        val limitM: Float,
+        val premium: Boolean,
+        val edit: Prefs.LimitEditResult?,
+    )
+
+    private val limitState = combine(
+        prefs.dailyLimitM,
+        prefs.premium,
+        _limitEdit,
+    ) { limitM, premium, edit -> LimitSnapshot(limitM, premium, edit) }
+
     val state = combine(
         prefState,
         prefs.anonymous,
         trackingEnabled,
-    ) { snap, anon, enabled ->
+        limitState,
+    ) { snap: PrefSnapshot, anon: Boolean, enabled: Boolean, limit: LimitSnapshot ->
         UiState(
             trackingEnabled = enabled,
             trackedApps = snap.tracked,
@@ -72,6 +107,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             streakReminder = snap.reminder,
             leaderboardOptIn = snap.leaderboard,
             anonymous = anon,
+            limitM = limit.limitM,
+            freeEditsLeft = if (!BILLING_ENFORCED || limit.premium) Int.MAX_VALUE
+                else freeLimitEditsLeft(prefs.limitEditWeek, prefs.limitEditCount),
+            premium = limit.premium,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 
@@ -130,4 +169,18 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun setLeaderboardOptIn(enabled: Boolean) = prefs.setLeaderboardOptIn(enabled)
 
     fun setAnonymous(enabled: Boolean) = prefs.setAnonymous(enabled)
+
+    /**
+     * Saves a new daily limit, enforcing the weekly free-edit quota. Returns what happened
+     * so the screen can say "saved" or "premium needed"; [clearLimitEdit] resets it.
+     */
+    fun trySetLimit(meters: Float): Prefs.LimitEditResult {
+        val result = prefs.trySetDailyLimit(meters, weekKey())
+        _limitEdit.value = result
+        return result
+    }
+
+    fun clearLimitEdit() {
+        _limitEdit.value = null
+    }
 }

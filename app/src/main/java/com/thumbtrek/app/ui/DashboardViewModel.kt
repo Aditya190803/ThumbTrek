@@ -14,6 +14,8 @@ import com.thumbtrek.app.stats.AppSeries
 import com.thumbtrek.app.stats.Bucket
 import com.thumbtrek.app.stats.appTrends
 import com.thumbtrek.app.stats.dailyBuckets
+import com.thumbtrek.app.stats.isCleanDay
+import com.thumbtrek.app.stats.limitStreak
 import com.thumbtrek.app.stats.pixelsToMeters
 import com.thumbtrek.app.stats.totalThisMonth
 import com.thumbtrek.app.stats.totalThisWeek
@@ -41,23 +43,39 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         /** Labels for user-added apps, so display names survive without PackageManager. */
         val customLabels: Map<String, String> = emptyMap(),
         val badges: List<Badge> = emptyList(),
+        // --- daily limit (PRD §11: clean-days counter sits next to the trek streak) ---
+        val limitM: Float = 100f,
+        val todayClean: Boolean = true,
+        val cleanStreak: Int = 0,
     )
 
     private val dao = ScrollDatabase.get(app).dao()
     private val trackingEnabled = MutableStateFlow(ScrollTrackerService.isEnabled(app))
     private val dpi = app.resources.displayMetrics.densityDpi
 
+    private val prefs = Prefs.get(app)
+
+    /** Custom labels + daily limit as one flow: this coroutines version has no 6-way
+     * combine overload, so the sixth flow rides here instead of in [state]. */
+    private val prefsUi = combine(prefs.customApps, prefs.dailyLimitM) { custom, limit ->
+        custom to limit
+    }
+
     val state = combine(
         dao.observeDay(LocalDate.now().toString()),
         dao.observeAllDays(),
         dao.observeRowsSince(LocalDate.now().minusDays(13).toString()),
         trackingEnabled,
-        Prefs.get(app).customApps,
-    ) { perApp, allDays, rows, enabled, customLabels ->
+        prefsUi,
+    ) { perApp, allDays, rows, enabled, prefsPair ->
+        val (customLabels, limitM) = prefsPair
         val byDate = allDays.associate { LocalDate.parse(it.date) to it.pixels }
+        val todayPx = perApp.sumOf { it.pixels }
+        val todayMeters = pixelsToMeters(todayPx, dpi)
+        val dayMeters = byDate.mapValues { pixelsToMeters(it.value, dpi) }
         UiState(
             trackingEnabled = enabled,
-            todayPx = perApp.sumOf { it.pixels },
+            todayPx = todayPx,
             perApp = perApp.sortedByDescending { it.pixels },
             streak = trekStreak(byDate.keys),
             weekPx = totalThisWeek(byDate),
@@ -72,6 +90,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 bestDayMeters = pixelsToMeters(byDate.values.maxOrNull() ?: 0L, dpi),
                 streak = trekStreak(byDate.keys),
             ),
+            limitM = limitM,
+            todayClean = isCleanDay(todayMeters, limitM.toDouble()),
+            cleanStreak = limitStreak(dayMeters, limitM.toDouble()),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())
 
