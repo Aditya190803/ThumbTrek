@@ -40,6 +40,13 @@
  *    as pixels. The single `round(px / 96 * 25400)` happens once per flush at the storage
  *    boundary, so the rounding error is bounded at half a micrometre per flush instead of
  *    per scroll event.
+ *
+ * 6. **Some feeds never scroll.** YouTube Shorts on the web (`/shorts/*`) is a pager:
+ *    the container stays put while a wheel/tap swaps the video via history navigation, so
+ *    no `scroll` event ever fires and rules 1-4 see nothing. Each new Short therefore
+ *    banks one viewport height through `add()` (see measure.js for the navigation
+ *    detection) -- the web equivalent of Android's `ScrollPath.PAGED`, where one swipe
+ *    is one screen.
  */
 
 (function () {
@@ -96,6 +103,21 @@
       /** Pixels banked but not yet taken. For assertions and diagnostics only. */
       pending() {
         return pixels;
+      },
+
+      /**
+       * Bank a discrete page advance directly, with no baseline and no jump check.
+       *
+       * For pagers that never emit scroll (YouTube Shorts on web): one new page is one
+       * viewport of travel by construction, so there is no position to diff and nothing
+       * a jump limit could protect against -- the caller already decided this advance
+       * happened (a new Short ID in the URL). Non-finite and non-positive inputs bank
+       * nothing and leave the baseline scrollers untouched.
+       */
+      add(extra) {
+        if (!Number.isFinite(extra) || extra <= 0) return 0;
+        pixels += extra;
+        return extra;
       },
 
       /** How many jumps have been dropped. Surfaced nowhere; useful when something is off. */

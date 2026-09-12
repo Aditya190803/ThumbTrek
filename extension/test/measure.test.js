@@ -132,3 +132,27 @@ test('the accumulator keeps no strong reference to a scroller', () => {
   const acc = core.createAccumulator();
   assert.doesNotThrow(() => acc.sample(Object.freeze({}), 10, VIEWPORT));
 });
+
+test('a pager advance banks one viewport with no baseline and no jump check', () => {
+  // YouTube Shorts on web never scrolls: each new Short is one screen by construction.
+  const acc = core.createAccumulator();
+  assert.equal(acc.add(VIEWPORT), VIEWPORT);
+  assert.equal(acc.pending(), VIEWPORT);
+  // Mixes with scroll pixels in the same flush.
+  const doc = page();
+  acc.sample(doc, 0, VIEWPORT);
+  acc.sample(doc, 240, VIEWPORT);
+  assert.equal(acc.take(), VIEWPORT + 240);
+});
+
+test('a pager advance ignores garbage without touching scroll baselines', () => {
+  const acc = core.createAccumulator();
+  const doc = page();
+  acc.sample(doc, 0, VIEWPORT);
+  assert.equal(acc.add(0), 0);
+  assert.equal(acc.add(-800), 0);
+  assert.equal(acc.add(NaN), 0);
+  assert.equal(acc.pending(), 0);
+  // The scroll baseline survived intact.
+  assert.equal(acc.sample(doc, 200, VIEWPORT), 200);
+});

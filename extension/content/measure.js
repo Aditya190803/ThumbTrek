@@ -51,6 +51,64 @@
     return window.innerHeight || document.documentElement?.clientHeight || 0;
   }
 
+  // --- YouTube Shorts pager --------------------------------------------------------
+  // `/shorts/<id>` never scrolls: the container stays put while a wheel/tap swaps the
+  // video through history navigation, so the capture-phase scroll listener above sees
+  // nothing and a Shorts session would read as zero. Each *new* Short banks one viewport
+  // height -- the web equivalent of Android's ScrollPath.PAGED.
+  //
+  // Counting URL changes rather than wheel deltas is deliberate: a wheel that doesn't
+  // change the video is a bounce, not travel, and a keyboard/tap/button advance that
+  // does change it is travel however it was triggered. The first Short seen is a baseline
+  // (mirroring the accumulator's first-sample rule); leaving /shorts resets it, so
+  // returning later doesn't bank the landing itself -- opening Shorts is a tap, not a
+  // scroll.
+  let lastShortsId = null;
+
+  function shortsId() {
+    try {
+      if (!/(^|\.)youtube\.com$/.test(location.hostname)) return null;
+      const match = location.pathname.match(/^\/shorts\/([^/]+)/);
+      return match ? match[1] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  function checkShorts() {
+    const id = shortsId();
+    if (id === null) {
+      lastShortsId = null;
+      return;
+    }
+    if (lastShortsId === null) {
+      lastShortsId = id; // baseline only -- see above
+      return;
+    }
+    if (id !== lastShortsId) {
+      lastShortsId = id;
+      const viewport = viewportHeight();
+      if (viewport > 0) accumulator.add(viewport);
+    }
+  }
+
+  // YouTube is an SPA: Shorts navigation is a history entry, not a document load, so the
+  // content script stays alive across swipes and has to watch the URL itself.
+  try {
+    for (const method of ['pushState', 'replaceState']) {
+      const original = history[method];
+      if (typeof original !== 'function') continue;
+      history[method] = function (...args) {
+        const result = original.apply(this, args);
+        checkShorts();
+        return result;
+      };
+    }
+  } catch {
+    // A page that freezes its own history object keeps working; Shorts counting just
+    // falls back to the event listeners below.
+  }
+
   function onScroll(event) {
     const target = event.target;
     // A document-level scroll arrives with `target` as the Document (or, in quirks mode,
@@ -101,6 +159,16 @@
   // Passive: this handler never calls preventDefault, and saying so lets the compositor
   // keep scrolling on its own thread instead of waiting on us. Capture: see the header.
   window.addEventListener('scroll', onScroll, { passive: true, capture: true });
+
+  // Shorts advances arrive as history entries plus whatever input triggered them; watch
+  // both, since either one alone misses a navigation style (button taps fire no wheel,
+  // replaceState fires no popstate). checkShorts is id-based, so duplicates are free.
+  window.addEventListener('wheel', checkShorts, { passive: true, capture: true });
+  window.addEventListener('touchend', checkShorts, { passive: true, capture: true });
+  window.addEventListener('keydown', checkShorts, { capture: true });
+  window.addEventListener('popstate', checkShorts);
+  window.addEventListener('hashchange', checkShorts);
+  checkShorts(); // baseline the Shorts ID when landing directly on /shorts/<id>
 
   // The two events that actually fire when a tab goes away. `pagehide` covers navigation
   // and bfcache eviction; `visibilitychange` covers tab switches and the phone-style
