@@ -28,8 +28,10 @@ export const DEFAULTS = Object.freeze({
   trackEverything: false,
   /** No score leaves the device until this is on. */
   leaderboardOptIn: false,
-  /** Publish an anonymous handle instead of the Google display name. */
-  anonymous: false,
+  /** Anonymous by default: publish a stable pseudonym and no photo until the user opts
+   *  into their Google name. Same clean migration as the phone — a stored explicit choice
+   *  wins over this default, so only the never-chosen inherit it. */
+  anonymous: true,
 });
 
 /** Reads the whole settings object, with defaults filled in for anything never written. */

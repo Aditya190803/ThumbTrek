@@ -95,19 +95,25 @@ service cloud.firestore {
         allow delete: if isSelf(uid);
       }
 
-      // Friendship edges carry { since, status }: "pending" until the other side
-      // accepts, "accepted" after. Old edges with no status read as accepted.
-      // An edge may be written by either endpoint and nobody else:
-      //   - you can always edit your own list;
-      //   - adding yourself as a pending edge on someone else's list is how a request
-      //     is sent;
-      //   - flipping both copies to accepted / deleting both is how it is answered or
-      //     removed — each endpoint touches only docs of which it IS an endpoint.
+      // Friendship edges carry { since, status } plus the writer's real identity in
+      // { name, photo }: "pending" until the other side accepts, "accepted" after.
+      // Old edges with no status read as accepted. The edge on YOUR list carries the
+      // OTHER person's identity — that is what lets friends see each other's real names
+      // while the public board row stays anonymous: edges are readable only by their
+      // owner, so a real name here is visible to exactly one friend, never the board.
+      // Each write stamps the WRITER's identity (request writes both edges with theirs;
+      // accepting stamps only the other side's edge, preserving the requester's).
       match /friends/{friendUid} {
         function validEdge() {
-          return request.resource.data.keys().hasOnly(['since', 'status'])
+          return request.resource.data.keys().hasOnly(['since', 'status', 'name', 'photo'])
                  && (!('status' in request.resource.data)
-                     || request.resource.data.status in ['pending', 'accepted']);
+                     || request.resource.data.status in ['pending', 'accepted'])
+                 && (!('name' in request.resource.data)
+                     || (request.resource.data.name is string
+                         && request.resource.data.name.size() <= 64))
+                 && (!('photo' in request.resource.data)
+                     || (request.resource.data.photo is string
+                         && request.resource.data.photo.size() <= 512));
         }
         allow read: if isSelf(uid);
         allow create, update: if (isSelf(uid) || isSelf(friendUid)) && validEdge();

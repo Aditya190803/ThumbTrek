@@ -37,7 +37,7 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
     data class UiState(
         val signedIn: Boolean = false,
         val optedIn: Boolean = false,
-        val anonymous: Boolean = false,
+        val anonymous: Boolean = true,
         val myUid: String? = null,
         val myName: String = "",
         val myPhotoUrl: String = "",

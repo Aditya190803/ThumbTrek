@@ -32,7 +32,7 @@ Two things in that contract are worth knowing up front:
 
 - Per-app opt-in tracking for Instagram, YouTube, X, and Reddit — plus any other installed app you add in Settings
 - Dashboard ring chart, seven-day history, per-app trends, streaks, records, and achievement badges
-- Fully opt-in social publishing, friend codes/invites with a request→accept flow, anonymous handles
+- Fully opt-in social publishing, friend codes/invites with a request→accept flow, anonymous on global by default with opt-in to show your name — friends you added always see the real you
 - Weekly, monthly, and all-time boards; friends and global tabs; server-paginated global board; last week's podium
 - Friend management: accept/decline requests, remove friends, local nudges for new requests and rank slips
 - Daily summaries, optional streak reminders, PNG stat-card sharing, and full CSV data export
@@ -43,6 +43,12 @@ Two things in that contract are worth knowing up front:
 - Denser landmark comparisons and more achievement badges (21 of each), so long stretches no
   longer read as a large multiple of the same object
 - Rebuilt scroll tracking from the ground up: a layered, unit-tested delta classifier (real pixel deltas, position diffing, lazy-list pseudo-offsets, screen-heights for Reels/Shorts-style paging) now counts X, YouTube and Reddit credibly, with per-app diagnostics logging so the next regression is one glance away
+- Daily limit + clean-days counter: set a cap (default 100 m/day) in Settings and days at or under it build the discipline streak that rewards scrolling less; free for the first month while retention data decides billing, then one change per week free via Premium
+- Settings now shows live per-app tracking diagnostics (foreground sightings, counted distance, dominant detection path), so YouTube et al. are verifiable in-app instead of via logcat
+- Web Shorts gap closed: `youtube.com/shorts/*` never emits scroll, so each new Short now banks one viewport height, matching Android's paged path
+- Tappable history bars with period detail (full label, total, landmark line, per-app split for recent days) plus a clean-month calendar showing discipline at a glance
+- Clean-day badge ladder (Clean slate → Month of restraint) on all three clients, keeping the verbatim badge parity contract
+- Limit awareness everywhere it matters: widget progress line, daily-summary verdict, and an opt-in nudge (80% warn + breach, once per level per day)
 
 ## Build
 

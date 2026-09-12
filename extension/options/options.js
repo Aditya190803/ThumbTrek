@@ -134,7 +134,9 @@ async function renderAccount() {
   if (status.configError) $('config-message').textContent = status.configError;
 
   setToggle('opt-in', settings.leaderboardOptIn);
-  setToggle('anonymous', settings.anonymous);
+  // The switch reads as the reveal (on = Google name), so it shows the inverse of the
+  // stored anonymous flag — same framing as the phone's "Show my name" toggle.
+  setToggle('anonymous', !settings.anonymous);
 
   if (status.account) {
     $('account-name').textContent = status.account.displayName || 'Signed in';
@@ -145,14 +147,14 @@ async function renderAccount() {
     const code = await friendCode(status.account.uid);
     $('friend-code').textContent = formatFriendCode(code);
     $('handle-preview').textContent = settings.anonymous
-      ? `Publishing as "${await anonymousHandle(status.account.uid)}".`
-      : 'Use a stable pseudonym instead of your Google name.';
+      ? `Anonymous — publishing as "${await anonymousHandle(status.account.uid)}".`
+      : `Publishing as "${status.account.displayName || 'your Google name'}" with photo.`;
   } else {
     $('account-name').textContent = 'Not signed in';
     $('account-detail').textContent = 'Sign in with Google to sync across devices.';
     $('auth-button').textContent = 'Sign in';
     $('friend-code').textContent = 'Sign in to get yours.';
-    $('handle-preview').textContent = 'Use a stable pseudonym instead of your Google name.';
+    $('handle-preview').textContent = 'Anonymous by default — your handle appears after sign-in.';
   }
 
   $('sync-when').textContent = status.lastError

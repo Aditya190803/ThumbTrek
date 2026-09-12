@@ -226,12 +226,10 @@ function badge(id, emoji, label, value, target, detail) {
 
 /**
  * Local achievements computed from history alone -- no server, no extra storage.
- * `totalMeters` is the all-time distance, `bestDayMeters` the longest single day.
- *
- * Same ids, same order, same copy as Stats.kt: a badge that is "Warm-up" on the phone and
- * "3-day streak" here is two badges as far as the user is concerned.
+ * `totalMeters` is the all-time distance, `bestDayMeters` the longest single day,
+ * `cleanStreak` the current under-limit run. Same ids, order and copy as Stats.kt.
  */
-export function badges(totalMeters, bestDayMeters, streak) {
+export function badges(totalMeters, bestDayMeters, streak, cleanStreak = 0) {
   return [
     badge('first_trek', '👣', 'First steps', totalMeters, 1.0, 'Complete your first trek'),
     badge('banana', '🍌', 'Banana', totalMeters, 100.0, 'Trek 100 m in total'),
@@ -256,6 +254,14 @@ export function badges(totalMeters, bestDayMeters, streak) {
     badge('streak_30', '🗓️', 'Monthly mover', streak, 30.0, 'Keep a 30-day streak'),
     badge('streak_100', '💎', 'Centurion streak', streak, 100.0, 'Keep a 100-day streak'),
     badge('streak_365', '👑', 'Year-round trekker', streak, 365.0, 'Keep a 365-day streak'),
+    badge('clean_3', '🧼', 'Clean slate', cleanStreak, 3.0,
+      'Stay under your limit 3 days in a row'),
+    badge('clean_7', '🛡️', 'Under control', cleanStreak, 7.0,
+      'Stay under your limit 7 days in a row'),
+    badge('clean_14', '🧘', 'Steady mind', cleanStreak, 14.0,
+      'Stay under your limit 14 days in a row'),
+    badge('clean_30', '🏵️', 'Month of restraint', cleanStreak, 30.0,
+      'Stay under your limit 30 days in a row'),
   ];
 }
 

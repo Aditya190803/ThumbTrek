@@ -3,8 +3,13 @@
 // Reimplements SocialRepository's two-edge protocol exactly, because both endpoints of a
 // friendship are documents that either side may write and neither side may forge:
 //
-//   users/{me}/friends/{them}   = { since, status }
-//   users/{them}/friends/{me}   = { since, status }
+//   users/{me}/friends/{them}   = { since, status, name?, photo? }
+//   users/{them}/friends/{me}   = { since, status, name?, photo? }
+//
+// `name`/`photo` are the WRITER's real Google identity: friends see each other's real
+// names while the public board row stays anonymous, and edges are readable only by
+// their owner, so a real name here reaches exactly one friend. Accepting stamps only
+// the other side's edge, preserving the requester's handwriting on yours.
 //
 // A request writes BOTH edges as "pending"; accepting flips both to "accepted"; declining
 // and removing both delete both. firestore.rules allows a write to an edge only by one of
@@ -13,7 +18,7 @@
 // other side notices would leave the request invisible to the person being asked.
 
 import { firebase } from './firebase.js';
-import { FRIEND_CODE_LENGTH, friendCode, normalizeFriendCode } from './identity.js';
+import { FRIEND_CODE_LENGTH, edgeIdentity, friendCode, normalizeFriendCode } from './identity.js';
 
 const STATUS_PENDING = 'pending';
 const STATUS_ACCEPTED = 'accepted';
@@ -67,7 +72,7 @@ export async function sendRequest(myUid, input) {
   if (!friend) throw new Error('No trekker has that code yet.');
   if (friend === myUid) throw new Error("That's your own code.");
 
-  const { db, storeMod } = await firebase();
+  const { db, storeMod, auth } = await firebase();
   const mine = await storeMod.getDoc(edgeRef(storeMod, db, myUid, friend));
   if (mine.exists()) {
     throw new Error(
@@ -77,7 +82,14 @@ export async function sendRequest(myUid, input) {
     );
   }
 
-  const edge = { since: storeMod.serverTimestamp(), status: STATUS_PENDING };
+  const me = auth.currentUser;
+  const edge = {
+    since: storeMod.serverTimestamp(),
+    status: STATUS_PENDING,
+    // My real identity on both edges; the one on my own list means nothing to me,
+    // the one on theirs is how they learn my name. Same handshake as the phone.
+    ...edgeIdentity(me?.displayName, me?.photoURL),
+  };
   const batch = storeMod.writeBatch(db);
   batch.set(edgeRef(storeMod, db, myUid, friend), edge);
   batch.set(edgeRef(storeMod, db, friend, myUid), edge);
@@ -87,13 +99,19 @@ export async function sendRequest(myUid, input) {
 
 /** Accepts a request: flips both pending edges to accepted in one batch. */
 export async function acceptRequest(myUid, friendUid) {
-  const { db, storeMod } = await firebase();
+  const { db, storeMod, auth } = await firebase();
   // merge, not update: the other side's edge may already be gone if they removed us first,
   // and recreating a bare accepted edge keeps the pair symmetric instead of half-broken.
-  const patch = { status: STATUS_ACCEPTED };
+  // Asymmetric on purpose: my own edge keeps the requester's handwriting (status only),
+  // theirs gets my identity stamped so I arrive real-named on their friends board.
+  const me = auth.currentUser;
   const batch = storeMod.writeBatch(db);
-  batch.set(edgeRef(storeMod, db, myUid, friendUid), patch, { merge: true });
-  batch.set(edgeRef(storeMod, db, friendUid, myUid), patch, { merge: true });
+  batch.set(edgeRef(storeMod, db, myUid, friendUid), { status: STATUS_ACCEPTED }, { merge: true });
+  batch.set(
+    edgeRef(storeMod, db, friendUid, myUid),
+    { status: STATUS_ACCEPTED, ...edgeIdentity(me?.displayName, me?.photoURL) },
+    { merge: true },
+  );
   await batch.commit();
 }
 

@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -56,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -71,12 +73,15 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.thumbtrek.app.data.appName
 import com.thumbtrek.app.share.shareTrekCard
 import com.thumbtrek.app.stats.Badge
+import com.thumbtrek.app.stats.AppSeries
+import com.thumbtrek.app.stats.Bucket
 import com.thumbtrek.app.stats.LANDMARKS
 import com.thumbtrek.app.stats.comparison
 import com.thumbtrek.app.stats.dailyBuckets
@@ -88,6 +93,7 @@ import com.thumbtrek.app.stats.weekOverWeekDelta
 import com.thumbtrek.app.stats.weeklyBuckets
 import com.thumbtrek.app.widget.TrekWidgetProvider
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
 private val GUTTER = 20.dp
@@ -376,6 +382,13 @@ private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Mo
             delta = dayOverDayDelta(byDate),
         )
 
+        LimitGlance(
+            todayMeters = todayMeters,
+            limitM = state.limitM,
+            clean = state.todayClean,
+            cleanStreak = state.cleanStreak,
+        )
+
         if (todayMeters > 0.0) {
             LandmarkReading(todayMeters)
         }
@@ -491,6 +504,58 @@ private fun LandmarkReading(meters: Double) {
             )
             Text(
                 "${formatDistance(next.meters - meters)} to go before ${next.label}.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Trek.inkMuted,
+            )
+        }
+    }
+}
+
+/**
+ * The limit theme, given the dashboard slot right under the hero dial. Today's trek against
+ * the daily cap, with the clean-days counter beside it: the streak that rewards scrolling
+ * less sits next to the trek streak in the dial, not instead of it.
+ */
+@Composable
+private fun LimitGlance(
+    todayMeters: Double,
+    limitM: Float,
+    clean: Boolean,
+    cleanStreak: Int,
+) {
+    val limit = limitM.toDouble().coerceAtLeast(1.0)
+    val caption = when {
+        !clean -> "Over the limit today — tomorrow under ${formatDistance(limit)} starts a new run."
+        cleanStreak > 1 -> "$cleanStreak clean days in a row — stay under ${formatDistance(limit)} to keep it."
+        else -> "On track — finish today under ${formatDistance(limit)} for a clean day."
+    }
+    Column {
+        SectionHead(
+            "Daily limit",
+            trailing = if (cleanStreak > 0) "$cleanStreak CLEAN" else null,
+        )
+        TrekPanel {
+            Row(verticalAlignment = Alignment.Bottom) {
+                Text(
+                    if (clean) "On track" else "Over limit",
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.titleLarge,
+                    color = if (clean) Trek.ink else Trek.danger,
+                )
+                Text(
+                    "${formatDistance(todayMeters)} of ${formatDistance(limit)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = Trek.inkMuted,
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Rail(
+                fraction = (todayMeters / limit).toFloat(),
+                color = if (clean) Trek.moss else Trek.danger,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                caption,
                 style = MaterialTheme.typography.bodySmall,
                 color = Trek.inkMuted,
             )
@@ -712,6 +777,11 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
         }
 
         item("range") {
+            // Latest period selected up front, so the detail below answers "how far was
+            // that bar" before the first tap. Reset per range; tapping the active bar
+            // clears back to an unselected chart.
+            var selected by rememberSaveable(range) { mutableIntStateOf(buckets.lastIndex) }
+            val haptics = LocalHapticFeedback.current
             Column {
                 TrekSegmented(RANGES, range, onSelect = { range = it })
                 Spacer(modifier = Modifier.height(18.dp))
@@ -720,7 +790,69 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
                         ChartBar(it.label, pixelsToMeters(it.pixels, dpi).toFloat())
                     },
                     highlight = buckets.lastIndex,
+                    selected = selected,
+                    onSelect = { tapped ->
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        selected = if (tapped == selected) -1 else tapped
+                    },
                 )
+                Spacer(modifier = Modifier.height(14.dp))
+                buckets.getOrNull(selected)?.let { bucket ->
+                    PeriodDetail(
+                        bucket = bucket,
+                        range = range,
+                        dpi = dpi,
+                        trends = state.appTrends,
+                        customLabels = state.customLabels,
+                        dateFormat = dateFormat,
+                        monthFormat = monthFormat,
+                    )
+                }
+            }
+        }
+
+        item("cleanMonth") {
+            var calDay by rememberSaveable { mutableStateOf<String?>(null) }
+            Column {
+                SectionHead(
+                    "Clean month",
+                    trailing = monthFormat.format(YearMonth.now()).uppercase(),
+                )
+                CleanMonthGrid(
+                    byDate = byDate,
+                    dpi = dpi,
+                    limitM = state.limitM,
+                    selectedDay = calDay?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+                    onSelect = { date ->
+                        calDay = date?.toString()
+                    },
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CalendarKey(Trek.moss, "Clean")
+                    CalendarKey(Trek.danger, "Over")
+                    CalendarKey(Trek.hairline, "No data")
+                }
+                calDay?.let { key ->
+                    val px = byDate[LocalDate.parse(key)] ?: 0L
+                    Spacer(modifier = Modifier.height(14.dp))
+                    PeriodDetail(
+                        bucket = Bucket(
+                            key,
+                            LocalDate.parse(key).format(dateFormat),
+                            px,
+                        ),
+                        range = 0,
+                        dpi = dpi,
+                        trends = state.appTrends,
+                        customLabels = state.customLabels,
+                        dateFormat = dateFormat,
+                        monthFormat = monthFormat,
+                    )
+                }
             }
         }
 
@@ -823,6 +955,211 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
                         contentDescription = "${date.format(dateFormat)}: ${formatDistance(meters)}"
                     },
                 )
+            }
+        }
+    }
+}
+
+/**
+ * The month as discipline at a glance: each past day is clean (moss wash), over
+ * (danger wash), or untracked (hollow). Tapping a day selects it; the caller reads it back
+ * through PeriodDetail. Monday-start, matching the app's week convention.
+ */
+@Composable
+private fun CleanMonthGrid(
+    byDate: Map<LocalDate, Long>,
+    dpi: Int,
+    limitM: Float,
+    selectedDay: LocalDate?,
+    onSelect: (LocalDate?) -> Unit,
+) {
+    val month = remember { YearMonth.now() }
+    val today = remember { LocalDate.now() }
+    val limit = limitM.toDouble()
+    val cells = remember(month) {
+        val first = month.atDay(1)
+        val blanks = List(first.dayOfWeek.value - 1) { null as LocalDate? }
+        (blanks + (1..month.lengthOfMonth()).map { month.atDay(it) }).chunked(7)
+    }
+    val shape = RoundedCornerShape(10.dp)
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            listOf("M", "T", "W", "T", "F", "S", "S").forEach { head ->
+                Text(
+                    head,
+                    modifier = Modifier.weight(1f),
+                    style = TrekOverline,
+                    color = Trek.inkFaint,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                )
+            }
+        }
+        cells.forEach { week ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                week.forEach { date ->
+                    if (date == null) {
+                        Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
+                    } else {
+                        val px = byDate[date]
+                        val meters = pixelsToMeters(px ?: 0L, dpi)
+                        val future = date.isAfter(today)
+                        val over = !future && meters > limit
+                        val tracked = !future && px != null
+                        val fill = when {
+                            future || !tracked -> Color.Transparent
+                            over -> Trek.dangerWash
+                            else -> Trek.mossWash
+                        }
+                        val ink = when {
+                            future -> Trek.inkFaint
+                            over -> Trek.danger
+                            tracked -> Trek.ink
+                            else -> Trek.inkMuted
+                        }
+                        val selected = date == selectedDay
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .clip(shape)
+                                .background(fill, shape)
+                                .border(
+                                    1.dp,
+                                    when {
+                                        selected -> Trek.ink
+                                        date == today -> Trek.moss
+                                        tracked || over -> Color.Transparent
+                                        else -> Trek.hairlineSoft
+                                    },
+                                    shape,
+                                )
+                                .clickable(role = Role.Button) {
+                                    onSelect(if (selected) null else date)
+                                }
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription = "${date.format(
+                                        DateTimeFormatter.ofPattern("EEE d MMM"),
+                                    )}: " + when {
+                                        future -> "upcoming"
+                                        !tracked -> "no data"
+                                        over -> "${formatDistance(meters)}, over the limit"
+                                        else -> "${formatDistance(meters)}, clean"
+                                    }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                date.dayOfMonth.toString(),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = ink,
+                            )
+                        }
+                    }
+                }
+                // Pad short final weeks so every row spans the full width.
+                repeat(7 - week.size) {
+                    Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
+                }
+            }
+        }
+    }
+}
+
+/** Legend swatch for the calendar: a dot and a word. */
+@Composable
+private fun CalendarKey(color: Color, label: String) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SeriesDot(color)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = Trek.inkMuted)
+    }
+}
+
+/**
+ * The tapped bar, read back: full period label, total, and — for single days inside the
+ * trends window — the per-app split. Weeks, months, and older days read as a total plus
+ * the landmark line.
+ */
+@Composable
+private fun PeriodDetail(
+    bucket: Bucket,
+    range: Int,
+    dpi: Int,
+    trends: List<AppSeries>,
+    customLabels: Map<String, String>,
+    dateFormat: DateTimeFormatter,
+    monthFormat: DateTimeFormatter,
+) {
+    val meters = pixelsToMeters(bucket.pixels, dpi)
+    val title = when (range) {
+        0 -> LocalDate.parse(bucket.key).format(dateFormat)
+        1 -> "Week of ${bucket.label}"
+        else -> YearMonth.parse(bucket.key).format(monthFormat)
+    }
+    val noun = when (range) {
+        0 -> "day"
+        1 -> "week"
+        else -> "month"
+    }
+    val split = remember(bucket.key, trends) {
+        if (range != 0) return@remember emptyList()
+        // The trends window only reaches back 14 days; older days read as a total so a
+        // missing split never prints "nothing measured" over a day that has metres.
+        if (trends.none { trend -> trend.points.any { it.key == bucket.key } }) {
+            return@remember null
+        }
+        trends.mapNotNull { trend ->
+            trend.points.find { it.key == bucket.key }?.let { trend.packageName to it.pixels }
+        }.sortedByDescending { it.second }
+    }
+
+    TrekPanel {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Text(
+                title,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleLarge,
+                color = Trek.ink,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                formatDistance(meters),
+                style = MaterialTheme.typography.headlineSmall,
+                color = if (meters > 0.0) Trek.moss else Trek.inkFaint,
+                maxLines = 1,
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(
+            if (meters > 0.0) comparison(meters) else "No trek logged that $noun.",
+            style = MaterialTheme.typography.bodySmall,
+            color = Trek.inkMuted,
+        )
+        if (range == 0 && meters > 0.0 && split != null) {
+            Spacer(modifier = Modifier.height(10.dp))
+            if (split.isEmpty()) {
+                Text(
+                    "Nothing measured that day.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Trek.inkFaint,
+                )
+            } else {
+                split.forEach { (pkg, px) ->
+                    ChartLegendRow(
+                        color = chartColor(pkg),
+                        label = appName(pkg, customLabels),
+                        value = formatDistance(pixelsToMeters(px, dpi)),
+                        modifier = Modifier.padding(vertical = 3.dp),
+                    )
+                }
             }
         }
     }

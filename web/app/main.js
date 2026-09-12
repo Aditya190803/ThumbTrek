@@ -26,6 +26,7 @@ import {
   MAX_PAGES,
   currentKeys,
   globalRank,
+  loadEdgeIdentities,
   loadGlobalPage,
   loadPodium,
   loadProfiles,
@@ -727,6 +728,23 @@ async function refreshBoard() {
     } else {
       const entries = await loadProfiles([state.user.uid, ...state.friends.accepted]);
       if (token !== boardRequest) return;
+      // Private audience: edge handwriting over public rows, self included, so the
+      // friends board reads the way friends read each other. Old edges fall through.
+      try {
+        const edges = await loadEdgeIdentities(state.user.uid);
+        const me = state.user.displayName || 'Trekker';
+        for (const entry of entries) {
+          const edge = entry.uid === state.user.uid
+            ? { name: me, photo: state.user.photoURL ?? '' }
+            : edges.get(entry.uid);
+          if (edge?.name) {
+            entry.displayName = edge.name;
+            entry.photoUrl = edge.photo ?? '';
+          }
+        }
+      } catch (error) {
+        console.warn('ThumbTrek: could not read edge identities.', error);
+      }
       state.board = { entries, cursor: null, exhausted: true, pages: 1, loading: false, error: null };
     }
   } catch (error) {
@@ -959,16 +977,31 @@ async function refreshFriendProfiles() {
   } catch (error) {
     console.warn('ThumbTrek: could not read friend profiles.', error);
   }
-  // Anyone with no board row has not opted in, so there is no name to read. The stable
-  // pseudonym derived from their uid is better than a 28-character Firebase id.
+  // Edge handwriting beats the public row: friends see each other's real names while
+  // the global board keeps the handle. Same override the phone's friendBoard applies.
+  // Anyone with no board row AND no edge identity falls back to the stable pseudonym.
+  let edges = new Map();
+  try {
+    edges = await loadEdgeIdentities(state.user.uid);
+  } catch (error) {
+    console.warn('ThumbTrek: could not read edge identities.', error);
+  }
   for (const uid of ids) {
+    const edge = edges.get(uid);
+    const current = state.profiles.get(uid);
+    if (current && !current.unpublished) {
+      if (edge) state.profiles.set(uid, { ...current, displayName: edge.name, photoUrl: edge.photo });
+      continue;
+    }
     if (state.profiles.has(uid)) continue;
-    state.profiles.set(uid, {
-      uid,
-      displayName: await anonymousHandle(uid),
-      photoUrl: '',
-      unpublished: true,
-    });
+    state.profiles.set(uid, edge
+      ? { uid, displayName: edge.name, photoUrl: edge.photo, unpublished: true }
+      : {
+        uid,
+        displayName: await anonymousHandle(uid),
+        photoUrl: '',
+        unpublished: true,
+      });
   }
   renderFriends();
 }
