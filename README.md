@@ -3,7 +3,7 @@
 Strava for scrolling. Tracks how far your thumb travels in Instagram, YouTube, X and Reddit,
 turns it into trek stats, streaks, charts, shareable cards, and weekly friend/global leaderboards.
 
-Version **0.4.0**.
+Version **0.5.0**.
 
 ## The three clients
 
