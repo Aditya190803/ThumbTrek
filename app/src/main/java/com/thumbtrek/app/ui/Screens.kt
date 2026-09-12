@@ -14,6 +14,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -56,6 +57,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -71,6 +73,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -808,6 +811,51 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
             }
         }
 
+        item("cleanMonth") {
+            var calDay by rememberSaveable { mutableStateOf<String?>(null) }
+            Column {
+                SectionHead(
+                    "Clean month",
+                    trailing = monthFormat.format(YearMonth.now()).uppercase(),
+                )
+                CleanMonthGrid(
+                    byDate = byDate,
+                    dpi = dpi,
+                    limitM = state.limitM,
+                    selectedDay = calDay?.let { runCatching { LocalDate.parse(it) }.getOrNull() },
+                    onSelect = { date ->
+                        calDay = date?.toString()
+                    },
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    CalendarKey(Trek.moss, "Clean")
+                    CalendarKey(Trek.danger, "Over")
+                    CalendarKey(Trek.hairline, "No data")
+                }
+                calDay?.let { key ->
+                    val px = byDate[LocalDate.parse(key)] ?: 0L
+                    Spacer(modifier = Modifier.height(14.dp))
+                    PeriodDetail(
+                        bucket = Bucket(
+                            key,
+                            LocalDate.parse(key).format(dateFormat),
+                            px,
+                        ),
+                        range = 0,
+                        dpi = dpi,
+                        trends = state.appTrends,
+                        customLabels = state.customLabels,
+                        dateFormat = dateFormat,
+                        monthFormat = monthFormat,
+                    )
+                }
+            }
+        }
+
         item("records") {
             Column {
                 SectionHead("Records")
@@ -913,9 +961,131 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
 }
 
 /**
- * The tapped bar, read back: full period label, total, and — for single days — the per-app
- * split rebuilt from the 14-day trend window (which always covers the 7-day chart). Weeks
- * and months have no per-app ledger, so they read as a total plus the landmark line.
+ * The month as discipline at a glance: each past day is clean (moss wash), over
+ * (danger wash), or untracked (hollow). Tapping a day selects it; the caller reads it back
+ * through PeriodDetail. Monday-start, matching the app's week convention.
+ */
+@Composable
+private fun CleanMonthGrid(
+    byDate: Map<LocalDate, Long>,
+    dpi: Int,
+    limitM: Float,
+    selectedDay: LocalDate?,
+    onSelect: (LocalDate?) -> Unit,
+) {
+    val month = remember { YearMonth.now() }
+    val today = remember { LocalDate.now() }
+    val limit = limitM.toDouble()
+    val cells = remember(month) {
+        val first = month.atDay(1)
+        val blanks = List(first.dayOfWeek.value - 1) { null as LocalDate? }
+        (blanks + (1..month.lengthOfMonth()).map { month.atDay(it) }).chunked(7)
+    }
+    val shape = RoundedCornerShape(10.dp)
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(modifier = Modifier.fillMaxWidth()) {
+            listOf("M", "T", "W", "T", "F", "S", "S").forEach { head ->
+                Text(
+                    head,
+                    modifier = Modifier.weight(1f),
+                    style = TrekOverline,
+                    color = Trek.inkFaint,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                )
+            }
+        }
+        cells.forEach { week ->
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                week.forEach { date ->
+                    if (date == null) {
+                        Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
+                    } else {
+                        val px = byDate[date]
+                        val meters = pixelsToMeters(px ?: 0L, dpi)
+                        val future = date.isAfter(today)
+                        val over = !future && meters > limit
+                        val tracked = !future && px != null
+                        val fill = when {
+                            future || !tracked -> Color.Transparent
+                            over -> Trek.dangerWash
+                            else -> Trek.mossWash
+                        }
+                        val ink = when {
+                            future -> Trek.inkFaint
+                            over -> Trek.danger
+                            tracked -> Trek.ink
+                            else -> Trek.inkMuted
+                        }
+                        val selected = date == selectedDay
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .aspectRatio(1f)
+                                .clip(shape)
+                                .background(fill, shape)
+                                .border(
+                                    1.dp,
+                                    when {
+                                        selected -> Trek.ink
+                                        date == today -> Trek.moss
+                                        tracked || over -> Color.Transparent
+                                        else -> Trek.hairlineSoft
+                                    },
+                                    shape,
+                                )
+                                .clickable(role = Role.Button) {
+                                    onSelect(if (selected) null else date)
+                                }
+                                .semantics(mergeDescendants = true) {
+                                    contentDescription = "${date.format(
+                                        DateTimeFormatter.ofPattern("EEE d MMM"),
+                                    )}: " + when {
+                                        future -> "upcoming"
+                                        !tracked -> "no data"
+                                        over -> "${formatDistance(meters)}, over the limit"
+                                        else -> "${formatDistance(meters)}, clean"
+                                    }
+                                },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                date.dayOfMonth.toString(),
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = ink,
+                            )
+                        }
+                    }
+                }
+                // Pad short final weeks so every row spans the full width.
+                repeat(7 - week.size) {
+                    Spacer(modifier = Modifier.weight(1f).aspectRatio(1f))
+                }
+            }
+        }
+    }
+}
+
+/** Legend swatch for the calendar: a dot and a word. */
+@Composable
+private fun CalendarKey(color: Color, label: String) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        SeriesDot(color)
+        Text(label, style = MaterialTheme.typography.bodySmall, color = Trek.inkMuted)
+    }
+}
+
+/**
+ * The tapped bar, read back: full period label, total, and — for single days inside the
+ * trends window — the per-app split. Weeks, months, and older days read as a total plus
+ * the landmark line.
  */
 @Composable
 private fun PeriodDetail(
@@ -940,6 +1110,11 @@ private fun PeriodDetail(
     }
     val split = remember(bucket.key, trends) {
         if (range != 0) return@remember emptyList()
+        // The trends window only reaches back 14 days; older days read as a total so a
+        // missing split never prints "nothing measured" over a day that has metres.
+        if (trends.none { trend -> trend.points.any { it.key == bucket.key } }) {
+            return@remember null
+        }
         trends.mapNotNull { trend ->
             trend.points.find { it.key == bucket.key }?.let { trend.packageName to it.pixels }
         }.sortedByDescending { it.second }
@@ -968,7 +1143,7 @@ private fun PeriodDetail(
             style = MaterialTheme.typography.bodySmall,
             color = Trek.inkMuted,
         )
-        if (range == 0 && meters > 0.0) {
+        if (range == 0 && meters > 0.0 && split != null) {
             Spacer(modifier = Modifier.height(10.dp))
             if (split.isEmpty()) {
                 Text(
@@ -992,7 +1167,8 @@ private fun PeriodDetail(
 
 /** A record: label on the left, figure on the right, the "why" underneath in small type. */
 @Composable
-private fun LedgerLine(label: String, value: String, caption: String, accent: Color) {    Column(
+private fun LedgerLine(label: String, value: String, caption: String, accent: Color) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)

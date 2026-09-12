@@ -46,6 +46,9 @@ Two things in that contract are worth knowing up front:
 - Daily limit + clean-days counter: set a cap (default 100 m/day) in Settings and days at or under it build the discipline streak that rewards scrolling less; free for the first month while retention data decides billing, then one change per week free via Premium
 - Settings now shows live per-app tracking diagnostics (foreground sightings, counted distance, dominant detection path), so YouTube et al. are verifiable in-app instead of via logcat
 - Web Shorts gap closed: `youtube.com/shorts/*` never emits scroll, so each new Short now banks one viewport height, matching Android's paged path
+- Tappable history bars with period detail (full label, total, landmark line, per-app split for recent days) plus a clean-month calendar showing discipline at a glance
+- Clean-day badge ladder (Clean slate → Month of restraint) on all three clients, keeping the verbatim badge parity contract
+- Limit awareness everywhere it matters: widget progress line, daily-summary verdict, and an opt-in nudge (80% warn + breach, once per level per day)
 
 ## Build
 
