@@ -1,0 +1,109 @@
+name: linux
+
+on:
+  push:
+    tags: ["v*"]
+    paths: ["linux/**", "extension/**", ".github/workflows/linux.yml"]
+  pull_request:
+    paths: ["linux/**", "extension/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: python3 -m unittest discover -s linux/tests -v
+      - run: node --test extension/test/*.test.js
+
+  source-tarball:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          VER=$(python3 -c "import sys; sys.path.insert(0,'linux'); from thumbtrek.version import __version__; print(__version__)")
+          mkdir -p dist "thumbtrek-linux-$VER"
+          cp -r linux/thumbtrek linux/bin linux/systemd linux/desktop linux/assets extension "thumbtrek-linux-$VER/"
+          tar czf "dist/thumbtrek-linux-$VER.tar.gz" "thumbtrek-linux-$VER"
+          echo "VER=$VER" >> "$GITHUB_ENV"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: source-tarball
+          path: dist/*.tar.gz
+
+  deb:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: |
+          VER=$(python3 -c "import sys; sys.path.insert(0,'linux'); from thumbtrek.version import __version__; print(__version__)")
+          python3 linux/packaging/build-deb.py --version "$VER" --out dist
+          ls -la dist/*.deb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: dist/*.deb
+
+  rpm:
+    needs: test
+    runs-on: ubuntu-latest
+    container: fedora:latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          dnf install -y rpm-build python3 tar gzip
+          VER=$(python3 -c "import sys; sys.path.insert(0,'linux'); from thumbtrek.version import __version__; print(__version__)")
+          mkdir -p ~/rpmbuild/{BUILD,RPMS,SOURCES,SPECS,SRPMS} dist
+          mkdir -p "thumbtrek-linux-$VER" && cp -r linux/thumbtrek linux/bin linux/systemd linux/desktop linux/assets extension "thumbtrek-linux-$VER/"
+          tar czf ~/rpmbuild/SOURCES/"thumbtrek-linux-$VER.tar.gz" "thumbtrek-linux-$VER"
+          sed "s/^Version:.*/Version:        $VER/" linux/packaging/thumbtrek.spec > ~/rpmbuild/SPECS/thumbtrek.spec
+          rpmbuild -bb ~/rpmbuild/SPECS/thumbtrek.spec
+          cp ~/rpmbuild/RPMS/noarch/*.rpm dist/
+          ls -la dist/*.rpm
+      - uses: actions/upload-artifact@v4
+        with:
+          name: rpm
+          path: dist/*.rpm
+
+  aur-lint:
+    needs: test
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          pacman -Sy --noconfirm namcap
+          cp linux/packaging/PKGBUILD ./PKGBUILD
+          namcap PKGBUILD || true
+          makepkg --printsrcinfo > .SRCINFO
+          cat .SRCINFO
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [source-tarball, deb, rpm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*
+          body: |
+            Linux port (AUR-first): PKGBUILD in `linux/packaging/`, plus .deb and .rpm built here.
+            `usermod -aG input $USER`, then `systemctl --user enable --now thumbtrek-tracker.service`.

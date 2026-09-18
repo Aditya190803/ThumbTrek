@@ -1,0 +1,129 @@
+#!/usr/bin/env python3
+"""Native-messaging host: com.thumbtrek.native (stdio, strict validation).
+
+The extension forwards each counted batch as length-prefixed JSON
+(4-byte little-endian length, the Chromium/Firefox native-messaging framing):
+
+  {"type": "trek/batch", "date": "2026-09-18", "domain": "youtube.com", "um": 12345}
+
+The host converts µm → CSS px (round(um*96/25400), ≤1px rounding per batch),
+accumulates into the same SQLite ledger as the daemon, and records a
+heartbeat so the daemon suppresses its own evdev counts for that browser
+(no double-counting). Replies are framed {"ok": …} and malformed input gets
+an error reply, never a traceback or a crash — the loop survives, EOF exits 0.
+"""
+
+import json
+import re
+import struct
+import sys
+from datetime import date
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from thumbtrek import links as links_mod
+from thumbtrek.store import Store
+
+MAX_MSG = 1_000_000
+MAX_UM = 10**12  # 1000 km/day: absurd input is rejected, not stored
+DOMAIN_RE = re.compile(
+    r"^(?=.{1,253}$)[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?"
+    r"(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$")
+DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+BROWSER_RE = re.compile(r"^[A-Za-z0-9:_.-]{1,128}$")
+
+
+def _read_frame(stream) -> dict | None:
+    header = stream.read(4)
+    if not header:
+        return None  # clean EOF
+    if len(header) < 4:
+        raise ValueError("truncated frame header")
+    (length,) = struct.unpack("<I", header)
+    if length == 0 or length > MAX_MSG:
+        raise ValueError("frame size out of bounds")
+    body = stream.read(length)
+    if len(body) < length:
+        raise ValueError("truncated frame body")
+    parsed = json.loads(body.decode("utf-8"))
+    if not isinstance(parsed, dict):
+        raise ValueError("message must be an object")
+    return parsed
+
+
+def _write_frame(stream, payload: dict) -> None:
+    body = json.dumps(payload).encode("utf-8")
+    stream.write(struct.pack("<I", len(body)) + body)
+    stream.flush()
+
+
+def _valid_date(value) -> str | None:
+    if not isinstance(value, str) or not DATE_RE.match(value):
+        return None
+    try:
+        y, m, d = (int(p) for p in value.split("-"))
+        return value if date(y, m, d).isoformat() == value else None
+    except ValueError:
+        return None
+
+
+def handle(message: dict, store: Store, default_browser: str = "") -> dict:
+    """Validate + apply one message. Pure side-effect boundary; unit-testable."""
+    msg_type = message.get("type")
+    browser = message.get("browser") or default_browser
+    if not isinstance(browser, str) or not BROWSER_RE.match(browser):
+        return {"ok": False, "error": "bad browser id"}
+    if msg_type == "trek/heartbeat":
+        links_mod.beat(browser)
+        return {"ok": True}
+    if msg_type != "trek/batch":
+        return {"ok": False, "error": f"unknown type {msg_type!r}"}
+    day = _valid_date(message.get("date"))
+    domain = message.get("domain")
+    um = message.get("um")
+    if day is None:
+        return {"ok": False, "error": "bad date"}
+    if not isinstance(domain, str) or not DOMAIN_RE.match(domain.lower()):
+        return {"ok": False, "error": "bad domain"}
+    if not isinstance(um, int) or isinstance(um, bool) or not 1 <= um <= MAX_UM:
+        return {"ok": False, "error": "bad um (integer µm 1..1e12)"}
+    pixels = round(um * 96.0 / 25400.0)
+    if pixels <= 0:
+        return {"ok": False, "error": "batch rounds to zero"}
+    store.accumulate(domain.lower(), day, pixels)
+    links_mod.beat(browser)
+    return {"ok": True, "counted": um}
+
+
+def main(argv=None) -> int:
+    args = (argv if argv is not None else sys.argv[1:])
+    default_browser = ""
+    if args[:1] == ["--browser"] and len(args) > 1:
+        default_browser = args[1]
+    stdin, stdout = sys.stdin.buffer, sys.stdout.buffer
+    store = Store()
+    try:
+        while True:
+            try:
+                message = _read_frame(stdin)
+            except ValueError as exc:
+                _write_frame(stdout, {"ok": False, "error": str(exc)})
+                continue
+            if message is None:
+                return 0
+            try:
+                _write_frame(stdout, handle(message, store, default_browser))
+            except OSError:
+                return 1  # stdout gone (browser killed us); not an error to log
+            except Exception as exc:  # never let one batch kill the bridge
+                try:
+                    _write_frame(stdout, {"ok": False, "error": f"internal: {exc}"})
+                except OSError:
+                    return 1
+    finally:
+        store.close()
+
+
+if __name__ == "__main__":
+    sys.exit(main())

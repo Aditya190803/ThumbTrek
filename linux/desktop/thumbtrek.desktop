@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=ThumbTrek
+Comment=Strava for scrolling — offline-first trek dashboard
+Exec=thumbtrek dashboard
+Icon=thumbtrek
+Terminal=false
+Categories=Utility;Monitor;
+StartupWMClass=thumbtrek

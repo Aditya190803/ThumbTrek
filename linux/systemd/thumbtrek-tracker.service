@@ -1,0 +1,19 @@
+[Unit]
+Description=ThumbTrek scroll tracker (offline-first)
+Documentation=https://github.com/Aditya190803/ThumbTrek
+After=graphical-session.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/thumbtrek daemon
+Restart=on-failure
+RestartSec=10
+# Least privilege: tracker only needs /dev/input (input group) + data dir.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%h/.local/share/thumbtrek %h/.config/thumbtrek
+
+[Install]
+WantedBy=default.target
