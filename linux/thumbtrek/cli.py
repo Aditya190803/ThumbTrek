@@ -17,7 +17,7 @@ from . import config as config_mod
 from . import stats
 from .store import Store
 from .sync_model import micrometres_to_meters, wheel_notches_to_micrometres
-from .version import __version__
+from .version import DISPLAY_VERSION
 
 # Desktop wheel notches arrive as CSS-px equivalents: keep the same 96-dpi
 # wire unit as the browser so µm stay comparable across clients.
@@ -40,7 +40,7 @@ def render_status(store: Store, cfg: dict) -> str:
     today_m = today_px / 96.0 * 0.0254
     limit = float(cfg.get("daily_limit_m", 100.0))
     lines = [
-        f"ThumbTrek {__version__} — today's trek: {stats.format_distance(today_m)}",
+        f"ThumbTrek {DISPLAY_VERSION} — today's trek: {stats.format_distance(today_m)}",
         f"  {stats.comparison(today_m)}",
         f"  streak {stats.trek_streak([d for d, px in store.days().items() if px > 0 for d in [date(*map(int, d.split('-')))]])} day(s)"
         f" · clean streak {stats.limit_streak(day_m, limit)} day(s) (limit {limit:g} m)",
@@ -136,7 +136,7 @@ def main(argv=None) -> int:
             Path(args.out).write_text(render_card_svg(today_m, week_m, stats.trek_streak(active)))
             print(args.out)
         elif args.cmd == "version":
-            print(__version__)
+            print(DISPLAY_VERSION)
         elif args.cmd == "doctor":
             return cmd_doctor()
         elif args.cmd == "signin":

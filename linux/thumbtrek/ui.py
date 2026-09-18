@@ -28,7 +28,7 @@ from .charts import Gauge, HistoryBars, TrendLines, WeekPulse  # noqa: E402
 from .links import fresh_links  # noqa: E402
 from .store import Store  # noqa: E402
 from .theme import (DARK, LIGHT, ensure_fonts, series_color)  # noqa: E402
-from .version import __version__  # noqa: E402
+from .version import DISPLAY_VERSION  # noqa: E402
 from . import widgets as W  # noqa: E402
 
 APP_ID = "dev.thumbtrek.app"
@@ -945,7 +945,7 @@ class MainWindow(Adw.ApplicationWindow):
         upd.append(W.label("This copy updates with the system — AUR, .deb or .rpm — "
                            "instead of phoning home for new builds.", "trek-body-muted"))
         about.append(W.trek_panel(upd))
-        about.append(W.action_row("Version", f"ThumbTrek {__version__}"))
+        about.append(W.action_row("Version", f"ThumbTrek {DISPLAY_VERSION}"))
         cards.append(about)
         return cards
 
