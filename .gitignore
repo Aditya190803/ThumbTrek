@@ -36,3 +36,7 @@ app/google-services.json
 
 # Local agent tooling config
 .commandcode/
+
+# Scratch + local build outputs (never commit; prefer these over /tmp)
+.scratch/
+dist/

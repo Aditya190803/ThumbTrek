@@ -1,0 +1,11 @@
+#!/usr/bin/env python3
+"""Installed entry point: `thumbtrek status|dashboard|daemon|export|card`."""
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from thumbtrek.cli import main
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,34 @@
+# Maintainer: ThumbTrek <https://github.com/Aditya190803/ThumbTrek>
+pkgname=thumbtrek
+pkgver=0.5.0
+pkgrel=1
+pkgdesc="Strava for scrolling — offline-first scroll tracker for Linux (AUR-first)"
+arch=('any')
+url="https://github.com/Aditya190803/ThumbTrek"
+license=('MIT')
+depends=('python' 'gtk4' 'libadwaita' 'python-gobject')
+optdepends=('xorg-xprop: per-app attribution on X11'
+            'libnotify: limit/streak desktop notifications')
+source=("$pkgname-$pkgver.tar.gz::https://github.com/Aditya190803/ThumbTrek/releases/download/v$pkgver/thumbtrek-linux-$pkgver.tar.gz")
+sha256sums=('SKIP')
+
+package() {
+  cd "$srcdir/thumbtrek-linux-$pkgver"
+  install -d "$pkgdir/usr/lib/thumbtrek" "$pkgdir/usr/bin" \
+    "$pkgdir/usr/lib/systemd/user" "$pkgdir/usr/share/applications" \
+    "$pkgdir/usr/share/thumbtrek" "$pkgdir/usr/share/fonts/thumbtrek"
+  cp -r "thumbtrek" "$pkgdir/usr/lib/thumbtrek/"
+  install -m755 "bin/thumbtrek" "$pkgdir/usr/lib/thumbtrek/thumbtrek-run"
+  install -m755 "bin/thumbtrek-native-host" "$pkgdir/usr/lib/thumbtrek/thumbtrek-native-host"
+  cp -r "extension" "$pkgdir/usr/share/thumbtrek/extension"
+  install -m644 assets/fonts/*.ttf "$pkgdir/usr/share/fonts/thumbtrek/"
+  # Thin wrapper so /usr/bin/thumbtrek works regardless of packaging layout.
+  printf '#!/bin/sh\nexec /usr/bin/python /usr/lib/thumbtrek/thumbtrek-run "$@"\n' \
+    > "$pkgdir/usr/bin/thumbtrek"
+  chmod 755 "$pkgdir/usr/bin/thumbtrek"
+  install -m644 "systemd/thumbtrek-tracker.service" "$pkgdir/usr/lib/systemd/user/"
+  install -m644 "desktop/thumbtrek.desktop" "$pkgdir/usr/share/applications/"
+}
+
+# After install: usermod -aG input $USER  # wheel tracking needs /dev/input
+#   systemctl --user enable --now thumbtrek-tracker.service
