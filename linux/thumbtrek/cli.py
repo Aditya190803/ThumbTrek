@@ -91,6 +91,8 @@ def build_parser() -> argparse.ArgumentParser:
     card = sub.add_parser("card", help="Write shareable SVG stat card.")
     card.add_argument("--out", default="thumbtrek-card.svg")
     browse =     sub.add_parser("doctor", help="Explain why nothing is being recorded, if so.")
+    sub.add_parser("signin", help="Sign in with Google (Desktop OAuth flow).")
+    sub.add_parser("signout", help="Clear the stored sign-in session.")
     browse = sub.add_parser("browsers", help="List detected browsers (native/flatpak/snap/appimage).")
     browse.add_argument("-v", "--verbose", action="store_true",
                         help="Show scanned locations and per-source hit counts.")
@@ -137,6 +139,10 @@ def main(argv=None) -> int:
             print(__version__)
         elif args.cmd == "doctor":
             return cmd_doctor()
+        elif args.cmd == "signin":
+            return cmd_signin()
+        elif args.cmd == "signout":
+            return cmd_signout()
         elif args.cmd == "browsers":
             return cmd_browsers(verbose=args.verbose)
         elif args.cmd == "extension":
@@ -216,6 +222,30 @@ def cmd_doctor() -> int:
     finally:
         store.close()
     return 0 if ok else 1
+
+
+def cmd_signin() -> int:
+    """Desktop Google sign-in: browser → loopback → Firebase session."""
+    import os
+    from . import auth
+    api_key = os.environ.get("THUMBTREK_FIREBASE_API_KEY", "")
+    try:
+        cfg = auth.sign_in(config_mod.load(), api_key)
+    except auth.AuthError as exc:
+        print(f"Sign-in failed: {exc}")
+        return 1
+    from .identity import friend_code, format_friend_code
+    print(f"Signed in. Friend code: {format_friend_code(friend_code(cfg['uid']))}")
+    print("Leaderboard sync itself is still phone/web-only; this session is "
+          "stored for when the Social tab lands.")
+    return 0
+
+
+def cmd_signout() -> int:
+    from . import auth
+    auth.sign_out(config_mod.load())
+    print("Signed out — local session cleared.")
+    return 0
 
 
 def cmd_browsers(verbose: bool = False) -> int:

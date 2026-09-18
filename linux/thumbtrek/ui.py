@@ -704,10 +704,12 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _on_signin(self, _button: Gtk.Button) -> None:
         dialog = Adw.MessageDialog(transient_for=self, heading="Sign-in is coming to Linux",
-                                   body="Google sign-in needs an OAuth user gesture that has no "
-                                   "Linux screen yet, so the leaderboard still lives on your "
-                                   "phone and in your browser. Local tracking, history, "
-                                   "streaks and badges are all here and need no account.")
+                                   body="The desktop login is built — system browser plus a "
+                                   "loopback callback, no password ever touching the app — "
+                                   "and `thumbtrek signin` exercises it today (see README, "
+                                   "Google sign-in). The signed-in boards and friends list "
+                                   "have no Linux screen yet, so until they land the "
+                                   "leaderboard lives on your phone and in your browser.")
         dialog.add_response("close", "Close")
         dialog.present()
 

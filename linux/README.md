@@ -54,7 +54,7 @@ for i, px in enumerate([40000, 90000, 12000, 150000, 30000, 60000, 20000]):
 s.accumulate("kitty", t.isoformat(), 12000)
 s.close(); print("seeded")
 EOF
-./linux/bin/thumbtrek dashboard      # explore Trek / History / Badges / Settings
+./linux/bin/thumbtrek dashboard      # explore Trek / History / Social / Settings
 ./linux/bin/thumbtrek extension install   # works from a checkout too (uses repo extension/)
 python3 -m unittest discover -s linux/tests   # headless suite; window test auto-skips without a display
 ```
@@ -81,17 +81,81 @@ systemctl --user enable --now thumbtrek-tracker.service
 (built by `.github/workflows/linux.yml` on every `v*` tag), or build the deb
 locally with `python3 linux/packaging/build-deb.py --version 0.5.0 --out dist`.
 
+## First-run checklist
+
+1. **Join the `input` group** (wheel tracking reads `/dev/input`, no root):
+   `sudo usermod -aG input "$USER"`, then **log back in** — group membership
+   only takes effect on a fresh login.
+2. **Start the tracker**: `thumbtrek daemon` for a session, or the user
+   service for always-on. Only one daemon ever runs — a second one exits
+   rather than double-count.
+3. **Open the window**: `thumbtrek dashboard` → Trek tab. Scroll anywhere
+   for ~10 seconds; `thumbtrek status` should show metres.
+4. **Link a browser** (optional, recommended): `thumbtrek extension
+   install` — this splits browser time into Instagram / YouTube / X /
+   Reddit per-site feeds. Unlinked time stays under the browser's name.
+5. **Stuck on zero?** `thumbtrek doctor` checks input access, daemon
+   liveness, today's ledger and whether the focused app is tracked, and
+   names the missing step. `thumbtrek extension ping` does the same for the
+   desktop bridge.
+
+## Google sign-in (leaderboard sync)
+
+Status: the plumbing is built, tested (`linux/tests/test_auth.py`, incl. a
+full loopback round-trip against a fake Google), and waiting on the Social
+tab's sign-in button. Tracking, history, streaks and badges need no account
+and never will.
+
+Why a Desktop flow, not the Android one: Android signs in via Credential
+Manager and the web via popup — neither exists on Linux. The desktop client
+uses the Google-approved native-app path, **RFC 8252 + PKCE**:
+
+- system browser → Google with `code_challenge` (S256, no client secret —
+  desktop apps cannot keep one)
+- Google redirects to a loopback server (`http://127.0.0.1`, ephemeral
+  port, bound only for this login, `state`-checked)
+- code (+verifier) → Google ID token → the same Firebase
+  `accounts:signInWithIdp` exchange the extension uses, so uid, friend code
+  and board identity match every client exactly
+- session (`uid`, Firebase ID token + expiry, refresh token) persists in
+  `config.json` (mode 0600); refresh reuses the securetoken endpoint
+
+Maintainer/user setup (one time):
+
+1. [Google Cloud Console](https://console.cloud.google.com) → the Firebase
+   project's console → **APIs & Services → Credentials → Create credentials
+   → OAuth client ID → Application type: Desktop app**. A Web or Android
+   client ID will *not* work here — Google binds the allowed flow to the
+   client type, and only Desktop permits the loopback redirect.
+2. Configure the **OAuth consent screen** (external, test or production) —
+   scopes needed are only `openid email profile`.
+3. Loopback needs no redirect-URI registration (any ephemeral port on
+   `127.0.0.1` is allowed for Desktop clients by policy); adding
+   `http://127.0.0.1` explicitly does no harm.
+4. Export it for the app (never commit it):
+   ```sh
+   export THUMBTREK_GOOGLE_CLIENT_ID="....apps.googleusercontent.com"
+   export THUMBTREK_FIREBASE_API_KEY="$(...)"   # Firebase web API key
+   ```
+5. `thumbtrek signin` opens the browser, captures the loopback
+   code, and stores the session — from then on sync reuses
+   `fresh_id_token()` and the leaderboard opt-in behaves exactly like the
+   phone's. `thumbtrek signout` clears it.
+
 ## Use
 
 ```sh
 thumbtrek status      # today's trek, streaks, badges
-thumbtrek dashboard   # localhost page, opens in browser
-thumbtrek daemon      # tracker (systemd runs this)
+thumbtrek dashboard   # native desktop window
+thumbtrek daemon      # tracker (systemd runs this; single instance only)
+thumbtrek doctor      # why nothing is being recorded, if so
 thumbtrek export --out t.csv   # Android-compatible date,app,pixels CSV
 thumbtrek card --out card.svg  # shareable stat card
-thumbtrek browsers             # list detected browsers
+thumbtrek browsers [-v]        # list detected browsers (+ scan diagnostics)
 thumbtrek extension install    # pick a browser, link the web-extension
-thumbtrek extension status     # staged copy, bridges, live links
+thumbtrek extension status     # staged copy, bridges, live links, tracking mode
+thumbtrek extension ping       # test the installed bridge like the browser would
+thumbtrek extension remove     # remove the desktop bridge
 ```
 
 ## Do I need the extension?
