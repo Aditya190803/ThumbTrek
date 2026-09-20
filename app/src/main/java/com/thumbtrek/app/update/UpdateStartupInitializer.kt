@@ -2,6 +2,7 @@ package com.thumbtrek.app.update
 
 import android.content.Context
 import androidx.startup.Initializer
+import androidx.work.WorkManagerInitializer
 
 /**
  * Registers the periodic update check on process start.
@@ -22,9 +23,7 @@ class UpdateStartupInitializer : Initializer<Unit> {
         if (UpdatePrefs.get(context).autoCheck.value) UpdateWorker.schedule(context)
     }
 
-    /**
-     * None. `WorkManager.getInstance` initialises itself on first use, and depending on
-     * WorkManager's own initializer would mean referencing a restricted internal class.
-     */
-    override fun dependencies(): List<Class<out Initializer<*>>> = emptyList()
+    /** WorkManager must be ready before [create] schedules the periodic update job. */
+    override fun dependencies(): List<Class<out Initializer<*>>> =
+        listOf(WorkManagerInitializer::class.java)
 }
