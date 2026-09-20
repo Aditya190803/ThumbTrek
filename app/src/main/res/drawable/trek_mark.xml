@@ -1,13 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="64dp" android:height="64dp"
-    android:viewportWidth="64" android:viewportHeight="64">
-    <path android:fillColor="#1E6B3E"
-        android:pathData="M18,0 L46,0 Q64,0 64,18 L64,46 Q64,64 46,64 L18,64 Q0,64 0,46 L0,18 Q0,0 18,0 Z" />
-    <path android:fillColor="#FBFAF4"
-        android:pathData="M16,31 Q16,27 20,27 L24,27 L30,13 Q32,9 36,11 Q40,13 38,19 L36,27 L45,27 Q51,27 50,33 L47,47 Q46,52 40,52 L22,52 Q16,52 16,46 Z" />
-    <path android:strokeColor="#1E6B3E" android:strokeWidth="3.5"
-        android:strokeLineCap="round" android:strokeLineJoin="round"
-        android:pathData="M25,44 L32,44 Q39,44 39,39 Q39,34 33,34 L28,34" />
-    <path android:fillColor="#1E6B3E" android:pathData="M23,34 a2,2 0,1 0,4 0 a2,2 0,1 0,-4 0" />
+    android:width="64dp"
+    android:height="64dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path android:fillColor="#0C0F0B" android:pathData="M28 0 H80 Q108 0 108 28 V80 Q108 108 80 108 H28 Q0 108 0 80 V28 Q0 0 28 0 Z" />
+    <!-- Thumbprint ridges, read as topographic contours -->
+    <path
+        android:strokeColor="#8BE6A0"
+        android:strokeWidth="4.8"
+        android:strokeLineCap="round"
+        android:pathData="M46.2 59.2 C46.2 50.1 61.8 50.1 61.8 59.2" />
+    <path
+        android:strokeColor="#8BE6A0"
+        android:strokeWidth="4.8"
+        android:strokeLineCap="round"
+        android:pathData="M38.4 59.2 C38.4 42.3 69.6 42.3 69.6 59.2" />
+    <path
+        android:strokeColor="#8BE6A0"
+        android:strokeWidth="4.8"
+        android:strokeLineCap="round"
+        android:pathData="M30.6 59.2 C30.6 34.5 77.4 34.5 77.4 59.2" />
+    <!-- The trail: the ridge that leaves the print and gains elevation -->
+    <path
+        android:strokeColor="#EDF1E6"
+        android:strokeWidth="4.8"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M25.4 70.9 L39.8 64.9 Q41 64.4 42.2 64.8 L55.4 69.2 Q56.6 69.6 57.7 68.95 L78.7 56.6" />
+    <!-- Waypoint -->
+    <path
+        android:fillColor="#F2B455"
+        android:pathData="M73.9 56.6 a4.8 4.8 0 1 0 9.6 0 a4.8 4.8 0 1 0 -9.6 0 Z" />
 </vector>
