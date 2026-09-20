@@ -9,8 +9,9 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -67,7 +68,7 @@ import com.thumbtrek.app.track.ScrollDiagnostics
 import com.thumbtrek.app.update.UpdateSettingsContent
 import kotlinx.coroutines.launch
 
-private val GUTTER = 20.dp
+private val GUTTER = 24.dp
 
 @Composable
 fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewModel()) {
@@ -85,9 +86,10 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
     val scope = rememberCoroutineScope()
     var showPicker by remember { mutableStateOf(false) }
     var exportNote by remember { mutableStateOf<String?>(null) }
+    var showDiagnostics by rememberSaveable { mutableStateOf(false) }
 
     // PRD 5.5 reminders are a notification, and on Android 13+ that needs a runtime grant.
-    // The grant callback enables whichever toggle asked for it — hardcoding one toggle here
+    // The grant callback enables whichever toggle asked for it · hardcoding one toggle here
     // is how a limit-nudge tap would silently switch on the streak reminder instead.
     var pendingNotifyToggle by remember { mutableStateOf<String?>(null) }
     val notificationPermission = rememberLauncherForActivityResult(
@@ -106,13 +108,17 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(horizontal = GUTTER),
-        verticalArrangement = Arrangement.spacedBy(30.dp),
+            .padding(horizontal = GUTTER)
+            .padding(top = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        Spacer(modifier = Modifier.height(2.dp))
+        PageHeading("Settings", "Make room for what matters.")
+        ActionRow("Review setup", "Apps, permissions, daily limit and account", {
+            Prefs.get(context).setOnboardingStep(0)
+        })
 
         // ---- Tracking -----------------------------------------------------------------
-        Column {
+        TrekPanel {
             SectionHead("Tracking")
             StatusLine(
                 live = state.trackingEnabled,
@@ -122,11 +128,9 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
             Spacer(modifier = Modifier.height(10.dp))
             Text(
                 if (state.trackingEnabled) {
-                    "The Accessibility Service is running. It sees scroll events from the apps " +
-                        "below and nothing else."
+                    "Tracking is on. Only scroll distance is measured, never what’s on your screen."
                 } else {
-                    "Nothing is being measured. ThumbTrek needs its Accessibility Service " +
-                        "switched on to count how far you scroll."
+                    "Enable ThumbTrek in Accessibility settings to start measuring scroll distance."
                 },
                 style = MaterialTheme.typography.bodyMedium,
                 color = Trek.inkMuted,
@@ -143,10 +147,10 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
         }
 
         // ---- Tracked apps -------------------------------------------------------------
-        Column {
+        TrekPanel {
             SectionHead(
                 "Tracked apps",
-                trailing = "${state.trackedApps.size} ON",
+                trailing = "${state.trackedApps.size} enabled",
                 trailingColor = if (state.trackedApps.isEmpty()) Trek.danger else Trek.inkMuted,
             )
             TRACKED_APPS.forEach { (pkg, name) ->
@@ -154,7 +158,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
                     title = name,
                     checked = pkg in state.trackedApps,
                     onCheckedChange = { vm.setAppTracked(pkg, it) },
-                    leading = { SeriesDot(chartColor(pkg)) },
+                    leading = { AppToken(appName(pkg, state.customApps), chartColor(pkg)) },
                 )
             }
             state.customApps.forEach { (pkg, label) ->
@@ -163,7 +167,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
                     subtitle = pkg,
                     checked = pkg in state.trackedApps,
                     onCheckedChange = { vm.setAppTracked(pkg, it) },
-                    leading = { SeriesDot(chartColor(pkg)) },
+                    leading = { AppToken(appName(pkg, state.customApps), chartColor(pkg)) },
                     trailing = {
                         TextButton(onClick = { vm.removeCustomApp(pkg) }) {
                             Text("Remove", color = Trek.inkFaint)
@@ -192,24 +196,24 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
         }
 
         // ---- Daily limit --------------------------------------------------------------
-        Column {
-            SectionHead("Daily limit", trailing = "${state.limitM.toInt()} M / DAY")
+        TrekPanel {
+            SectionHead("Daily limit", trailing = state.limitM?.let { "${it.toInt()} m / day" } ?: "Not set")
             Text(
-                "Stay at or under this far a day and the day counts as clean. Clean days in " +
-                    "a row are the streak that matters here — this one rewards scrolling less, " +
-                    "not more.",
+                if (state.limitM == null) "Track your usual scrolling first, or choose a daily cap below." else "Stay within your limit to earn a clean day. Your limit is always your choice.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = Trek.inkMuted,
             )
             Spacer(modifier = Modifier.height(12.dp))
             LimitEditor(vm = vm, currentM = state.limitM)
+            if (state.limitM != null) {
+                TextButton(onClick = { vm.clearLimit() }) { Text("Track without a limit") }
+            }
             Spacer(modifier = Modifier.height(10.dp))
             Text(
                 when {
-                    !BILLING_ENFORCED -> "Free while ThumbTrek finds its feet — change your " +
-                        "limit as often as you like for now."
+                    !BILLING_ENFORCED -> "Change your limit as often as you like. It’s free for now."
                     state.premium -> "Premium: unlimited changes."
-                    state.freeEditsLeft > 0 -> "One free change per week — yours is still " +
+                    state.freeEditsLeft > 0 -> "One free change per week · yours is still " +
                         "available this week."
                     else -> "This week's free change is used. The quota resets Monday; " +
                         "Premium (coming soon) unlocks unlimited changes."
@@ -219,27 +223,8 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
             )
         }
 
-        // ---- Tracking diagnostics -----------------------------------------------------
-        Column {
-            SectionHead("Tracking diagnostics", trailing = "DEBUG")
-            Text(
-                "Proof that measurement works. Open YouTube, scroll the home feed and a " +
-                    "few Shorts, then come back here: its row should have moved. Foreground " +
-                    "sightings without pixels mean events arrive but bank nothing; nothing at " +
-                    "all means the toggle above or the system Accessibility switch. Counts " +
-                    "reset with the process and never leave this phone.",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Trek.inkMuted,
-            )
-            Spacer(modifier = Modifier.height(12.dp))
-            DiagnosticsTable(
-                trackedApps = state.trackedApps,
-                customLabels = state.customApps,
-            )
-        }
-
         // ---- Notifications ------------------------------------------------------------
-        Column {
+        TrekPanel {
             SectionHead("Notifications")
             ToggleRow(
                 title = "Streak reminder",
@@ -254,7 +239,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
                     }
                 },
             )
-            ToggleRow(
+            if (state.limitM != null) ToggleRow(
                 title = "Limit nudge",
                 subtitle = "One heads-up near 80% of your limit, one if you pass it",
                 checked = state.limitNudge,
@@ -301,7 +286,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
             )
             Spacer(modifier = Modifier.height(10.dp))
             Text(
-                "One row per app per day: dates and pixel counts, nothing else.",
+                "Download your complete history, organized by app and date.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Trek.inkFaint,
             )
@@ -322,9 +307,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
-                    "The service listens for one thing, scroll events from the apps you picked " +
-                        "above, and requests no permission to read what is on screen. It cannot " +
-                        "see your posts, your messages, or what you type.",
+                    "Your posts, messages and typing stay private. ThumbTrek only counts scroll events in the apps you choose.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = Trek.inkMuted,
                 )
@@ -338,19 +321,32 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
             }
         }
 
+        TrekGhostButton(
+            text = if (showDiagnostics) "Hide tracking details" else "Tracking details",
+            onClick = { showDiagnostics = !showDiagnostics },
+            modifier = Modifier.fillMaxWidth(),
+        )
+        if (showDiagnostics) {
+            Column {
+                SectionHead("Tracking details")
+                Text("Live counters for troubleshooting. Open a tracked app, scroll, then return here. These counters stay on this phone.", style = MaterialTheme.typography.bodyMedium, color = Trek.inkMuted)
+                Spacer(Modifier.height(12.dp))
+                DiagnosticsTable(trackedApps = state.trackedApps, customLabels = state.customApps)
+            }
+        }
+
         // ---- About --------------------------------------------------------------------
         Column {
-            SectionHead("About")
+            SectionHead("About ThumbTrek")
 
             // The self-updater rides here, above the Version row (the banner-ish slot the
-            // old TODO reserved). Its stock container — UpdateCard's OutlinedCard — would
+            // old TODO reserved). Its stock container · UpdateCard's OutlinedCard · would
             // drop a foreign card shape into this screen's panel system, so we take
             // UpdateSettingsContent, contents only, and dress it in a TrekPanel the way
             // Privacy does. UpdateUi.kt is deliberately plain Material3 so it keeps
             // compiling when the design system moves; the dressing stays local to this
             // file. The content wires up its own ViewModel via the default viewModel(),
             // which shares state with the background worker through UpdateRepository.
-            SectionHead("Updates")
             TrekPanel { UpdateSettingsContent() }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -383,7 +379,7 @@ private fun StatusLine(live: Boolean, liveText: String, idleText: String) {
         Box(
             modifier = Modifier
                 .size(8.dp)
-                .background(if (live) Trek.moss else Trek.inkFaint, CircleShape),
+                .background(if (live) Trek.accent else Trek.inkFaint, CircleShape),
         )
         Spacer(modifier = Modifier.width(10.dp))
         Text(
@@ -399,7 +395,7 @@ private fun StatusLine(live: Boolean, liveText: String, idleText: String) {
  * and how every other Android settings screen behaves.
  */
 @Composable
-private fun ToggleRow(
+internal fun ToggleRow(
     title: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
@@ -412,7 +408,7 @@ private fun ToggleRow(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .clickable(role = Role.Switch) { onCheckedChange(!checked) }
+            .toggleable(value = checked, role = Role.Switch, onValueChange = onCheckedChange)
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -433,7 +429,7 @@ private fun ToggleRow(
                     subtitle,
                     style = MaterialTheme.typography.bodySmall,
                     color = Trek.inkFaint,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
@@ -442,11 +438,11 @@ private fun ToggleRow(
         Spacer(modifier = Modifier.width(8.dp))
         Switch(
             checked = checked,
-            onCheckedChange = onCheckedChange,
+            onCheckedChange = null,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Trek.onMoss,
-                checkedTrackColor = Trek.moss,
-                checkedBorderColor = Trek.moss,
+                checkedThumbColor = Trek.onAccent,
+                checkedTrackColor = Trek.accent,
+                checkedBorderColor = Trek.accent,
                 uncheckedThumbColor = Trek.inkFaint,
                 uncheckedTrackColor = Trek.groundSunken,
                 uncheckedBorderColor = Trek.hairline,
@@ -498,7 +494,7 @@ private fun ActionRow(
 // ---------------------------------------------------------------------------------------
 
 @Composable
-private fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
+internal fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
     val apps by vm.installedApps.collectAsStateWithLifecycle()
     LaunchedEffect(Unit) { vm.loadInstalledApps() }
 
@@ -576,8 +572,8 @@ private fun needsNotificationPermission(context: Context): Boolean =
  * just happened so "Save" never looks dead.
  */
 @Composable
-private fun LimitEditor(vm: SettingsViewModel, currentM: Float) {
-    var input by remember(currentM) { mutableStateOf(currentM.toInt().toString()) }
+private fun LimitEditor(vm: SettingsViewModel, currentM: Float?) {
+    var input by remember(currentM) { mutableStateOf(currentM?.toInt()?.toString().orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
     val result by vm.limitEdit.collectAsStateWithLifecycle()
 
@@ -593,6 +589,7 @@ private fun LimitEditor(vm: SettingsViewModel, currentM: Float) {
             modifier = Modifier.weight(1f),
             label = { Text("Metres per day") },
             singleLine = true,
+            shape = MaterialTheme.shapes.small,
             isError = error != null,
             supportingText = error?.let { { Text(it) } },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
@@ -603,7 +600,7 @@ private fun LimitEditor(vm: SettingsViewModel, currentM: Float) {
                 focusedLabelColor = Trek.inkFaint,
                 unfocusedLabelColor = Trek.inkFaint,
                 errorLabelColor = Trek.danger,
-                focusedBorderColor = Trek.moss,
+                focusedBorderColor = Trek.accent,
                 unfocusedBorderColor = Trek.hairline,
                 errorBorderColor = Trek.danger,
             ),
@@ -614,7 +611,7 @@ private fun LimitEditor(vm: SettingsViewModel, currentM: Float) {
             onClick = {
                 val value = input.toFloatOrNull()
                 error = when {
-                    value == null -> "Enter a number, e.g. 100."
+                    value == null -> "Enter your daily limit in metres."
                     value < MIN_DAILY_LIMIT_M.toFloat() || value > MAX_DAILY_LIMIT_M.toFloat() ->
                         "Between ${MIN_DAILY_LIMIT_M.toInt()} and " +
                             "${MAX_DAILY_LIMIT_M.toInt()} m, so a typo can't break the game."
@@ -630,18 +627,18 @@ private fun LimitEditor(vm: SettingsViewModel, currentM: Float) {
             val noun = if (applied.freeLeft == 1) "change" else "changes"
             Text(
                 when {
-                    !BILLING_ENFORCED -> "Saved. Limits are free for now — change it whenever."
+                    !BILLING_ENFORCED -> "Saved. Limits are free for now · change it whenever."
                     applied.freeLeft == Int.MAX_VALUE -> "Saved. Premium: unlimited changes."
                     else -> "Saved. ${applied.freeLeft} free $noun left this week."
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = Trek.moss,
+                color = Trek.accent,
             )
         }
         Prefs.LimitEditResult.NeedsPremium -> {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "This week's free change is used — the quota resets Monday. Premium " +
+                "This week's free change is used · the quota resets Monday. Premium " +
                     "(coming soon) unlocks unlimited changes. Nothing was changed.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Trek.danger,
@@ -660,7 +657,7 @@ private fun LimitEditor(vm: SettingsViewModel, currentM: Float) {
  * service and the UI share a process, so this is live counters, not a log scrape: scroll
  * YouTube, come back, and its row moves. Apps with no row yet show as idle rather than
  * vanishing, so "YouTube measures nothing" and "YouTube never heard a scroll" read
- * differently — which is the entire point of the diagnostics.
+ * differently · which is the entire point of the diagnostics.
  */
 @Composable
 private fun DiagnosticsTable(
@@ -685,7 +682,7 @@ private fun DiagnosticsTable(
     TrekPanel(padding = PaddingValues(4.dp)) {
         if (packages.isEmpty()) {
             Text(
-                "Nothing tracked yet — switch an app on above and its row appears here.",
+                "Nothing tracked yet · switch an app on above and its row appears here.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Trek.inkFaint,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -696,7 +693,7 @@ private fun DiagnosticsTable(
             val countedPx = diag?.countedPixels ?: 0L
             val detail = when {
                 pkg !in trackedApps -> "off"
-                diag == null -> "idle — no scroll heard yet"
+                diag == null -> "idle · no scroll heard yet"
                 else -> "fg=${diag.foregroundSightings} · " +
                     "${formatDistance(pixelsToMeters(countedPx, dpi))}" +
                     (diag.dominantPath?.let { " · $it" } ?: "")
@@ -742,7 +739,7 @@ private fun DiagnosticsTable(
         if (clearedNote) {
             Spacer(modifier = Modifier.width(10.dp))
             Text(
-                "Counters cleared — scroll a feed to start them again.",
+                "Counters cleared · scroll a feed to start them again.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Trek.inkFaint,
             )

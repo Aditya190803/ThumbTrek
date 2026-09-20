@@ -2,4 +2,8 @@
 <resources>
     <string name="app_name">ThumbTrek</string>
     <string name="service_description">ThumbTrek measures how far your thumb scrolls in the apps you choose — Instagram, YouTube, X and Reddit by default. It only counts scroll distance — it never reads anything on your screen.</string>
+    <string name="widget_today_label">Today’s trek</string>
+    <string name="widget_zero_distance">0 m</string>
+    <string name="widget_ready">Ready when you are</string>
+    <string name="widget_limit_label">Your daily limit</string>
 </resources>

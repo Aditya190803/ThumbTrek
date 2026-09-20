@@ -4,7 +4,6 @@ import android.content.Intent
 import android.provider.Settings
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -16,7 +15,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -27,8 +25,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.navigationBars
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -39,17 +35,20 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material3.Icon
+import androidx.compose.material3.NavigationBar
+import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -82,7 +81,6 @@ import com.thumbtrek.app.share.shareTrekCard
 import com.thumbtrek.app.stats.Badge
 import com.thumbtrek.app.stats.AppSeries
 import com.thumbtrek.app.stats.Bucket
-import com.thumbtrek.app.stats.LANDMARKS
 import com.thumbtrek.app.stats.comparison
 import com.thumbtrek.app.stats.dailyBuckets
 import com.thumbtrek.app.stats.dayOverDayDelta
@@ -96,7 +94,7 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
 
-private val GUTTER = 20.dp
+private val GUTTER = 24.dp
 
 // ---------------------------------------------------------------------------------------
 // Shell
@@ -168,18 +166,13 @@ fun MainScreen(
     }
 }
 
-/**
- * Top rail. The wordmark stays put across tabs, the right-hand slot changes with context:
- * a share action on the dashboard, the date elsewhere. No Material TopAppBar, because its
- * 64dp of chrome and centered title bought nothing here.
- */
 @Composable
 private fun TrekTopRail(tab: Int, state: DashboardViewModel.UiState) {
     val context = LocalContext.current
     val dpi = remember { context.resources.displayMetrics.densityDpi }
     val today = remember { LocalDate.now() }
     val dateLabel = remember(today) {
-        DateTimeFormatter.ofPattern("EEE d MMM").format(today).uppercase()
+        DateTimeFormatter.ofPattern("EEEE, d MMM").format(today)
     }
 
     Row(
@@ -190,11 +183,13 @@ private fun TrekTopRail(tab: Int, state: DashboardViewModel.UiState) {
             .padding(start = GUTTER, end = 10.dp, top = 12.dp, bottom = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        BrandMark(Modifier.size(30.dp))
+        Spacer(Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                "THUMBTREK",
-                style = TrekOverline,
-                color = Trek.moss,
+                "ThumbTrek",
+                style = MaterialTheme.typography.titleMedium,
+                color = Trek.ink,
             )
             Text(
                 dateLabel,
@@ -255,83 +250,36 @@ private fun IconAction(
 private data class TrekTab(val icon: ImageVector, val label: String)
 
 private val TABS = listOf(
-    TrekTab(Icons.Default.Home, "Trek"),
+    TrekTab(Icons.Default.Home, "Today"),
     TrekTab(Icons.Default.DateRange, "History"),
     TrekTab(Icons.Default.Person, "Social"),
     TrekTab(Icons.Default.Settings, "Settings"),
 )
 
-/**
- * Bottom navigation. A trail blaze slides along the top edge to mark where you are, which
- * is a marker on a route rather than Material's pill behind an icon: same information,
- * and it does not fight the data on the screen above it.
- */
+/** Familiar tabs with a soft, selected pill and a full touch target. */
 @Composable
 private fun TrekNavBar(selected: Int, onSelect: (Int) -> Unit) {
     val haptics = LocalHapticFeedback.current
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Trek.ground),
-    ) {
-        Hairline(color = Trek.hairline)
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(WindowInsets.navigationBars),
-        ) {
-            val slot = maxWidth / TABS.size
-            val blazeWidth = slot * 0.34f
-            val offsetX by animateDpAsState(
-                targetValue = slot * selected + (slot - blazeWidth) / 2,
-                animationSpec = tween(trekDuration(TrekDur.MEDIUM), easing = TrekEase),
-                label = "blaze",
-            )
-            Spacer(
-                modifier = Modifier
-                    .offset(x = offsetX)
-                    .width(blazeWidth)
-                    .height(2.dp)
-                    .background(Trek.moss),
-            )
-            Row(modifier = Modifier.fillMaxWidth()) {
-                TABS.forEachIndexed { index, item ->
-                    val active = index == selected
-                    Column(
-                        modifier = Modifier
-                            .weight(1f)
-                            .heightIn(min = 56.dp)
-                            .selectable(
-                                selected = active,
-                                role = Role.Tab,
-                                onClick = {
-                                    if (!active) {
-                                        haptics.performHapticFeedback(
-                                            HapticFeedbackType.TextHandleMove,
-                                        )
-                                        onSelect(index)
-                                    }
-                                },
-                            )
-                            .padding(vertical = 10.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        Icon(
-                            item.icon,
-                            contentDescription = null,
-                            tint = if (active) Trek.moss else Trek.inkFaint,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Text(
-                            item.label,
-                            style = MaterialTheme.typography.labelSmall,
-                            color = if (active) Trek.ink else Trek.inkFaint,
-                            maxLines = 1,
-                        )
+    NavigationBar(containerColor = Trek.ground, tonalElevation = 0.dp) {
+        TABS.forEachIndexed { index, item ->
+            NavigationBarItem(
+                selected = index == selected,
+                onClick = {
+                    if (index != selected) {
+                        haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        onSelect(index)
                     }
-                }
-            }
+                },
+                icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.size(22.dp)) },
+                label = { Text(item.label, style = MaterialTheme.typography.labelMedium) },
+                colors = NavigationBarItemDefaults.colors(
+                    selectedIconColor = Trek.accent,
+                    selectedTextColor = Trek.accent,
+                    indicatorColor = Trek.accentWash,
+                    unselectedIconColor = Trek.inkMuted,
+                    unselectedTextColor = Trek.inkMuted,
+                ),
+            )
         }
     }
 }
@@ -357,7 +305,7 @@ private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Mo
             .verticalScroll(rememberScrollState())
             .padding(horizontal = GUTTER)
             .padding(top = 6.dp),
-        verticalArrangement = Arrangement.spacedBy(28.dp),
+        verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         if (!state.trackingEnabled) {
             TrackingOffBanner(
@@ -367,30 +315,21 @@ private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Mo
             )
         }
 
-        HeroDial(
+        DailySummary(
             todayMeters = todayMeters,
             streak = state.streak,
             slices = state.perApp.map {
                 val meters = pixelsToMeters(it.pixels, dpi)
-                ChartSlice(
-                    it.packageName,
-                    appName(it.packageName, state.customLabels),
-                    meters.toFloat(),
-                    formatDistance(meters),
-                )
+                ChartSlice(it.packageName, appName(it.packageName, state.customLabels), meters.toFloat(), formatDistance(meters))
             },
             delta = dayOverDayDelta(byDate),
-        )
-
-        LimitGlance(
-            todayMeters = todayMeters,
             limitM = state.limitM,
             clean = state.todayClean,
             cleanStreak = state.cleanStreak,
         )
 
-        if (todayMeters > 0.0) {
-            LandmarkReading(todayMeters)
+        if (state.perApp.isNotEmpty()) {
+            AppSplit(state, dpi, todayMeters)
         }
 
         if (hasEverTracked) {
@@ -402,10 +341,6 @@ private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Mo
             )
         }
 
-        if (state.perApp.isNotEmpty()) {
-            AppSplit(state, dpi, todayMeters)
-        }
-
         if (!hasEverTracked || !state.trackingEnabled || state.streak < 2) {
             FirstTrekChecklist(
                 trackingOn = state.trackingEnabled,
@@ -415,8 +350,7 @@ private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Mo
         }
 
         Text(
-            "Distance only. ThumbTrek never reads what is on your screen, and nothing " +
-                "leaves this phone until you opt into a leaderboard.",
+            "Private by default. Only scroll distance is measured.",
             style = MaterialTheme.typography.bodySmall,
             color = Trek.inkFaint,
         )
@@ -424,98 +358,63 @@ private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Mo
     }
 }
 
-/**
- * The screen people open daily. The distance sits inside the instrument that measured it,
- * with the streak in the break at the bottom of the dial, so one glance answers "how far",
- * "on what" and "am I still going".
- */
+/** The app-colored dial answers how far and where; the separate rail shows the limit. */
 @Composable
-private fun HeroDial(
+private fun DailySummary(
     todayMeters: Double,
     streak: Int,
     slices: List<ChartSlice>,
     delta: Int?,
+    limitM: Float?,
+    clean: Boolean,
+    cleanStreak: Int,
 ) {
-    val readout = if (todayMeters > 0.0) {
-        "Today's trek: ${formatDistance(todayMeters)}"
-    } else {
-        "Today's trek: nothing yet"
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .semantics(mergeDescendants = true) { contentDescription = readout },
-        contentAlignment = Alignment.TopCenter,
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
-        TrekGauge(
-            slices = slices,
-            modifier = Modifier
-                .widthIn(max = 320.dp)
-                .fillMaxWidth()
-                .aspectRatio(1f),
-            ringWidth = 15.dp,
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-                modifier = Modifier.padding(horizontal = 28.dp),
+        Box(contentAlignment = Alignment.TopCenter) {
+            TrekGauge(
+                slices = slices,
+                modifier = Modifier.widthIn(max = 320.dp).fillMaxWidth().aspectRatio(1f)
+                    .semantics(mergeDescendants = true) {
+                        contentDescription = "Today: ${formatDistance(todayMeters)} scrolled. " +
+                            slices.joinToString { "${it.label}: ${it.valueLabel}" }
+                    },
+                ringWidth = 15.dp,
             ) {
-                Text("TODAY'S TREK", style = TrekOverline, color = Trek.inkFaint)
-                HeroDistance(todayMeters)
-                if (delta != null && todayMeters > 0.0) {
-                    DeltaMark(delta, "on yesterday")
+                Column(
+                    modifier = Modifier.fillMaxWidth(0.64f),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Text("Today's trek", style = TrekOverline, color = Trek.inkMuted)
+                    HeroDistance(todayMeters, centered = true)
                 }
             }
+            StreakBadge(streak, Modifier.align(Alignment.BottomCenter))
         }
-        // Sits in the break the dial leaves open at the bottom.
-        StreakBadge(
-            streak,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .offset(y = 6.dp),
-        )
-    }
-}
-
-/**
- * The landmark comparison, given somewhere to go. The multiple is the delight; the rail
- * underneath turns it into a reason to look again tomorrow rather than a one-line joke.
- */
-@Composable
-private fun LandmarkReading(meters: Double) {
-    val next = remember(meters) { LANDMARKS.firstOrNull { it.meters > meters } }
-    val floor = remember(meters) {
-        LANDMARKS.lastOrNull { meters >= it.meters }?.meters ?: 0.0
-    }
-
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
-            comparison(meters),
-            style = MaterialTheme.typography.bodyLarge,
-            color = Trek.ink,
+            if (todayMeters > 0.0) comparison(todayMeters) else "Your first scroll starts the trail.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Trek.inkMuted,
+            textAlign = TextAlign.Center,
         )
-        if (next != null) {
-            val span = (next.meters - floor).coerceAtLeast(0.0001)
-            Rail(
-                fraction = ((meters - floor) / span).toFloat(),
-                color = Trek.moss,
-                height = 4.dp,
-            )
-            Text(
-                "${formatDistance(next.meters - meters)} to go before ${next.label}.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Trek.inkMuted,
-            )
+        if (delta != null && todayMeters > 0.0) {
+            DeltaMark(delta, "vs yesterday")
+        }
+        TrekPanel {
+            if (limitM != null) {
+                LimitGlance(todayMeters, limitM, clean, cleanStreak)
+            } else {
+                Text("Find your baseline", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
+                Spacer(Modifier.height(6.dp))
+                Text("Track your usual scrolling without a cap. When you’re ready, set your own daily limit in Settings.", style = MaterialTheme.typography.bodyMedium, color = Trek.inkMuted)
+            }
         }
     }
 }
 
-/**
- * The limit theme, given the dashboard slot right under the hero dial. Today's trek against
- * the daily cap, with the clean-days counter beside it: the streak that rewards scrolling
- * less sits next to the trek streak in the dial, not instead of it.
- */
 @Composable
 private fun LimitGlance(
     todayMeters: Double,
@@ -524,41 +423,22 @@ private fun LimitGlance(
     cleanStreak: Int,
 ) {
     val limit = limitM.toDouble().coerceAtLeast(1.0)
-    val caption = when {
-        !clean -> "Over the limit today — tomorrow under ${formatDistance(limit)} starts a new run."
-        cleanStreak > 1 -> "$cleanStreak clean days in a row — stay under ${formatDistance(limit)} to keep it."
-        else -> "On track — finish today under ${formatDistance(limit)} for a clean day."
-    }
+    val tint = if (clean) Trek.success else Trek.danger
     Column {
-        SectionHead(
-            "Daily limit",
-            trailing = if (cleanStreak > 0) "$cleanStreak CLEAN" else null,
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Daily limit", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = Trek.ink)
+            Text(formatDistance(limit), style = TrekFigure, color = Trek.inkMuted)
+        }
+        Spacer(Modifier.height(12.dp))
+        Rail((todayMeters / limit).toFloat(), color = tint, track = tint.copy(alpha = 0.12f), height = 6.dp)
+        Spacer(Modifier.height(10.dp))
+        Text(
+            if (clean) "${formatDistance((limit - todayMeters).coerceAtLeast(0.0))} remaining today"
+            else "${formatDistance(todayMeters - limit)} over. A good moment to pause.",
+            style = MaterialTheme.typography.bodyMedium, color = tint,
         )
-        TrekPanel {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    if (clean) "On track" else "Over limit",
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.titleLarge,
-                    color = if (clean) Trek.ink else Trek.danger,
-                )
-                Text(
-                    "${formatDistance(todayMeters)} of ${formatDistance(limit)}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Trek.inkMuted,
-                )
-            }
-            Spacer(modifier = Modifier.height(10.dp))
-            Rail(
-                fraction = (todayMeters / limit).toFloat(),
-                color = if (clean) Trek.moss else Trek.danger,
-            )
-            Spacer(modifier = Modifier.height(10.dp))
-            Text(
-                caption,
-                style = MaterialTheme.typography.bodySmall,
-                color = Trek.inkMuted,
-            )
+        if (cleanStreak > 0) {
+            Text("$cleanStreak ${if (cleanStreak == 1) "day" else "days"} within your limit", style = MaterialTheme.typography.bodySmall, color = Trek.inkMuted)
         }
     }
 }
@@ -572,21 +452,9 @@ private fun WeekGlance(
 ) {
     Column {
         SectionHead("This week", trailing = formatDistance(weekMeters))
-        WeekPulse(values = week)
+        HistoryBars(week.mapIndexed { i, value -> ChartBar(labels.getOrElse(i) { "" }, value) }, highlight = week.lastIndex, height = 84.dp, barColor = Trek.accent.copy(alpha = 0.4f))
         Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                labels.firstOrNull().orEmpty(),
-                style = TrekOverline,
-                color = Trek.inkFaint,
-            )
-            DeltaMark(delta, "on last week")
-            Text("TODAY", style = TrekOverline, color = Trek.ink)
-        }
+        DeltaMark(delta, "vs last week")
     }
 }
 
@@ -594,7 +462,7 @@ private fun WeekGlance(
 private fun AppSplit(state: DashboardViewModel.UiState, dpi: Int, todayMeters: Double) {
     val busiest = state.perApp.firstOrNull()?.pixels ?: 0L
     Column {
-        SectionHead("Where it went", trailing = "${state.perApp.size} APPS")
+        SectionHead("Where it went", trailing = "${state.perApp.size} ${if (state.perApp.size == 1) "app" else "apps"}")
         state.perApp.forEach { app ->
             val meters = pixelsToMeters(app.pixels, dpi)
             val share = if (todayMeters > 0) (meters / todayMeters * 100).toInt() else 0
@@ -603,7 +471,7 @@ private fun AppSplit(state: DashboardViewModel.UiState, dpi: Int, todayMeters: D
                 value = formatDistance(meters),
                 fraction = if (busiest > 0) app.pixels.toFloat() / busiest else 0f,
                 color = chartColor(app.packageName),
-                leading = { SeriesDot(chartColor(app.packageName)) },
+                leading = { AppToken(appName(app.packageName, state.customLabels), chartColor(app.packageName)) },
                 modifier = Modifier.semantics(mergeDescendants = true) {
                     contentDescription = "${appName(app.packageName, state.customLabels)}: " +
                         "${formatDistance(meters)}, $share percent of today"
@@ -627,12 +495,12 @@ private fun FirstTrekChecklist(
     Column {
         SectionHead("Getting started")
         TrekPanel(padding = PaddingValues(4.dp)) {
-            ChecklistStep(1, "Turn on tracking", "One Accessibility toggle. Nothing else.", trackingOn)
+            ChecklistStep(1, "Turn on tracking", "Enable ThumbTrek in Accessibility settings.", trackingOn)
             Hairline(modifier = Modifier.padding(horizontal = 14.dp))
             ChecklistStep(
                 2,
-                "Go scroll a feed",
-                "Open Instagram, YouTube, X or Reddit and come back.",
+                "Use your apps as usual",
+                "We’ll measure the distance in the background.",
                 hasScrolled,
             )
             Hairline(modifier = Modifier.padding(horizontal = 14.dp))
@@ -659,17 +527,17 @@ private fun ChecklistStep(index: Int, title: String, body: String, done: Boolean
             modifier = Modifier
                 .size(22.dp)
                 .background(
-                    if (done) Trek.moss else Color.Transparent,
+                    if (done) Trek.accent else Color.Transparent,
                     CircleShape,
                 )
-                .border(1.dp, if (done) Trek.moss else Trek.hairline, CircleShape),
+                .border(1.dp, if (done) Trek.accent else Trek.hairline, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             if (done) {
                 Icon(
                     Icons.Default.Check,
                     contentDescription = null,
-                    tint = Trek.onMoss,
+                    tint = Trek.onAccent,
                     modifier = Modifier.size(14.dp),
                 )
             } else {
@@ -690,20 +558,20 @@ private fun ChecklistStep(index: Int, title: String, body: String, done: Boolean
 
 @Composable
 private fun TrackingOffBanner(onEnable: () -> Unit) {
-    TrekPanel(
-        fill = Trek.amberWash,
-        border = Trek.amber.copy(alpha = 0.35f),
+    Row(
+        modifier = Modifier.fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .background(Trek.amberWash)
+            .clickable(role = Role.Button, onClick = onEnable)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text("Tracking is paused", style = MaterialTheme.typography.titleLarge, color = Trek.amber)
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(
-            "ThumbTrek counts scroll distance through its Accessibility Service. Nothing is " +
-                "measured while that is off, and it never reads screen content.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = Trek.ink,
-        )
-        Spacer(modifier = Modifier.height(14.dp))
-        TrekButton("Turn on tracking", onEnable)
+        Icon(Icons.Default.Info, contentDescription = null, tint = Trek.amber, modifier = Modifier.size(22.dp))
+        Column(Modifier.weight(1f)) {
+            Text("Tracking is paused", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
+            Text("Tap to enable in Accessibility settings", style = MaterialTheme.typography.bodySmall, color = Trek.inkMuted)
+        }
     }
 }
 
@@ -737,16 +605,17 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
         Column(
             modifier = modifier
                 .fillMaxSize()
-                .padding(horizontal = GUTTER),
-            verticalArrangement = Arrangement.spacedBy(20.dp),
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = GUTTER, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            Spacer(modifier = Modifier.height(16.dp))
-            SectionHead("History")
+            PageHeading("History", "See how your habits are changing.")
+            TrekPanel {
+                HistoryBars(List(7) { ChartBar(listOf("M", "T", "W", "T", "F", "S", "S")[it], 0f) })
+            }
             EmptyState(
-                title = "Nothing logged yet",
-                body = "Once tracking has run for a day, this page fills with your daily " +
-                    "totals, per-app trends, your longest trek and the checkpoints you have " +
-                    "passed. Give it one session.",
+                title = "Your story starts today",
+                body = "Your daily totals, app trends and achievements will appear here after your first scroll.",
             )
         }
         return
@@ -759,9 +628,10 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
         verticalArrangement = Arrangement.spacedBy(26.dp),
         contentPadding = PaddingValues(top = 8.dp, bottom = 28.dp),
     ) {
+        item("heading") { PageHeading("History", "See how your habits are changing.") }
         item("total") {
             Column {
-                Text("ALL TIME", style = TrekOverline, color = Trek.inkFaint)
+                Text("Total distance", style = TrekOverline, color = Trek.inkMuted)
                 Spacer(modifier = Modifier.height(4.dp))
                 CountedDistance(
                     pixelsToMeters(allTime, dpi),
@@ -782,7 +652,7 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
             // clears back to an unselected chart.
             var selected by rememberSaveable(range) { mutableIntStateOf(buckets.lastIndex) }
             val haptics = LocalHapticFeedback.current
-            Column {
+            TrekPanel {
                 TrekSegmented(RANGES, range, onSelect = { range = it })
                 Spacer(modifier = Modifier.height(18.dp))
                 HistoryBars(
@@ -811,12 +681,12 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
             }
         }
 
-        item("cleanMonth") {
+        if (state.limitM != null) item("cleanMonth") {
             var calDay by rememberSaveable { mutableStateOf<String?>(null) }
             Column {
                 SectionHead(
-                    "Clean month",
-                    trailing = monthFormat.format(YearMonth.now()).uppercase(),
+                    "Days in balance",
+                    trailing = monthFormat.format(YearMonth.now()),
                 )
                 CleanMonthGrid(
                     byDate = byDate,
@@ -832,7 +702,7 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
                     horizontalArrangement = Arrangement.spacedBy(14.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    CalendarKey(Trek.moss, "Clean")
+                    CalendarKey(Trek.success, "Clean")
                     CalendarKey(Trek.danger, "Over")
                     CalendarKey(Trek.hairline, "No data")
                 }
@@ -891,7 +761,7 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
         if (state.appTrends.isNotEmpty()) {
             item("trends") {
                 Column {
-                    SectionHead("App trends", trailing = "14 DAYS")
+                    SectionHead("App trends", trailing = "14 days")
                     TrendLines(
                         series = state.appTrends.map { trend ->
                             ChartSeries(
@@ -924,7 +794,7 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
         }
 
         item("logHead") {
-            SectionHead("Day log", trailing = "${state.days.size} DAYS")
+            SectionHead("Day log", trailing = "${state.days.size} days")
         }
 
         val busiestDay = state.days.maxOfOrNull { it.pixels } ?: 1L
@@ -936,7 +806,7 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
                 lastMonth = month
                 item("m-$month") {
                     Text(
-                        month.uppercase(),
+                        month,
                         style = TrekOverline,
                         color = Trek.inkFaint,
                         modifier = Modifier.padding(top = 6.dp),
@@ -949,7 +819,7 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
                     label = date.format(dateFormat),
                     value = formatDistance(meters),
                     fraction = if (busiestDay > 0) day.pixels.toFloat() / busiestDay else 0f,
-                    color = if (date == LocalDate.now()) Trek.moss else Trek.slate,
+                    color = if (date == LocalDate.now()) Trek.accent else Trek.slate,
                     labelColor = if (date == LocalDate.now()) Trek.ink else Trek.inkMuted,
                     modifier = Modifier.semantics(mergeDescendants = true) {
                         contentDescription = "${date.format(dateFormat)}: ${formatDistance(meters)}"
@@ -961,7 +831,7 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
 }
 
 /**
- * The month as discipline at a glance: each past day is clean (moss wash), over
+ * The month as discipline at a glance: each past day is clean (mint wash), over
  * (danger wash), or untracked (hollow). Tapping a day selects it; the caller reads it back
  * through PeriodDetail. Monday-start, matching the app's week convention.
  */
@@ -1013,7 +883,7 @@ private fun CleanMonthGrid(
                         val fill = when {
                             future || !tracked -> Color.Transparent
                             over -> Trek.dangerWash
-                            else -> Trek.mossWash
+                            else -> Trek.successWash
                         }
                         val ink = when {
                             future -> Trek.inkFaint
@@ -1032,7 +902,7 @@ private fun CleanMonthGrid(
                                     1.dp,
                                     when {
                                         selected -> Trek.ink
-                                        date == today -> Trek.moss
+                                        date == today -> Trek.success
                                         tracked || over -> Color.Transparent
                                         else -> Trek.hairlineSoft
                                     },
@@ -1120,7 +990,7 @@ private fun PeriodDetail(
         }.sortedByDescending { it.second }
     }
 
-    TrekPanel {
+    Column {
         Row(verticalAlignment = Alignment.Bottom) {
             Text(
                 title,
@@ -1133,7 +1003,7 @@ private fun PeriodDetail(
             Text(
                 formatDistance(meters),
                 style = MaterialTheme.typography.headlineSmall,
-                color = if (meters > 0.0) Trek.moss else Trek.inkFaint,
+                color = if (meters > 0.0) Trek.accent else Trek.inkFaint,
                 maxLines = 1,
             )
         }
@@ -1202,7 +1072,7 @@ private fun CheckpointShelf(badges: List<Badge>) {
     val next = ordered.firstOrNull { !it.earned }
 
     Column {
-        SectionHead("Checkpoints", trailing = "$earned / ${badges.size}")
+        SectionHead("Achievements", trailing = "$earned / ${badges.size}")
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(vertical = 2.dp),
@@ -1224,17 +1094,17 @@ private fun CheckpointShelf(badges: List<Badge>) {
 
 @Composable
 private fun CheckpointTile(badge: Badge) {
-    val tint = if (badge.earned) Trek.moss else Trek.inkFaint
+    val tint = if (badge.earned) Trek.accent else Trek.inkFaint
     Column(
         modifier = Modifier
-            .width(92.dp)
+            .width(116.dp)
             .background(
-                if (badge.earned) Trek.mossWash else Trek.groundRaised,
+                if (badge.earned) Trek.accentWash else Trek.groundRaised,
                 MaterialTheme.shapes.medium,
             )
             .border(
                 1.dp,
-                if (badge.earned) Trek.moss.copy(alpha = 0.4f) else Trek.hairline,
+                Color.Transparent,
                 MaterialTheme.shapes.medium,
             )
             .padding(vertical = 14.dp, horizontal = 6.dp)
@@ -1250,8 +1120,8 @@ private fun CheckpointTile(badge: Badge) {
     ) {
         ProgressRing(
             progress = if (badge.earned) 1f else badge.progress.toFloat(),
-            size = 42.dp,
-            color = if (badge.earned) Trek.moss else Trek.slate,
+            size = 52.dp,
+            color = if (badge.earned) Trek.accent else Trek.slate,
         ) {
             Text(badge.emoji, style = MaterialTheme.typography.titleLarge)
         }

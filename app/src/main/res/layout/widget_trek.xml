@@ -1,61 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/widget_root"
-    android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:gravity="center_vertical"
-    android:background="@drawable/bg_widget"
-    android:paddingStart="16dp"
-    android:paddingEnd="16dp">
-
-    <TextView
-        android:id="@+id/widget_label"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="TODAY'S TREK"
-        android:textSize="10sp"
-        android:letterSpacing="0.1"
-        android:textColor="#B3FFFFFF" />
-
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:gravity="center_vertical">
-
-        <TextView
-            android:id="@+id/widget_today"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="0 m"
-            android:textSize="22sp"
-            android:textStyle="bold"
-            android:textColor="#FFFFFF" />
-
-        <TextView
-            android:id="@+id/widget_streak"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text=""
-            android:textSize="12sp"
-            android:textColor="#FFD54F" />
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:gravity="center_vertical"
+    android:background="@drawable/bg_widget" android:padding="16dp">
+    <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="center_vertical">
+        <ImageView android:layout_width="24dp" android:layout_height="24dp"
+            android:src="@drawable/trek_mark" android:importantForAccessibility="no" />
+        <TextView android:id="@+id/widget_label" android:layout_width="0dp"
+            android:layout_height="wrap_content" android:layout_weight="1" android:layout_marginStart="8dp"
+            android:text="@string/widget_today_label" android:textSize="12sp" android:textStyle="bold"
+            android:textColor="@color/widget_ink" />
+        <TextView android:id="@+id/widget_streak" android:layout_width="wrap_content"
+            android:layout_height="wrap_content" android:textSize="11sp"
+            android:textColor="@color/widget_accent" />
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/widget_week"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textSize="11sp"
-        android:textColor="#99FFFFFF" />
-
-    <TextView
-        android:id="@+id/widget_limit"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text=""
-        android:textSize="11sp"
-        android:textColor="#99FFFFFF" />
+    <TextView android:id="@+id/widget_today" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:layout_marginTop="4dp"
+        android:text="@string/widget_zero_distance" android:textSize="28sp" android:textStyle="bold"
+        android:maxLines="1" android:textColor="@color/widget_ink" />
+    <TextView android:id="@+id/widget_week" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:text="@string/widget_ready"
+        android:textSize="11sp" android:textColor="@color/widget_muted" />
+    <ProgressBar android:id="@+id/widget_progress" style="?android:attr/progressBarStyleHorizontal"
+        android:layout_width="match_parent" android:layout_height="4dp"
+        android:layout_marginTop="8dp" android:layout_marginBottom="5dp"
+        android:progressTint="@color/widget_accent" android:progressBackgroundTint="@color/widget_track"
+        android:max="100" android:progress="0" />
+    <TextView android:id="@+id/widget_limit" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:text="@string/widget_limit_label"
+        android:textSize="11sp" android:textColor="@color/widget_muted" />
 </LinearLayout>

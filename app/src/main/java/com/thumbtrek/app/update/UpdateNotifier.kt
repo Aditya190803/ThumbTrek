@@ -69,9 +69,11 @@ object UpdateNotifier {
             .setAutoCancel(true)
             .build()
 
-        runCatching {
+        try {
             NotificationManagerCompat.from(context)
                 .notify(UpdateConfig.NOTIFICATION_ID_READY, notification)
+        } catch (_: SecurityException) {
+            // The notification grant can be revoked after canPost checked it.
         }
     }
 

@@ -1,29 +1,24 @@
 package com.thumbtrek.app
 
-import android.Manifest
 import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.thumbtrek.app.social.FRIEND_CODE_LENGTH
 import com.thumbtrek.app.social.normalizeFriendCode
 import com.thumbtrek.app.ui.DashboardViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.thumbtrek.app.data.Prefs
+import com.thumbtrek.app.ui.OnboardingScreen
 import com.thumbtrek.app.ui.MainScreen
 import com.thumbtrek.app.ui.ThumbTrekTheme
 
 class MainActivity : ComponentActivity() {
-
-    private val notificationPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { }
 
     /**
      * A friend code delivered by an invite link, waiting to be shown on the Social tab.
@@ -36,12 +31,12 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        askNotificationPermissionIfNeeded()
         pendingInvite = inviteCodeFrom(intent)
         setContent {
             ThumbTrekTheme {
                 val vm: DashboardViewModel = viewModel()
-                MainScreen(
+                val step by Prefs.get(this).onboardingStep.collectAsStateWithLifecycle()
+                if (step < 4) OnboardingScreen() else MainScreen(
                     vm = vm,
                     pendingInvite = pendingInvite,
                     onInviteConsumed = { pendingInvite = null },
@@ -55,14 +50,6 @@ class MainActivity : ComponentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         inviteCodeFrom(intent)?.let { pendingInvite = it }
-    }
-
-    private fun askNotificationPermissionIfNeeded() {
-        if (Build.VERSION.SDK_INT < 33) return
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
-            == PackageManager.PERMISSION_GRANTED
-        ) return
-        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
     }
 
     /**

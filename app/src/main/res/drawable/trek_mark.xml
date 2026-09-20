@@ -1,34 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
+    android:width="64dp"
+    android:height="64dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
+    <path android:fillColor="#0C0F0B" android:pathData="M28 0 H80 Q108 0 108 28 V80 Q108 108 80 108 H28 Q0 108 0 80 V28 Q0 0 28 0 Z" />
     <!-- Thumbprint ridges, read as topographic contours -->
     <path
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="#8BE6A0"
         android:strokeWidth="4.8"
         android:strokeLineCap="round"
         android:pathData="M46.2 59.2 C46.2 50.1 61.8 50.1 61.8 59.2" />
     <path
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="#8BE6A0"
         android:strokeWidth="4.8"
         android:strokeLineCap="round"
         android:pathData="M38.4 59.2 C38.4 42.3 69.6 42.3 69.6 59.2" />
     <path
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="#8BE6A0"
         android:strokeWidth="4.8"
         android:strokeLineCap="round"
         android:pathData="M30.6 59.2 C30.6 34.5 77.4 34.5 77.4 59.2" />
     <!-- The trail: the ridge that leaves the print and gains elevation -->
     <path
-        android:strokeColor="#FFFFFF"
+        android:strokeColor="#EDF1E6"
         android:strokeWidth="4.8"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
         android:pathData="M25.4 70.9 L39.8 64.9 Q41 64.4 42.2 64.8 L55.4 69.2 Q56.6 69.6 57.7 68.95 L78.7 56.6" />
     <!-- Waypoint -->
     <path
-        android:fillColor="#FFFFFF"
+        android:fillColor="#F2B455"
         android:pathData="M73.9 56.6 a4.8 4.8 0 1 0 9.6 0 a4.8 4.8 0 1 0 -9.6 0 Z" />
 </vector>

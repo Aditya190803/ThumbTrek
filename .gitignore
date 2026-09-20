@@ -36,3 +36,6 @@ app/google-services.json
 
 # Local agent tooling config
 .commandcode/
+
+# Local Firebase configuration for the separate Dev application.
+app/src/debug/google-services.json

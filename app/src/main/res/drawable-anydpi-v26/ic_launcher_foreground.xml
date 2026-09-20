@@ -1,11 +1,4 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Adaptive-icon foreground. The 108dp canvas only guarantees the centre 72dp (18..90)
-     survives the launcher mask, so the whole mark is composed inside that box and centred
-     on 54,54 — the previous pass sat at y≈34 and read as top-heavy under a circular mask.
-
-     Circles are two arcs, not the `a r r 0 1 0 0 0.01` near-zero-length trick: SVG omits an
-     arc whose endpoints coincide, and VectorDrawable's parser is stricter still, so that
-     shorthand renders inconsistently across launchers. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
@@ -14,28 +7,28 @@
     <!-- Thumbprint ridges, read as topographic contours -->
     <path
         android:strokeColor="#8BE6A0"
-        android:strokeWidth="5"
+        android:strokeWidth="4.8"
         android:strokeLineCap="round"
         android:pathData="M46.2 59.2 C46.2 50.1 61.8 50.1 61.8 59.2" />
     <path
         android:strokeColor="#8BE6A0"
-        android:strokeWidth="5"
+        android:strokeWidth="4.8"
         android:strokeLineCap="round"
         android:pathData="M38.4 59.2 C38.4 42.3 69.6 42.3 69.6 59.2" />
     <path
         android:strokeColor="#8BE6A0"
-        android:strokeWidth="5"
+        android:strokeWidth="4.8"
         android:strokeLineCap="round"
         android:pathData="M30.6 59.2 C30.6 34.5 77.4 34.5 77.4 59.2" />
     <!-- The trail: the ridge that leaves the print and gains elevation -->
     <path
         android:strokeColor="#EDF1E6"
-        android:strokeWidth="5"
+        android:strokeWidth="4.8"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M25.4 70.9 L41 64.4 L56.6 69.6 L78.7 56.6" />
+        android:pathData="M25.4 70.9 L39.8 64.9 Q41 64.4 42.2 64.8 L55.4 69.2 Q56.6 69.6 57.7 68.95 L78.7 56.6" />
     <!-- Waypoint -->
     <path
         android:fillColor="#F2B455"
-        android:pathData="M73.7 56.6 a5 5 0 1 0 10 0 a5 5 0 1 0 -10 0 Z" />
+        android:pathData="M73.9 56.6 a4.8 4.8 0 1 0 9.6 0 a4.8 4.8 0 1 0 -9.6 0 Z" />
 </vector>
