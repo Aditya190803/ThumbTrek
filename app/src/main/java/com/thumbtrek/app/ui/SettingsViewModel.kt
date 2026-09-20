@@ -36,7 +36,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         val leaderboardOptIn: Boolean = false,
         val anonymous: Boolean = true,
         // --- daily limit ---
-        val limitM: Float = 100f,
+        val limitM: Float? = null,
         val freeEditsLeft: Int = 1,
         val premium: Boolean = false,
     )
@@ -87,7 +87,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
      * re-emit dailyLimitM).
      */
     private data class LimitSnapshot(
-        val limitM: Float,
+        val limitM: Float?,
         val premium: Boolean,
         val edit: Prefs.LimitEditResult?,
     )
@@ -190,6 +190,12 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         val result = prefs.trySetDailyLimit(meters, weekKey())
         _limitEdit.value = result
         return result
+    }
+
+    fun clearLimit() {
+        prefs.clearDailyLimit()
+        LimitNudgeWorker.cancel(getApplication())
+        _limitEdit.value = null
     }
 
     fun clearLimitEdit() {

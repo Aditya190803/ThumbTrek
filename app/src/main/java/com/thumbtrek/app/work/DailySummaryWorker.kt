@@ -61,8 +61,8 @@ class DailySummaryWorker(
         )
 
         val headline = "You trekked ${formatDistance(meters)} yesterday$trend."
-        val limitM = Prefs.get(applicationContext).dailyLimitM.value.toDouble()
-        val verdict = if (isCleanDay(meters, limitM)) {
+        val limitM = Prefs.get(applicationContext).dailyLimitM.value?.toDouble()
+        val verdict = if (limitM == null) "" else if (isCleanDay(meters, limitM)) {
             "Clean — under your ${formatDistance(limitM)} limit."
         } else {
             "Over your ${formatDistance(limitM)} limit by " +

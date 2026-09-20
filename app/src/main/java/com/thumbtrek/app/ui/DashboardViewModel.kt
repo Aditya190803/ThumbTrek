@@ -44,7 +44,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         val customLabels: Map<String, String> = emptyMap(),
         val badges: List<Badge> = emptyList(),
         // --- daily limit (PRD §11: clean-days counter sits next to the trek streak) ---
-        val limitM: Float = 100f,
+        val limitM: Float? = null,
         val todayClean: Boolean = true,
         val cleanStreak: Int = 0,
     )
@@ -73,7 +73,7 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         val todayPx = perApp.sumOf { it.pixels }
         val todayMeters = pixelsToMeters(todayPx, dpi)
         val dayMeters = byDate.mapValues { pixelsToMeters(it.value, dpi) }
-        val cleanRun = limitStreak(dayMeters, limitM.toDouble())
+        val cleanRun = limitM?.let { limitStreak(dayMeters, it.toDouble()) } ?: 0
         UiState(
             trackingEnabled = enabled,
             todayPx = todayPx,
@@ -91,9 +91,9 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 bestDayMeters = pixelsToMeters(byDate.values.maxOrNull() ?: 0L, dpi),
                 streak = trekStreak(byDate.keys),
                 cleanStreak = cleanRun,
-            ),
+            ).filter { limitM != null || !it.id.startsWith("clean_") },
             limitM = limitM,
-            todayClean = isCleanDay(todayMeters, limitM.toDouble()),
+            todayClean = limitM?.let { isCleanDay(todayMeters, it.toDouble()) } ?: false,
             cleanStreak = cleanRun,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())

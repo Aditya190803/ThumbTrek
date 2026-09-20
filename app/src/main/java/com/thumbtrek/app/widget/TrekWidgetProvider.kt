@@ -38,10 +38,12 @@ class TrekWidgetProvider : AppWidgetProvider() {
                 setTextViewText(R.id.widget_today, data.todayLabel)
                 setTextViewText(
                     R.id.widget_streak,
-                    if (data.streak > 0) "🔥${data.streak}" else "",
+                    if (data.streak > 0) "${data.streak} day streak" else "",
                 )
                 setTextViewText(R.id.widget_week, "This week: ${data.weekLabel}")
                 setTextViewText(R.id.widget_limit, data.limitLabel)
+                setViewVisibility(R.id.widget_progress, if (data.limitPercent == null) android.view.View.GONE else android.view.View.VISIBLE)
+                setProgressBar(R.id.widget_progress, 100, data.limitPercent ?: 0, false)
                 setOnClickPendingIntent(
                     R.id.widget_root,
                     android.app.PendingIntent.getActivity(
@@ -60,21 +62,21 @@ class TrekWidgetProvider : AppWidgetProvider() {
 
         private suspend fun read(context: Context): WidgetData? {
             val days = ScrollDatabase.get(context).dao().allDays()
-            if (days.isEmpty()) return null
             val byDate = days.associate { LocalDate.parse(it.date) to it.pixels }
             val dpi = context.resources.displayMetrics.densityDpi
             val today = LocalDate.now()
             val todayM = pixelsToMeters(byDate[today] ?: 0L, dpi)
-            val limitM = Prefs.get(context).dailyLimitM.value.toDouble()
+            val limitM = Prefs.get(context).dailyLimitM.value?.toDouble()
             return WidgetData(
                 todayLabel = formatDistance(todayM),
                 weekLabel = formatDistance(pixelsToMeters(totalThisWeek(byDate), dpi)),
                 streak = trekStreak(byDate.keys),
-                // Ambient limit: "62 m of 100 m" on track, "112 m — over 100 m" past it.
-                limitLabel = if (isCleanDay(todayM, limitM)) {
+                limitPercent = limitM?.let { (todayM / it.coerceAtLeast(1.0) * 100).toInt().coerceIn(0, 100) },
+                // Ambient limit: "62 m of 100 m" on track, "112 m · over 100 m" past it.
+                limitLabel = if (limitM == null) "Tracking without a daily limit" else if (isCleanDay(todayM, limitM)) {
                     "${formatDistance(todayM)} of ${formatDistance(limitM)} limit"
                 } else {
-                    "${formatDistance(todayM)} — over ${formatDistance(limitM)}"
+                    "${formatDistance(todayM)} · over ${formatDistance(limitM)}"
                 },
             )
         }
@@ -86,4 +88,5 @@ private data class WidgetData(
     val weekLabel: String,
     val streak: Int,
     val limitLabel: String,
+    val limitPercent: Int?,
 )

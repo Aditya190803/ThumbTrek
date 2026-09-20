@@ -3,7 +3,6 @@ package com.thumbtrek.app.data
 import android.content.Context
 import android.content.SharedPreferences
 import com.thumbtrek.app.stats.BILLING_ENFORCED
-import com.thumbtrek.app.stats.DEFAULT_DAILY_LIMIT_M
 import com.thumbtrek.app.stats.FREE_LIMIT_EDITS_PER_WEEK
 import com.thumbtrek.app.stats.MAX_DAILY_LIMIT_M
 import com.thumbtrek.app.stats.MIN_DAILY_LIMIT_M
@@ -22,6 +21,38 @@ class Prefs private constructor(context: Context) {
 
     private val sp: SharedPreferences =
         context.applicationContext.getSharedPreferences("thumbtrek_prefs", Context.MODE_PRIVATE)
+
+    // Mark the first launch before any worker/widget can create the Room database.
+    init {
+        if (!sp.contains("onboarding_step")) {
+            val legacy = sp.all.isNotEmpty() || context.getDatabasePath("thumbtrek.db").exists()
+            val stored = if (sp.contains(KEY_DAILY_LIMIT_M)) sp.getFloat(KEY_DAILY_LIMIT_M, 0f) else null
+            val limit = initialDailyLimit(stored, legacy)
+            sp.edit().apply {
+                putInt("onboarding_step", if (legacy) 4 else 0)
+                if (limit != null) putFloat(KEY_DAILY_LIMIT_M, limit)
+            }.apply()
+        }
+    }
+
+    private val _onboardingStep = MutableStateFlow(sp.getInt("onboarding_step", 0))
+    val onboardingStep: StateFlow<Int> = _onboardingStep.asStateFlow()
+
+    fun setOnboardingStep(step: Int) {
+        require(step in 0..4)
+        sp.edit().putInt("onboarding_step", step).apply()
+        _onboardingStep.value = step
+    }
+
+    var limitDraft: String
+        get() = sp.getString("limit_draft", null) ?: dailyLimitM.value?.toInt()?.toString().orEmpty()
+        set(value) { sp.edit().putString("limit_draft", value).apply() }
+
+    fun clearDailyLimit() {
+        sp.edit().remove(KEY_DAILY_LIMIT_M).remove("limit_draft").apply()
+        _dailyLimitM.value = null
+        setLimitNudge(false)
+    }
 
     private val _trackedApps = MutableStateFlow(readTrackedApps())
     /** Packages the accessibility service should count. Defaults to all of [TRACKED_APPS]. */
@@ -52,9 +83,9 @@ class Prefs private constructor(context: Context) {
 
     // --- daily limit (PRD §11: the streak that rewards scrolling less) ---
 
-    private val _dailyLimitM = MutableStateFlow(sp.getFloat(KEY_DAILY_LIMIT_M, DEFAULT_DAILY_LIMIT_M.toFloat()))
+    private val _dailyLimitM = MutableStateFlow<Float?>(if (sp.contains(KEY_DAILY_LIMIT_M)) sp.getFloat(KEY_DAILY_LIMIT_M, 0f) else null)
     /** Single daily cap in metres. Stay at or under it and the day is clean. */
-    val dailyLimitM: StateFlow<Float> = _dailyLimitM.asStateFlow()
+    val dailyLimitM: StateFlow<Float?> = _dailyLimitM.asStateFlow()
 
     private val _premium = MutableStateFlow(sp.getBoolean(KEY_PREMIUM, false))
     /**
@@ -105,7 +136,7 @@ class Prefs private constructor(context: Context) {
      * so the quota resets itself with no job.
      */
     fun canEditLimitFree(todayWeekKey: String): Boolean {
-        if (!BILLING_ENFORCED || _premium.value) return true
+        if (_dailyLimitM.value == null || !BILLING_ENFORCED || _premium.value) return true
         if (limitEditWeek != todayWeekKey) return true
         return limitEditCount < FREE_LIMIT_EDITS_PER_WEEK
     }
@@ -124,9 +155,10 @@ class Prefs private constructor(context: Context) {
      * unwinnable game. Premium bypasses the quota but still records the edit.
      */
     fun trySetDailyLimit(meters: Float, todayWeekKey: String): LimitEditResult {
+        require(meters.isFinite()) { "Limit must be finite" }
         if (!canEditLimitFree(todayWeekKey)) return LimitEditResult.NeedsPremium
         val clamped = meters.coerceIn(MIN_DAILY_LIMIT_M.toFloat(), MAX_DAILY_LIMIT_M.toFloat())
-        sp.edit().putFloat(KEY_DAILY_LIMIT_M, clamped).apply()
+        sp.edit().putFloat(KEY_DAILY_LIMIT_M, clamped).remove("limit_draft").apply()
         _dailyLimitM.value = clamped
         if (limitEditWeek != todayWeekKey) {
             limitEditWeek = todayWeekKey

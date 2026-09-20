@@ -27,11 +27,16 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.sin
 import androidx.compose.ui.graphics.PathMeasure
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -40,11 +45,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.thumbtrek.app.data.TRACKED_APPS
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.sin
 
-/** One arc of [TrekGauge]. [key] should be the package name: it picks the colour. */
+/** One app in the daily summary. The package key keeps its color stable. */
 data class ChartSlice(
     val key: String,
     val label: String,
@@ -58,13 +60,7 @@ data class ChartBar(val label: String, val value: Float)
 /** One line of [TrendLines]. [key] should be the package name: it picks the colour. */
 data class ChartSeries(val key: String, val label: String, val values: List<Float>)
 
-/**
- * Categorical ramp for per-app series. Deliberately separate from the semantic accents in
- * [TrekPalette]: a chart hue means "which app", never "good" or "hot". Hues are spaced
- * around the wheel and held at similar lightness so no single app looks louder than the
- * others, and the light set is darkened rather than merely desaturated so it survives on
- * bone paper.
- */
+/** Stable, theme-aware app colors, also used by the exported share card. */
 private val SERIES_DARK = listOf(
     Color(0xFF8BE6A0),
     Color(0xFF77C4E8),
@@ -89,8 +85,10 @@ private val SERIES_LIGHT = listOf(
  * Tracked apps take their slot in [TRACKED_APPS] order; anything else hashes in.
  */
 @Composable
-fun chartColor(key: String): Color {
-    val palette = if (Trek.isDark) SERIES_DARK else SERIES_LIGHT
+fun chartColor(key: String): Color = chartColorFor(key, Trek.isDark)
+
+fun chartColorFor(key: String, dark: Boolean): Color {
+    val palette = if (dark) SERIES_DARK else SERIES_LIGHT
     val index = TRACKED_APPS.keys.indexOf(key).takeIf { it >= 0 }
         ?: (key.hashCode() and Int.MAX_VALUE)
     return palette[index % palette.size]
@@ -240,8 +238,8 @@ fun HistoryBars(
     bars: List<ChartBar>,
     modifier: Modifier = Modifier,
     highlight: Int = -1,
-    barColor: Color = Trek.slate,
-    accentColor: Color = Trek.moss,
+    barColor: Color = Trek.accent.copy(alpha = 0.45f),
+    accentColor: Color = Trek.accent,
     height: Dp = 132.dp,
     maxInlineLabels: Int = 8,
     selected: Int = -1,
@@ -251,12 +249,11 @@ fun HistoryBars(
     val max = bars.maxOf { it.value }.coerceAtLeast(1f)
     val track = Trek.groundSunken
     // Palette reads are @Composable, so resolve them before the draw scope below.
-    val selectedColor = Trek.ink
+    val selectedColor = Trek.accent
     val motion = LocalTrekMotion.current
     val hasSelection = selected in bars.indices
 
-    // Same rule as the gauge: play once when data first exists, then hold. Keying on the
-    // values would replay the whole sweep every time today's column ticks up.
+    // Animate on data arrival, not on every tracking update.
     val hasData = bars.any { it.value > 0f }
     val grow = remember { Animatable(0f) }
     LaunchedEffect(bars.size, hasData, motion) {
@@ -271,7 +268,13 @@ fun HistoryBars(
     Column(
         modifier = modifier.semantics {
             if (onSelect != null) {
-                contentDescription = "History chart. Tap a bar to see that period's distance."
+                contentDescription = "History chart. Select a period to see its distance."
+                customActions = bars.mapIndexed { index, bar ->
+                    CustomAccessibilityAction("${bar.label}: ${com.thumbtrek.app.stats.formatDistance(bar.value.toDouble())}") {
+                        onSelect(index)
+                        true
+                    }
+                }
             }
         },
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -291,7 +294,7 @@ fun HistoryBars(
                 },
         ) {
             val slot = size.width / bars.size
-            val barWidth = (slot * 0.54f).coerceAtMost(22.dp.toPx()).coerceAtLeast(2f)
+            val barWidth = (slot * 0.66f).coerceAtMost(32.dp.toPx()).coerceAtLeast(2f)
             val corner = CornerRadius(barWidth / 2f, barWidth / 2f)
             // Columns start together and finish in order, which reads as one gesture
             // sweeping left to right rather than a queue of separate animations.
@@ -434,62 +437,6 @@ fun TrendLines(
     }
 }
 
-/**
- * A seven-column glance strip: no axis, no frame, just the shape of the week with today
- * picked out. Small enough to sit under the hero without competing with it.
- */
-@Composable
-fun WeekPulse(
-    values: List<Float>,
-    modifier: Modifier = Modifier,
-    barColor: Color = Trek.slate,
-    accentColor: Color = Trek.moss,
-    height: Dp = 34.dp,
-) {
-    if (values.isEmpty()) return
-    val max = values.maxOrNull()?.coerceAtLeast(0.0001f) ?: return
-    val track = Trek.groundSunken
-    val motion = LocalTrekMotion.current
-    val hasData = values.any { it > 0f }
-    val grow = remember { Animatable(0f) }
-    LaunchedEffect(values.size, hasData, motion) {
-        grow.snapTo(0f)
-        if (hasData && motion) {
-            grow.animateTo(1f, tween(TrekDur.LARGE, easing = TrekEase))
-        } else {
-            grow.snapTo(1f)
-        }
-    }
-
-    Canvas(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(height)
-            .clearAndSetSemantics { },
-    ) {
-        val slot = size.width / values.size
-        val barWidth = (slot * 0.46f).coerceAtMost(14.dp.toPx()).coerceAtLeast(2f)
-        val corner = CornerRadius(barWidth / 2f, barWidth / 2f)
-        values.forEachIndexed { index, value ->
-            val x = slot * index + (slot - barWidth) / 2f
-            drawRoundRect(
-                color = track,
-                topLeft = Offset(x, 0f),
-                size = Size(barWidth, size.height),
-                cornerRadius = corner,
-            )
-            if (value <= 0f) return@forEachIndexed
-            val h = (value / max * size.height).coerceIn(barWidth, size.height) * grow.value
-            drawRoundRect(
-                color = if (index == values.lastIndex) accentColor else barColor,
-                topLeft = Offset(x, size.height - h),
-                size = Size(barWidth, h),
-                cornerRadius = corner,
-            )
-        }
-    }
-}
-
 /** Legend entry: colour key, series name, optional value. */
 @Composable
 fun ChartLegendRow(color: Color, label: String, value: String?, modifier: Modifier = Modifier) {
@@ -549,7 +496,7 @@ fun ProgressRing(
     progress: Float,
     modifier: Modifier = Modifier,
     size: Dp = 44.dp,
-    color: Color = Trek.moss,
+    color: Color = Trek.accent,
     track: Color = Trek.hairline,
     stroke: Dp = 2.5.dp,
     content: @Composable () -> Unit,

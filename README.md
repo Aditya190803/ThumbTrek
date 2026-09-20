@@ -31,19 +31,21 @@ Two things in that contract are worth knowing up front:
 ## What ships
 
 - Per-app opt-in tracking for Instagram, YouTube, X, and Reddit — plus any other installed app you add in Settings
-- Dashboard ring chart, seven-day history, per-app trends, streaks, records, and achievement badges
+- Daily distance summary, seven-day history, per-app trends, streaks, records, and achievement badges
 - Fully opt-in social publishing, friend codes/invites with a request→accept flow, anonymous on global by default with opt-in to show your name — friends you added always see the real you
 - Weekly, monthly, and all-time boards; friends and global tabs; server-paginated global board; last week's podium
 - Friend management: accept/decline requests, remove friends, local nudges for new requests and rank slips
 - Daily summaries, optional streak reminders, PNG stat-card sharing, and full CSV data export
 - Home-screen widget showing today's trek, week total, and streak
 - Local-first Room storage; scroll data only reaches Firebase after leaderboard opt-in
-- Redesigned UI: custom display/body type, a flat bordered card system instead of Material's
-  default shadowed cards, and a new checkpoint-ring app icon
+- Redesigned Android UI: the production green palette, Manrope typography, rounded surfaces, clearer
+  charts, and a thumb/trail app icon, with matching light/dark widgets and share cards
 - Denser landmark comparisons and more achievement badges (21 of each), so long stretches no
   longer read as a large multiple of the same object
 - Rebuilt scroll tracking from the ground up: a layered, unit-tested delta classifier (real pixel deltas, position diffing, lazy-list pseudo-offsets, screen-heights for Reels/Shorts-style paging) now counts X, YouTube and Reddit credibly, with per-app diagnostics logging so the next regression is one glance away
-- Daily limit + clean-days counter: set a cap (default 100 m/day) in Settings and days at or under it build the discipline streak that rewards scrolling less; free for the first month while retention data decides billing, then one change per week free via Premium
+- First-run onboarding: choose tracked apps, enable permissions when ready, optionally sign in,
+  and set your own daily limit or track without one. Existing installations retain their settings.
+- Daily limit + clean-days counter: choose a cap in onboarding or Settings and days at or under it build the discipline streak that rewards scrolling less; free for the first month while retention data decides billing, then one change per week free via Premium
 - Settings now shows live per-app tracking diagnostics (foreground sightings, counted distance, dominant detection path), so YouTube et al. are verifiable in-app instead of via logcat
 - Web Shorts gap closed: `youtube.com/shorts/*` never emits scroll, so each new Short now banks one viewport height, matching Android's paged path
 - Tappable history bars with period detail (full label, total, landmark line, per-app split for recent days) plus a clean-month calendar showing discipline at a glance
@@ -57,6 +59,10 @@ Requires JDK 17+ and the Android SDK (platform 35). Then:
 ```
 ./gradlew assembleDebug testDebugUnitTest
 ```
+
+Debug builds install separately as **ThumbTrek Dev** (`com.thumbtrek.app.dev`).
+For Dev sign-in, provide `app/src/debug/google-services.json` for that package; the
+committed placeholder supports builds only. Local Firebase files are ignored by Git.
 
 ## Firebase setup (required for the Social tab)
 

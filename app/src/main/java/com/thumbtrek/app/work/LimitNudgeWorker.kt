@@ -39,7 +39,7 @@ class LimitNudgeWorker(
 
     override suspend fun doWork(): Result {
         val prefs = Prefs.get(applicationContext)
-        if (!prefs.limitNudge.value) {
+        if (!prefs.limitNudge.value || prefs.dailyLimitM.value == null) {
             cancel(applicationContext)
             return Result.success()
         }
@@ -56,7 +56,7 @@ class LimitNudgeWorker(
             .firstOrNull { it.date == today.toString() }?.pixels ?: 0L
         val dpi = applicationContext.resources.displayMetrics.densityDpi
         val todayM = pixelsToMeters(px, dpi)
-        val limitM = prefs.dailyLimitM.value.toDouble()
+        val limitM = prefs.dailyLimitM.value?.toDouble() ?: return Result.success()
 
         val level = limitNudgeLevel(todayM, limitM)
         if (level <= 0) return Result.success()

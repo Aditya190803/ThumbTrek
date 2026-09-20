@@ -43,6 +43,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -74,7 +75,7 @@ import com.thumbtrek.app.stats.pixelsToMeters
 import com.thumbtrek.app.stats.weekKey
 import kotlinx.coroutines.delay
 
-private val GUTTER = 20.dp
+private val GUTTER = 24.dp
 
 /**
  * [inviteCode] is a friend code that arrived by invite link (`thumbtrek://i/<code>` or
@@ -130,6 +131,7 @@ fun SocialScreen(
         verticalArrangement = Arrangement.spacedBy(24.dp),
         contentPadding = PaddingValues(top = 10.dp, bottom = 28.dp),
     ) {
+        item("heading") { PageHeading("Social", "A little perspective, together.") }
         when {
             !state.signedIn -> item("signin") { SignInPitch(state, vm, context) }
             !state.optedIn -> item("consent") { ConsentPanel(state, vm) }
@@ -162,7 +164,7 @@ fun SocialScreen(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             TextButton(onClick = { vm.respondToRequest(request.uid, true) }) {
-                                Text("Accept", color = Trek.moss)
+                                Text("Accept", color = Trek.accent)
                             }
                             TextButton(onClick = { vm.respondToRequest(request.uid, false) }) {
                                 Text("Decline", color = Trek.inkFaint)
@@ -297,25 +299,33 @@ private fun SignInPitch(
     vm: SocialViewModel,
     context: android.content.Context,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("SOCIAL", style = TrekOverline, color = Trek.inkFaint)
-        Text(
-            "See how your week stacks up.",
-            style = MaterialTheme.typography.displaySmall,
-            color = Trek.ink,
-        )
-        Text(
-            "Weekly, monthly and all-time boards against friends you invite by code, or " +
-                "against everyone. Signing in publishes nothing on its own: you choose what " +
-                "gets shared on the next step, and you can leave at any time.",
-            style = MaterialTheme.typography.bodyLarge,
-            color = Trek.inkMuted,
-        )
+    Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
+        TrekPanel(padding = PaddingValues(24.dp)) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                Avatar("", "You", size = 44.dp)
+                Spacer(Modifier.weight(1f))
+                SeriesDot(Trek.accent)
+                Spacer(Modifier.weight(1f))
+                BrandMark(Modifier.size(48.dp))
+                Spacer(Modifier.weight(1f))
+                SeriesDot(Trek.accent)
+                Spacer(Modifier.weight(1f))
+                Avatar("", "Friends", size = 44.dp)
+            }
+            Spacer(Modifier.height(24.dp))
+            Text("Find your people.", style = MaterialTheme.typography.headlineLarge, color = Trek.ink)
+            Spacer(Modifier.height(12.dp))
+            Text("Compare your week, share milestones and keep each other mindful.", style = MaterialTheme.typography.bodyMedium, color = Trek.inkMuted)
+        }
+        ConsentLine("Bring your people", "Invite friends with a simple code.")
+        ConsentLine("Share on your terms", "Signing in publishes nothing. You choose what to share next.")
         TrekButton(
             text = "Continue with Google",
             onClick = { vm.signIn(context) },
             loading = state.busy,
+            modifier = Modifier.fillMaxWidth(),
         )
+        Text("Just here for your own stats? The rest of ThumbTrek works without an account.", style = MaterialTheme.typography.bodySmall, color = Trek.inkMuted)
         state.error?.let { ErrorNote(it) { vm.signIn(context) } }
     }
 }
@@ -325,7 +335,7 @@ private fun SignInPitch(
  * next to the switch that decides whether your name is one of them.
  *
  * The list now has two halves, because syncing does. Three distances and a name are
- * *published* — anyone signed in can read them, that is the board. The day-by-day history
+ * *published* · anyone signed in can read them, that is the board. The day-by-day history
  * is *synced*, to your account only, so the dashboard on another device can chart it and
  * so it survives a reinstall. Rolling both into one "here's what we upload" line would be
  * the easy copy and the dishonest one: they have different audiences.
@@ -333,7 +343,7 @@ private fun SignInPitch(
 @Composable
 private fun ConsentPanel(state: SocialViewModel.UiState, vm: SocialViewModel) {
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Text("ONE MORE STEP", style = TrekOverline, color = Trek.inkFaint)
+        Text("You’re in control", style = TrekOverline, color = Trek.inkFaint)
         Text(
             "Publish your trek?",
             style = MaterialTheme.typography.displaySmall,
@@ -342,7 +352,7 @@ private fun ConsentPanel(state: SocialViewModel.UiState, vm: SocialViewModel) {
         TrekPanel {
             ConsentLine("An anonymous handle", "on the global board, unless you switch your name on")
             Hairline(modifier = Modifier.padding(vertical = 12.dp))
-            ConsentLine("Your Google name", "visible to friends you added — you chose them")
+            ConsentLine("Your Google name", "visible to friends you added · you chose them")
             Hairline(modifier = Modifier.padding(vertical = 12.dp))
             ConsentLine("No profile photo", "on global; friends see yours")
             Hairline(modifier = Modifier.padding(vertical = 12.dp))
@@ -350,15 +360,15 @@ private fun ConsentPanel(state: SocialViewModel.UiState, vm: SocialViewModel) {
             Hairline(modifier = Modifier.padding(vertical = 12.dp))
             ConsentLine(
                 "Your day-by-day history",
-                "private to your account — never on the board",
+                "private to your account · never on the board",
             )
         }
         Text(
             "The handle and distances are the global board: anyone signed in can see them. " +
-                "Friends you added see your Google name instead — you chose them, so no " +
+                "Friends you added see your Google name instead · you chose them, so no " +
                 "handle there. Your history and " +
                 "per-app split sync privately, so your own dashboard can chart them and they " +
-                "survive a reinstall — nobody else can read them. Never a URL, a message, or " +
+                "survive a reinstall · nobody else can read them. Never a URL, a message, or " +
                 "anything you scrolled past. Boards reset every Monday, and switching this " +
                 "off deletes all of it from the server.",
             style = MaterialTheme.typography.bodyMedium,
@@ -384,7 +394,7 @@ private fun ConsentLine(title: String, detail: String) {
             modifier = Modifier
                 .padding(top = 7.dp)
                 .size(5.dp)
-                .background(Trek.moss, CircleShape),
+                .background(Trek.accent, CircleShape),
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column {
@@ -400,7 +410,8 @@ private fun ConsentLine(title: String, detail: String) {
 
 @Composable
 private fun MyStanding(state: SocialViewModel.UiState, vm: SocialViewModel, dpi: Int) {
-    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    var sharingSettings by rememberSaveable { mutableStateOf(false) }
+    TrekPanel {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Avatar(state.myPhotoUrl, state.myName, size = 44.dp)
             Spacer(modifier = Modifier.width(14.dp))
@@ -424,7 +435,7 @@ private fun MyStanding(state: SocialViewModel.UiState, vm: SocialViewModel, dpi:
         }
 
         Column {
-            Text("YOUR WEEK", style = TrekOverline, color = Trek.inkFaint)
+            Text("Your week", style = TrekOverline, color = Trek.inkFaint)
             Spacer(modifier = Modifier.height(2.dp))
             CountedDistance(
                 pixelsToMeters(state.weekPx, dpi),
@@ -432,10 +443,16 @@ private fun MyStanding(state: SocialViewModel.UiState, vm: SocialViewModel, dpi:
             )
         }
 
+        Spacer(Modifier.height(20.dp))
         SyncSplit(state)
-        AnonymousToggle(state, vm)
-        TextButton(onClick = { vm.setOptIn(false) }) {
-            Text("Leave the leaderboard", color = Trek.inkFaint)
+        TextButton(onClick = { sharingSettings = !sharingSettings }) {
+            Text(if (sharingSettings) "Hide sharing settings" else "Sharing settings", color = Trek.accent)
+        }
+        if (sharingSettings) {
+            AnonymousToggle(state, vm)
+            TextButton(onClick = { vm.setOptIn(false) }) {
+                Text("Leave the leaderboard", color = Trek.danger)
+            }
         }
     }
 }
@@ -455,7 +472,7 @@ private fun SyncSplit(state: SocialViewModel.UiState) {
     Column {
         SectionHead(
             "Sources",
-            trailing = syncedAgo(state.lastSyncedAt)?.uppercase() ?: "NOT SYNCED YET",
+            trailing = syncedAgo(state.lastSyncedAt) ?: "Not synced yet",
         )
         if (state.sources.isEmpty()) {
             // Before the first sync lands there is nothing true to show, and a zeroed row
@@ -480,7 +497,7 @@ private fun SyncSplit(state: SocialViewModel.UiState) {
                     fraction = um.toFloat() / leader,
                     // Moss is this device; everything arriving from elsewhere is slate, the
                     // same distinction the leaderboard already draws between you and others.
-                    color = if (source.source == SOURCE_ANDROID) Trek.moss else Trek.slate,
+                    color = if (source.source == SOURCE_ANDROID) Trek.accent else Trek.slate,
                 )
             }
         }
@@ -580,7 +597,7 @@ private fun FriendCodeBlock(
         }
     }
 
-    Column {
+    TrekPanel {
         SectionHead("Your friend code")
         Row(
             modifier = Modifier
@@ -610,9 +627,9 @@ private fun FriendCodeBlock(
                 maxLines = 1,
             )
             Text(
-                if (copied) "COPIED" else "TAP TO COPY",
+                if (copied) "Copied" else "Tap to copy",
                 style = TrekOverline,
-                color = if (copied) Trek.moss else Trek.inkFaint,
+                color = if (copied) Trek.accent else Trek.inkFaint,
             )
         }
         Spacer(modifier = Modifier.height(8.dp))
@@ -652,7 +669,7 @@ private fun FriendCodeBlock(
                     capitalization = KeyboardCapitalization.Characters,
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = Trek.moss,
+                    focusedBorderColor = Trek.accent,
                     unfocusedBorderColor = Trek.hairline,
                     focusedContainerColor = Trek.groundSunken,
                     unfocusedContainerColor = Trek.groundSunken,
@@ -693,14 +710,15 @@ private fun BoardRow(
         modifier = Modifier
             .fillMaxWidth()
             .background(
-                if (isMe) Trek.mossWash else Trek.groundRaised,
+                if (isMe) Trek.accentWash else Trek.groundRaised,
                 MaterialTheme.shapes.medium,
             )
             .border(
                 1.dp,
-                if (isMe) Trek.moss.copy(alpha = 0.4f) else Trek.hairline,
+                Color.Transparent,
                 MaterialTheme.shapes.medium,
             )
+            .clip(MaterialTheme.shapes.medium)
             .clickable(role = Role.Button, onClick = onToggle)
             .animateContentSize(tween(trekDuration(TrekDur.SMALL), easing = TrekEase))
             .padding(horizontal = 14.dp, vertical = 12.dp)
@@ -744,7 +762,7 @@ private fun BoardRow(
         }
         Rail(
             fraction = fraction,
-            color = if (isMe) Trek.moss else Trek.slate,
+            color = if (isMe) Trek.accent else Trek.slate,
             height = 4.dp,
         )
         if (expanded) {
@@ -847,7 +865,7 @@ private fun AnonymousToggle(state: SocialViewModel.UiState, vm: SocialViewModel)
             Text("Show my name", style = MaterialTheme.typography.bodyLarge, color = Trek.ink)
             Text(
                 if (state.anonymous) {
-                    "Global board shows \"${state.myName}\" — friends always see your Google name"
+                    "Global board shows \"${state.myName}\" · friends always see your Google name"
                 } else {
                     "Global board shows your Google name and photo"
                 },
@@ -861,8 +879,8 @@ private fun AnonymousToggle(state: SocialViewModel.UiState, vm: SocialViewModel)
             onCheckedChange = { vm.setAnonymous(!it) },
             enabled = !state.busy,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Trek.onMoss,
-                checkedTrackColor = Trek.moss,
+                checkedThumbColor = Trek.onAccent,
+                checkedTrackColor = Trek.accent,
                 uncheckedThumbColor = Trek.inkFaint,
                 uncheckedTrackColor = Trek.groundSunken,
                 uncheckedBorderColor = Trek.hairline,
@@ -878,14 +896,14 @@ private fun Avatar(photoUrl: String, name: String, size: Dp = 36.dp) {
             modifier = Modifier
                 .size(size)
                 .clip(CircleShape)
-                .background(Trek.mossWash)
+                .background(Trek.accentWash)
                 .border(1.dp, Trek.hairline, CircleShape),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 name.firstOrNull()?.uppercase() ?: "?",
                 style = MaterialTheme.typography.titleMedium,
-                color = Trek.moss,
+                color = Trek.accent,
             )
         }
     } else {
