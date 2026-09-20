@@ -17,6 +17,11 @@ file("google-services.json").takeIf { it.exists() }
         overwrite = true,
     )
 
+file("src/debug/google-services.json").takeIf { it.exists() }
+    ?: file("src/debug/google-services.placeholder.json").copyTo(
+        file("src/debug/google-services.json"), overwrite = false,
+    )
+
 // --- Release signing --------------------------------------------------------------
 // Credentials come from a gitignored `keystore.properties` at the repo root, and fall
 // back to environment variables (that's the path CI takes — see
@@ -84,6 +89,14 @@ android {
     }
 
     buildTypes {
+        debug {
+            // Keep design builds beside the installed production app. Debug has its own
+            // package and label, so it never shares production storage or credentials.
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            resValue("string", "app_name", "ThumbTrek Dev")
+        }
+
         release {
             // R8 stays OFF deliberately. proguard-rules.pro already carries the keep rules
             // this app would need (Room, Firebase/Firestore, Compose, the accessibility
