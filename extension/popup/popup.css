@@ -1,19 +1,19 @@
-/* Popup layout. The design system lives in ../ui/trek.css; this file only places things.
+/* Side panel layout. The design system lives in ../ui/trek.css; this file only places things.
 
-   360px because that is the width at which a 3.75rem hero figure and a "That's 1.4× a
-   school bus" line both sit on one line at the default font size. Chrome caps a popup at
-   600px tall and scrolls past that, so the order is the priority: distance, limit, sites,
-   week, records. The site list is capped (popup.js) so a busy day does not push the rest
-   below the fold, and anything deeper belongs on the options page. */
+   The panel is as wide as the user drags it, from Chrome's ~320px minimum up. Content is
+   capped at a readable measure and centred, so a wide panel gets margins rather than a
+   hero figure stranded on one side and rails stretched past the point of comparison. The
+   order is the priority: distance, limit, sites, week, records. */
 
 body {
-  width: 360px;
-  /* Past 600px Chrome adds a vertical scrollbar inside the fixed width; without this the
-     scrollbar's own width spills into a horizontal one too. */
+  width: 100%;
+  min-height: 100vh;
   overflow-x: hidden;
 }
 
 .sheet {
+  max-width: 30rem;
+  margin: 0 auto;
   padding: var(--s-3) var(--s-3) var(--s-2);
   display: flex;
   flex-direction: column;
@@ -278,6 +278,12 @@ body {
   margin-left: auto;
 }
 
+/* Live redraws while the panel is open: the route is already drawn, so it stays put. */
+.settled .route {
+  animation: none;
+  stroke-dashoffset: 0 !important;
+}
+
 /* ———————————————————————— Baseline week ———————————————————————— */
 
 /* Learning a typical day reads in slate, like the phone: progress, not a verdict. */
@@ -289,7 +295,7 @@ body {
   background: var(--slate);
 }
 
-/* Day eight's announcement. The one card in the popup, because it asks for a decision. */
+/* Day eight's announcement. The one card on the panel, because it asks for a decision. */
 .notice {
   display: flex;
   flex-direction: column;
