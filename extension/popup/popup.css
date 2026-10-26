@@ -277,3 +277,42 @@ body {
 .foot .btn {
   margin-left: auto;
 }
+
+/* ———————————————————————— Baseline week ———————————————————————— */
+
+/* Learning a typical day reads in slate, like the phone: progress, not a verdict. */
+.rail.learning {
+  background: var(--slate-wash);
+}
+
+.rail.learning > i {
+  background: var(--slate);
+}
+
+/* Day eight's announcement. The one card in the popup, because it asks for a decision. */
+.notice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--s-1);
+  padding: var(--s-2) var(--s-3);
+  border-radius: 1rem;
+  background: var(--moss-wash);
+}
+
+.notice-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.notice-text {
+  margin: 0;
+  color: var(--ink-muted);
+}
+
+.notice-actions {
+  display: flex;
+  gap: var(--s-1);
+  margin-top: var(--s-1);
+}

@@ -69,6 +69,44 @@ export function trekStreak(activeDates, today = todayKey()) {
 export const MIN_DAILY_LIMIT_M = 10;
 export const MAX_DAILY_LIMIT_M = 10_000;
 
+/** `BASELINE_DAYS` / `BASELINE_FACTOR`: the phone's baseline week, verbatim. */
+export const BASELINE_DAYS = 7;
+export const BASELINE_FACTOR = 0.9;
+
+/**
+ * `trackedDaysSince`: completed days with measured scrolling on or after `since`, newest
+ * first, as metres. Today is still running and a 0 m day reads as tracking being off, so
+ * neither counts.
+ */
+export function trackedDaysSince(dayMeters, since, today = todayKey()) {
+  return [...dayMeters]
+    .filter(([key, meters]) => key >= since && key < today && meters > 0)
+    .sort(([a], [b]) => (a < b ? 1 : -1))
+    .map(([, meters]) => meters);
+}
+
+/** `medianMeters`: the middle day, so one binge doesn't set the bar for ordinary ones. */
+export function medianMeters(values) {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+/** `typicalDayMeters`: median of the latest `BASELINE_DAYS` tracked days, once `minDays` exist. */
+export function typicalDayMeters(dayMeters, since, today = todayKey(), minDays = BASELINE_DAYS) {
+  const days = trackedDaysSince(dayMeters, since, today).slice(0, BASELINE_DAYS);
+  return days.length < minDays ? null : medianMeters(days);
+}
+
+/** `suggestedLimit`: 90% of a typical day, rounded to a figure a person would pick. */
+export function suggestedLimit(baselineMeters) {
+  const target = baselineMeters * BASELINE_FACTOR;
+  const step = target < 100 ? 10 : target < 1000 ? 50 : 100;
+  const rounded = Math.round(target / step) * step;
+  return Math.min(MAX_DAILY_LIMIT_M, Math.max(MIN_DAILY_LIMIT_M, rounded));
+}
+
 /** `isCleanDay`: at or under the limit. A non-positive (or absent) limit is never clean. */
 export function isCleanDay(meters, limitMeters) {
   return limitMeters > 0 && meters <= limitMeters;

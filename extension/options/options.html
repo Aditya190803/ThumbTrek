@@ -56,10 +56,26 @@
                  placeholder="e.g. 200" aria-describedby="limit-note" />
           <span class="unit" aria-hidden="true">m / day</span>
         </div>
-        <button class="btn btn-primary" type="submit" id="limit-save">Set limit</button>
+        <button class="btn btn-ghost" type="submit" id="limit-save">Set limit</button>
         <button class="btn btn-ghost" type="button" id="limit-clear" hidden>Track without a limit</button>
       </form>
+      <p class="faint" id="limit-typical" hidden></p>
+      <button class="btn btn-primary" type="button" id="limit-baseline" hidden>Learn my baseline</button>
       <p class="note" id="limit-note" role="status" aria-live="polite"></p>
+
+      <!-- Every hand-set limit is confirmed against what is known about this browser's
+           scrolling. Baseline is the default way to a limit; this is the careful one. -->
+      <dialog class="confirm" id="limit-confirm" aria-labelledby="limit-confirm-title">
+        <form method="dialog">
+          <h3 id="limit-confirm-title"></h3>
+          <p id="limit-confirm-body"></p>
+          <div class="confirm-actions">
+            <button class="btn btn-primary" value="alternative" id="limit-confirm-alt" hidden></button>
+            <button class="btn btn-ghost" value="confirm" id="limit-confirm-ok"></button>
+            <button class="btn btn-ghost" value="cancel" autofocus>Cancel</button>
+          </div>
+        </form>
+      </dialog>
     </section>
 
     <!-- ————————————————————————— Sites ————————————————————————— -->

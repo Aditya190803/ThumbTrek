@@ -54,6 +54,17 @@
       </p>
     </section>
 
+    <!-- Day eight: the baseline week has become a limit. Announced, never slipped in. -->
+    <section class="notice" id="auto-limit" aria-labelledby="auto-limit-title" hidden>
+      <h2 class="notice-title" id="auto-limit-title">Your daily limit is set</h2>
+      <p class="notice-text" id="auto-limit-text"></p>
+      <div class="notice-actions">
+        <button class="btn btn-primary" id="auto-keep" type="button">Sounds good</button>
+        <button class="btn btn-ghost" id="auto-adjust" type="button">Adjust</button>
+      </div>
+      <button class="link-btn" id="auto-decline" type="button">I’d rather not have a limit</button>
+    </section>
+
     <!-- Daily limit, or baseline mode. Second only to the distance itself (PRODUCT.md:
          "lead with today's distance and daily limit"). With no limit set there is no rail,
          no colour and no verdict — just an invitation. -->
@@ -68,9 +79,15 @@
              aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="limit-fill"></i></div>
         <p class="limit-text" id="limit-text"></p>
       </div>
+      <!-- The baseline week: progress in tracked days, and no verdicts until it is done. -->
+      <div id="learning" hidden>
+        <div class="rail learning" id="learning-rail" role="progressbar" aria-labelledby="limit-title"
+             aria-valuemin="0" aria-valuemax="7" aria-valuenow="0"><i id="learning-fill"></i></div>
+        <p class="limit-text muted" id="learning-text"></p>
+      </div>
       <p class="limit-text muted" id="baseline" hidden>
-        Tracking your usual scrolling with no cap.
-        <button class="link-btn" id="set-limit" type="button">Set a daily limit</button>
+        No daily limit and no clean-day scores.
+        <button class="link-btn" id="set-limit" type="button">Learn my baseline</button>
       </p>
     </section>
 
