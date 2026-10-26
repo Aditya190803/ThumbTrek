@@ -21,6 +21,10 @@ import com.thumbtrek.app.stats.totalThisMonth
 import com.thumbtrek.app.stats.totalThisWeek
 import com.thumbtrek.app.stats.trekStreak
 import com.thumbtrek.app.track.ScrollTrackerService
+import com.thumbtrek.app.data.BaselineLimit
+import com.thumbtrek.app.stats.BASELINE_DAYS
+import com.thumbtrek.app.stats.trackedDaysSince
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -57,6 +61,15 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         val limitM: Float? = null,
         val todayClean: Boolean = true,
         val cleanStreak: Int = 0,
+        /** First day the limit judges; earlier days stay neutral. Null: all of history. */
+        val limitSince: LocalDate? = null,
+        // --- baseline week ---
+        /** Non-null while a baseline is being learned. */
+        val baselineSince: LocalDate? = null,
+        /** Tracked, completed days collected toward the baseline so far. */
+        val baselineDays: Int = 0,
+        /** The typical day behind a just-applied automatic limit, until acknowledged. */
+        val autoLimitNotice: Float? = null,
     )
 
     private val dao = ScrollDatabase.get(app).dao()
@@ -80,14 +93,29 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 val midnight = now.toLocalDate().plusDays(1).atStartOfDay()
                 delay(Duration.between(now, midnight).toMillis() + 1_000)
                 today.value = LocalDate.now()
+                applyBaselineIfReady()
             }
         }
+        applyBaselineIfReady()
     }
 
-    /** Custom labels + daily limit as one flow: this coroutines version has no 6-way
-     * combine overload, so the sixth flow rides here instead of in [state]. */
-    private val prefsUi = combine(prefs.customApps, prefs.dailyLimitM) { custom, limit ->
-        custom to limit
+    private data class PrefsUi(
+        val customLabels: Map<String, String>,
+        val limitM: Float?,
+        val limitSince: LocalDate?,
+        val baselineSince: LocalDate?,
+        val autoLimitNotice: Float?,
+    )
+
+    /** Every preference the dashboard reads, folded into one flow for [state]. */
+    private val prefsUi = combine(
+        prefs.customApps,
+        prefs.dailyLimitM,
+        prefs.limitSince,
+        prefs.baselineSince,
+        prefs.autoLimitNotice,
+    ) { custom, limit, limitSince, baselineSince, notice ->
+        PrefsUi(custom, limit, limitSince, baselineSince, notice)
     }
 
     private data class DayScope(
@@ -109,14 +137,21 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         dao.observeAllDays(),
         trackingEnabled,
         prefsUi,
-    ) { scope, allDays, enabled, prefsPair ->
-        val (customLabels, limitM) = prefsPair
+    ) { scope, allDays, enabled, p ->
+        val customLabels = p.customLabels
+        val limitM = p.limitM
         val date = scope.date
         val byDate = allDays.associate { LocalDate.parse(it.date) to it.pixels }
         val todayPx = scope.perApp.sumOf { it.pixels }
         val todayMeters = pixelsToMeters(todayPx, dpi)
         val dayMeters = byDate.mapValues { pixelsToMeters(it.value, dpi) }
-        val cleanRun = limitM?.let { limitStreak(dayMeters, it.toDouble(), today = date) } ?: 0
+        // The run never reaches back past the day the limit began, so a baseline week
+        // (or any stretch before a first limit) is never scored against it.
+        val firstTracked = dayMeters.keys.minOrNull()
+        val judgeFrom = listOfNotNull(firstTracked, p.limitSince).maxOrNull()
+        val cleanRun = limitM?.let {
+            limitStreak(dayMeters, it.toDouble(), today = date, firstDay = judgeFrom)
+        } ?: 0
         val streak = trekStreak(byDate.keys, today = date)
         UiState(
             loaded = true,
@@ -141,11 +176,27 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
             limitM = limitM,
             todayClean = limitM?.let { isCleanDay(todayMeters, it.toDouble()) } ?: false,
             cleanStreak = cleanRun,
+            limitSince = p.limitSince,
+            baselineSince = p.baselineSince,
+            baselineDays = p.baselineSince?.let {
+                trackedDaysSince(dayMeters, it, date).size.coerceAtMost(BASELINE_DAYS)
+            } ?: 0,
+            autoLimitNotice = p.autoLimitNotice,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())
 
     fun refreshTrackingState() {
         trackingEnabled.value = ScrollTrackerService.isEnabled(getApplication())
         today.value = LocalDate.now()
+        applyBaselineIfReady()
     }
+
+    private fun applyBaselineIfReady() {
+        viewModelScope.launch(Dispatchers.IO) { BaselineLimit.applyIfReady(getApplication()) }
+    }
+
+    fun dismissAutoLimitNotice() = prefs.dismissAutoLimitNotice()
+
+    /** "No limit" from the announcement card: the user's call, and it sticks. */
+    fun declineAutoLimit() = prefs.clearDailyLimit()
 }

@@ -57,6 +57,7 @@ import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -91,6 +92,7 @@ import com.thumbtrek.app.stats.comparison
 import com.thumbtrek.app.stats.dailyBuckets
 import com.thumbtrek.app.stats.dayOverDayDelta
 import com.thumbtrek.app.stats.formatDistance
+import com.thumbtrek.app.stats.BASELINE_DAYS
 import com.thumbtrek.app.stats.limitNudgeLevel
 import com.thumbtrek.app.stats.monthlyBuckets
 import com.thumbtrek.app.stats.pixelsToMeters
@@ -110,6 +112,7 @@ private val GUTTER = 24.dp
 
 /** Index of the Social panel in the nav bar, named so an invite can jump straight to it. */
 private const val SOCIAL_TAB = 2
+private const val SETTINGS_TAB = 3
 
 /**
  * [pendingInvite] is a friend code that arrived by invite link. It jumps straight to the
@@ -185,7 +188,16 @@ fun MainScreen(
             label = "tab",
         ) { index ->
             when (index) {
-                0 -> Dashboard(state, dashboardScroll)
+                0 -> Dashboard(
+                    state = state,
+                    scrollState = dashboardScroll,
+                    onKeepAutoLimit = vm::dismissAutoLimitNotice,
+                    onDeclineAutoLimit = vm::declineAutoLimit,
+                    onAdjustLimit = {
+                        vm.dismissAutoLimitNotice()
+                        tab = SETTINGS_TAB
+                    },
+                )
                 1 -> History(state, historyList)
                 SOCIAL_TAB -> SocialScreen(
                     inviteCode = pendingInvite,
@@ -328,6 +340,9 @@ private fun TrekNavBar(selected: Int, onSelect: (Int) -> Unit, onReselect: (Int)
 private fun Dashboard(
     state: DashboardViewModel.UiState,
     scrollState: ScrollState,
+    onKeepAutoLimit: () -> Unit,
+    onDeclineAutoLimit: () -> Unit,
+    onAdjustLimit: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -355,6 +370,16 @@ private fun Dashboard(
             )
         }
 
+        if (state.autoLimitNotice != null && state.limitM != null) {
+            AutoLimitCard(
+                baselineM = state.autoLimitNotice.toDouble(),
+                limitM = state.limitM.toDouble(),
+                onKeep = onKeepAutoLimit,
+                onAdjust = onAdjustLimit,
+                onDecline = onDeclineAutoLimit,
+            )
+        }
+
         DailySummary(
             todayMeters = todayMeters,
             streak = state.streak,
@@ -366,6 +391,7 @@ private fun Dashboard(
             yesterdayMeters = pixelsToMeters(byDate[state.today.minusDays(1)] ?: 0L, dpi),
             limitM = state.limitM,
             cleanStreak = state.cleanStreak,
+            baselineDays = state.baselineDays.takeIf { state.baselineSince != null },
         )
 
         if (state.perApp.isNotEmpty()) {
@@ -411,6 +437,7 @@ private fun DailySummary(
     yesterdayMeters: Double,
     limitM: Float?,
     cleanStreak: Int,
+    baselineDays: Int?,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -456,14 +483,69 @@ private fun DailySummary(
             )
         }
         TrekPanel {
-            if (limitM != null) {
-                LimitGlance(todayMeters, limitM, cleanStreak)
-            } else {
-                Text("Find your baseline", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
-                Spacer(Modifier.height(6.dp))
-                Text("Track your usual scrolling without a cap. When you’re ready, set your own daily limit in Settings.", style = MaterialTheme.typography.bodyMedium, color = Trek.inkMuted)
+            when {
+                limitM != null -> LimitGlance(todayMeters, limitM, cleanStreak)
+                baselineDays != null -> BaselineGlance(baselineDays)
+                else -> {
+                    Text("No daily limit", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
+                    Spacer(Modifier.height(6.dp))
+                    Text("You’re tracking without a cap. Set a limit or learn your baseline anytime in Settings.", style = MaterialTheme.typography.bodyMedium, color = Trek.inkMuted)
+                }
             }
         }
+    }
+}
+
+/**
+ * The baseline week in progress. Counts tracked days rather than calendar days, and says
+ * so, because a day with tracking off doesn't move it and that should never look stuck.
+ */
+@Composable
+private fun BaselineGlance(days: Int) {
+    Column(modifier = Modifier.semantics(mergeDescendants = true) {}) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text("Learning your baseline", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = Trek.ink)
+            Text("Day $days of $BASELINE_DAYS", style = TrekFigure, color = Trek.inkMuted)
+        }
+        Spacer(Modifier.height(12.dp))
+        Rail(days / BASELINE_DAYS.toFloat(), color = Trek.slate, track = Trek.slate.copy(alpha = 0.12f), height = 6.dp)
+        Spacer(Modifier.height(10.dp))
+        Text(
+            if (days == 0) "Scroll as you normally would. Nothing is judged this week."
+            else "After $BASELINE_DAYS tracked days, your limit is set about 10% under your usual day. Nothing is judged until then.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Trek.inkMuted,
+        )
+    }
+}
+
+/**
+ * Day eight: the baseline has become a limit. Announced rather than slipped in, with the
+ * number it came from and every way out one tap away.
+ */
+@Composable
+private fun AutoLimitCard(
+    baselineM: Double,
+    limitM: Double,
+    onKeep: () -> Unit,
+    onAdjust: () -> Unit,
+    onDecline: () -> Unit,
+) {
+    TrekPanel(fill = Trek.accentWash, border = Trek.accent.copy(alpha = 0.35f)) {
+        Text("Your daily limit is set", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            "Your usual day is about ${formatDistance(baselineM)}, so your limit is now " +
+                "${formatDistance(limitM)}. Clean days count from today.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = Trek.inkMuted,
+        )
+        Spacer(Modifier.height(14.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            TrekButton("Sounds good", onKeep, Modifier.weight(1f))
+            TrekGhostButton("Adjust", onAdjust, Modifier.weight(1f))
+        }
+        TextButton(onClick = onDecline) { Text("I’d rather not have a limit", color = Trek.inkMuted) }
     }
 }
 
@@ -810,6 +892,7 @@ private fun History(
             val (cleanDays, trackedDays) = remember(byDate, shownMonth, state.limitM, today) {
                 val days = (1..shownMonth.lengthOfMonth()).map { shownMonth.atDay(it) }
                     .filter { !it.isAfter(today) && byDate[it] != null }
+                    .filter { date -> state.limitSince?.let { !date.isBefore(it) } ?: true }
                 days.count { pixelsToMeters(byDate.getValue(it), dpi) <= state.limitM } to days.size
             }
             Column {
@@ -840,6 +923,7 @@ private fun History(
                 CleanMonthGrid(
                     month = shownMonth,
                     today = today,
+                    judgeFrom = state.limitSince,
                     byDate = byDate,
                     dpi = dpi,
                     limitM = state.limitM,
@@ -856,6 +940,9 @@ private fun History(
                     CalendarKey(Trek.success, "Clean")
                     CalendarKey(Trek.danger, "Over")
                     CalendarKey(Trek.hairline, "No data")
+                    if (state.limitSince != null && byDate.keys.any { it.isBefore(state.limitSince) }) {
+                        CalendarKey(Trek.slate, "Before limit")
+                    }
                 }
                 calDay?.let { key ->
                     val px = byDate[LocalDate.parse(key)] ?: 0L
@@ -1016,6 +1103,7 @@ private fun History(
 private fun CleanMonthGrid(
     month: YearMonth,
     today: LocalDate,
+    judgeFrom: LocalDate?,
     byDate: Map<LocalDate, Long>,
     dpi: Int,
     limitM: Float,
@@ -1055,10 +1143,13 @@ private fun CleanMonthGrid(
                         val px = byDate[date]
                         val meters = pixelsToMeters(px ?: 0L, dpi)
                         val future = date.isAfter(today)
-                        val over = !future && meters > limit
+                        // Days before the limit existed are shown, never scored.
+                        val unjudged = judgeFrom != null && date.isBefore(judgeFrom)
                         val tracked = !future && px != null
+                        val over = tracked && !unjudged && meters > limit
                         val fill = when {
                             future || !tracked -> Color.Transparent
+                            unjudged -> Trek.slateWash
                             over -> Trek.dangerWash
                             else -> Trek.successWash
                         }
@@ -1094,6 +1185,7 @@ private fun CleanMonthGrid(
                                     )}: " + when {
                                         future -> "upcoming"
                                         !tracked -> "no data"
+                                        unjudged -> "${formatDistance(meters)}, before your limit"
                                         over -> "${formatDistance(meters)}, over the limit"
                                         else -> "${formatDistance(meters)}, clean"
                                     }

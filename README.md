@@ -45,7 +45,8 @@ Two things in that contract are worth knowing up front:
 - Rebuilt scroll tracking from the ground up: a layered, unit-tested delta classifier (real pixel deltas, position diffing, lazy-list pseudo-offsets, screen-heights for Reels/Shorts-style paging) now counts X, YouTube and Reddit credibly, with per-app diagnostics logging so the next regression is one glance away
 - First-run onboarding: choose tracked apps, enable permissions when ready, optionally sign in,
   and set your own daily limit or track without one. Existing installations retain their settings.
-- Daily limit + clean-days counter: choose a cap in onboarding or Settings and days at or under it build the discipline streak that rewards scrolling less; free for the first month while retention data decides billing, then one change per week free via Premium
+- Daily limit + clean-days counter: days at or under the limit build the discipline streak that rewards scrolling less; free for the first month while retention data decides billing, then one change per week free via Premium
+- Baseline-first limits: new installs learn a typical day over 7 tracked days, then set the limit ~10% under the median and announce it with Adjust / No limit. Hand-set limits are confirmed against the usual day, and pre-limit days are never judged
 - Settings now shows live per-app tracking diagnostics (foreground sightings, counted distance, dominant detection path), so YouTube et al. are verifiable in-app instead of via logcat
 - Web Shorts gap closed: `youtube.com/shorts/*` never emits scroll, so each new Short now banks one viewport height, matching Android's paged path
 - Tappable history bars with period detail (full label, total, landmark line, per-app split for recent days) plus a clean-month calendar showing discipline at a glance

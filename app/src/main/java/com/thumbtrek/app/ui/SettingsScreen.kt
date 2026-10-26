@@ -71,10 +71,12 @@ import com.thumbtrek.app.data.TRACKED_APPS
 import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.data.appName
 import com.thumbtrek.app.share.DataExporter
+import com.thumbtrek.app.stats.BASELINE_DAYS
 import com.thumbtrek.app.stats.BILLING_ENFORCED
 import com.thumbtrek.app.stats.MAX_DAILY_LIMIT_M
 import com.thumbtrek.app.stats.MIN_DAILY_LIMIT_M
 import com.thumbtrek.app.stats.comparison
+import com.thumbtrek.app.stats.suggestedLimit
 import com.thumbtrek.app.stats.formatDistance
 import com.thumbtrek.app.stats.pixelsToMeters
 import com.thumbtrek.app.track.ScrollDiagnostics
@@ -95,6 +97,7 @@ fun SettingsScreen(
     }
 
     val state by vm.state.collectAsStateWithLifecycle()
+    val baseline by vm.baseline.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
     // Read once per visit to the screen. The package manager is not observable, but that
@@ -214,15 +217,39 @@ fun SettingsScreen(
 
         // ---- Daily limit --------------------------------------------------------------
         TrekPanel {
-            SectionHead("Daily limit", trailing = state.limitM?.let { "${it.toInt()} m / day" } ?: "Not set")
+            val learning = baseline.since != null && state.limitM == null
+            SectionHead(
+                "Daily limit",
+                trailing = when {
+                    state.limitM != null -> "${state.limitM!!.toInt()} m / day"
+                    learning -> "Learning · day ${baseline.days} of $BASELINE_DAYS"
+                    else -> "Not set"
+                },
+            )
             Text(
-                if (state.limitM == null) "Track your usual scrolling first, or choose a daily cap below." else "Stay within your limit to earn a clean day. Your limit is always your choice.",
+                when {
+                    state.limitM != null -> "Stay within your limit to earn a clean day. Your limit is always your choice."
+                    learning -> "ThumbTrek is learning your usual day. After $BASELINE_DAYS tracked days your limit is set about 10% under it. You can also set one yourself now."
+                    else -> "No limit and no clean-day scores. Learn your baseline and ThumbTrek will suggest one, or set your own below."
+                },
                 style = MaterialTheme.typography.bodyMedium,
                 color = Trek.inkMuted,
             )
+            baseline.typicalM?.let {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    "Your usual day lately: about ${formatDistance(it)}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Trek.inkFaint,
+                )
+            }
+            if (state.limitM == null && !learning) {
+                Spacer(modifier = Modifier.height(12.dp))
+                TrekButton("Learn my baseline", onClick = { vm.startBaseline() }, modifier = Modifier.fillMaxWidth())
+            }
             Spacer(modifier = Modifier.height(12.dp))
-            LimitEditor(vm = vm, currentM = state.limitM)
-            if (state.limitM != null) {
+            LimitEditor(vm = vm, currentM = state.limitM, typicalM = baseline.typicalM, learning = learning)
+            if (state.limitM != null || learning) {
                 TextButton(onClick = { vm.clearLimit() }) { Text("Track without a limit") }
             }
             Spacer(modifier = Modifier.height(10.dp))
@@ -626,9 +653,11 @@ private fun needsNotificationPermission(context: Context): Boolean =
  * just happened so "Save" never looks dead.
  */
 @Composable
-private fun LimitEditor(vm: SettingsViewModel, currentM: Float?) {
+private fun LimitEditor(vm: SettingsViewModel, currentM: Float?, typicalM: Double?, learning: Boolean) {
     var input by remember(currentM) { mutableStateOf(currentM?.toInt()?.toString().orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
+    // A hand-typed limit, held until the user confirms it.
+    var pendingLimit by remember { mutableStateOf<Float?>(null) }
     val result by vm.limitEdit.collectAsStateWithLifecycle()
     val focus = LocalFocusManager.current
 
@@ -642,9 +671,33 @@ private fun LimitEditor(vm: SettingsViewModel, currentM: Float?) {
             else -> null
         }
         if (error == null && value != null) {
-            vm.trySetLimit(value)
             focus.clearFocus()
+            // Every hand-set limit is confirmed first; see ManualLimitDialog.
+            pendingLimit = value
         }
+    }
+
+    pendingLimit?.let { pending ->
+        ManualLimitDialog(
+            newM = pending.toDouble(),
+            typicalM = typicalM,
+            currentM = currentM?.toDouble(),
+            onConfirm = {
+                vm.trySetLimit(pending)
+                pendingLimit = null
+            },
+            onDismiss = { pendingLimit = null },
+            onUseBaseline = if (learning) null else {
+                {
+                    vm.startBaseline()
+                    pendingLimit = null
+                }
+            },
+            onUseSuggested = { suggested ->
+                vm.trySetLimit(suggested)
+                pendingLimit = null
+            },
+        )
     }
 
     LimitPresets(
@@ -732,6 +785,69 @@ private fun LimitEditor(vm: SettingsViewModel, currentM: Float?) {
         }
         null -> Unit
     }
+}
+
+/**
+ * The caution step every hand-set limit goes through. Baseline is the default way to a
+ * limit, so a manual one is confirmed against what is known about the user's scrolling,
+ * and the dialog offers the better option where there is one. It never blocks.
+ */
+@Composable
+internal fun ManualLimitDialog(
+    newM: Double,
+    typicalM: Double?,
+    currentM: Double?,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    onUseBaseline: (() -> Unit)? = null,
+    onUseSuggested: ((Float) -> Unit)? = null,
+) {
+    val suggested = typicalM?.let { suggestedLimit(it) }
+    val verb = if (currentM == null) "Set" else "Change"
+    val (title, body) = when {
+        typicalM == null -> "Set a limit without a baseline?" to
+            "ThumbTrek doesn’t know your usual day yet, so ${formatDistance(newM)} is a guess. " +
+            "Too low and every day reads as over; too high and it never matters. Learning your " +
+            "baseline takes $BASELINE_DAYS tracked days and sets a limit that fits you."
+        newM > typicalM -> "$verb your limit to ${formatDistance(newM)}?" to
+            "That’s above your usual day of about ${formatDistance(typicalM)}, so most days " +
+            "would pass under it without you noticing. Limits work best a little below what " +
+            "you normally scroll."
+        newM < typicalM * 0.5 -> "$verb your limit to ${formatDistance(newM)}?" to
+            "That’s less than half your usual day of about ${formatDistance(typicalM)}, so most " +
+            "days will count as over. Big cuts are hard to keep. About " +
+            "${formatDistance(suggested!!.toDouble())} is a steadier start."
+        else -> "$verb your limit to ${formatDistance(newM)}?" to
+            "That’s ${((1 - newM / typicalM) * 100).toInt()}% under your usual day of about " +
+            "${formatDistance(typicalM)}. Clean days are judged against it from today."
+    }
+    val offerSuggested = typicalM != null && newM < typicalM * 0.5 && onUseSuggested != null &&
+        suggested != null && suggested.toDouble() != newM
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Trek.groundRaised,
+        titleContentColor = Trek.ink,
+        textContentColor = Trek.inkMuted,
+        shape = MaterialTheme.shapes.large,
+        title = { Text(title) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(body)
+                if (typicalM == null && onUseBaseline != null) {
+                    TrekButton("Learn my baseline instead", onUseBaseline, Modifier.fillMaxWidth())
+                }
+                if (offerSuggested) {
+                    TrekButton("Use ${formatDistance(suggested!!.toDouble())} instead", { onUseSuggested!!(suggested) }, Modifier.fillMaxWidth())
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirm) { Text("$verb to ${formatDistance(newM)}", color = Trek.ink) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Cancel", color = Trek.inkMuted) }
+        },
+    )
 }
 
 /** Common starting points, so choosing a limit doesn't begin with a blank number field. */

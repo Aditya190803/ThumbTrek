@@ -104,6 +104,64 @@ fun freeLimitEditsLeft(
     return (FREE_LIMIT_EDITS_PER_WEEK - editCount).coerceAtLeast(0)
 }
 
+/** Tracked days the baseline week needs before a limit is suggested. */
+const val BASELINE_DAYS = 7
+
+/** The automatic limit sits this far under a typical day: a nudge, not a cliff. */
+const val BASELINE_FACTOR = 0.9
+
+/**
+ * Completed days with measured scrolling on or after [since], newest first. Today is still
+ * running, so it never counts, and a 0 m day reads as tracking being off rather than as
+ * a real day: counting it would drag the baseline toward nothing.
+ */
+fun trackedDaysSince(
+    dayMeters: Map<LocalDate, Double>,
+    since: LocalDate,
+    today: LocalDate = LocalDate.now(),
+): List<Double> = dayMeters
+    .filter { (date, meters) -> !date.isBefore(since) && date.isBefore(today) && meters > 0.0 }
+    .toSortedMap(compareByDescending { it })
+    .values
+    .toList()
+
+/** Median, so one binge day doesn't set the bar for every ordinary one. */
+fun medianMeters(values: List<Double>): Double? {
+    if (values.isEmpty()) return null
+    val sorted = values.sorted()
+    val mid = sorted.size / 2
+    return if (sorted.size % 2 == 1) sorted[mid] else (sorted[mid - 1] + sorted[mid]) / 2
+}
+
+/**
+ * A typical recent day, from the latest [BASELINE_DAYS] tracked days since [since]. Null
+ * until at least [minDays] exist: guessing from one or two days would be noise.
+ */
+fun typicalDayMeters(
+    dayMeters: Map<LocalDate, Double>,
+    since: LocalDate,
+    today: LocalDate = LocalDate.now(),
+    minDays: Int = BASELINE_DAYS,
+): Double? {
+    val days = trackedDaysSince(dayMeters, since, today).take(BASELINE_DAYS)
+    return if (days.size < minDays) null else medianMeters(days)
+}
+
+/**
+ * The limit a baseline earns: [BASELINE_FACTOR] of a typical day, rounded to a figure a
+ * person would pick themselves (340 m reads as 300 m, not 306 m), within the editor bounds.
+ */
+fun suggestedLimit(baselineMeters: Double): Float {
+    val target = baselineMeters * BASELINE_FACTOR
+    val step = when {
+        target < 100 -> 10.0
+        target < 1_000 -> 50.0
+        else -> 100.0
+    }
+    val rounded = Math.round(target / step) * step
+    return rounded.coerceIn(MIN_DAILY_LIMIT_M, MAX_DAILY_LIMIT_M).toFloat()
+}
+
 /** Warn once today's trek reaches this fraction of the limit. Below it: silence. */
 const val LIMIT_WARN_FRACTION = 0.8
 

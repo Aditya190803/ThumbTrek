@@ -30,6 +30,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.data.TRACKED_APPS
 import com.thumbtrek.app.data.parseDailyLimit
+import com.thumbtrek.app.stats.BASELINE_DAYS
 import com.thumbtrek.app.stats.comparison
 import com.thumbtrek.app.stats.weekKey
 
@@ -116,40 +117,74 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
                     if (!state.trackingEnabled) Text("You can enable tracking later in Settings.", style = MaterialTheme.typography.bodySmall, color = Trek.inkMuted)
                 }
                 2 -> {
-                    PageHeading("Find your own pace.", "There is no one-size-fits-all daily limit.")
-                    Text("Choose a distance that feels right for you, or track your usual scrolling first. A limit is a gentle reference, not a block on your apps.", color = Trek.inkMuted)
-                    val limit = parseDailyLimit(input)
-                    LimitPresets(
-                        selected = input.toIntOrNull(),
-                        onPick = { input = it.toString(); prefs.limitDraft = input; saveError = null },
-                    )
-                    OutlinedTextField(
-                        value = input,
-                        onValueChange = { input = it.filter(Char::isDigit).take(5); prefs.limitDraft = input; saveError = null },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Your daily limit in metres") },
-                        supportingText = { Text(if (input.isNotEmpty() && limit == null) "Enter between 10 and 10,000 metres." else "10–10,000 metres. You can change this later.") },
-                        isError = input.isNotEmpty() && limit == null,
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                        keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
-                    )
-                    if (limit != null) Text(comparison(limit.toDouble()), color = Trek.inkMuted)
-                    saveError?.let { Text(it, color = Trek.danger) }
-                    TrekButton("Use my limit", {
-                        if (limit != null) {
-                            when (prefs.trySetDailyLimit(limit, weekKey())) {
-                                is Prefs.LimitEditResult.Applied -> prefs.setOnboardingStep(3)
-                                Prefs.LimitEditResult.NeedsPremium -> saveError = "Your limit could not be changed. Keep your current limit or track without one."
-                            }
+                    var ownLimit by rememberSaveable { mutableStateOf(input.isNotEmpty()) }
+                    var confirmLimit by remember { mutableStateOf<Float?>(null) }
+                    val baseline by settings.baseline.collectAsStateWithLifecycle()
+                    PageHeading("Find your own pace.", "Start with what a normal day looks like for you.")
+                    TrekPanel(fill = Trek.accentWash, border = Trek.accent.copy(alpha = 0.35f)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Start with a baseline", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, color = Trek.ink)
+                            TrekChip("Recommended", color = Trek.accent, border = Trek.accent.copy(alpha = 0.4f))
                         }
-                    }, Modifier.fillMaxWidth(), enabled = limit != null)
-                    TrekGhostButton("Learn my baseline first", {
-                        prefs.clearDailyLimit()
-                        input = ""
-                        prefs.setOnboardingStep(3)
-                    }, Modifier.fillMaxWidth())
-                    Text("No limit, warnings or clean-day scores. Review your history after a few days, then set a limit in Settings when you’re ready.", style = MaterialTheme.typography.bodyMedium, color = Trek.inkMuted)
+                        Spacer(Modifier.height(10.dp))
+                        Text("Scroll as you normally would for $BASELINE_DAYS tracked days. Nothing is judged that week. Then ThumbTrek sets your daily limit about 10% under your usual day, and you can adjust it anytime.", color = Trek.inkMuted)
+                        Spacer(Modifier.height(16.dp))
+                        TrekButton("Learn my baseline", {
+                            prefs.startBaseline()
+                            input = ""
+                            prefs.setOnboardingStep(3)
+                        }, Modifier.fillMaxWidth())
+                    }
+                    if (!ownLimit) {
+                        TextButton(onClick = { ownLimit = true }) { Text("I already know my limit") }
+                    } else {
+                        Text("Or set your own limit now", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
+                        val limit = parseDailyLimit(input)
+                        LimitPresets(
+                            selected = input.toIntOrNull(),
+                            onPick = { input = it.toString(); prefs.limitDraft = input; saveError = null },
+                        )
+                        OutlinedTextField(
+                            value = input,
+                            onValueChange = { input = it.filter(Char::isDigit).take(5); prefs.limitDraft = input; saveError = null },
+                            modifier = Modifier.fillMaxWidth(),
+                            label = { Text("Your daily limit in metres") },
+                            supportingText = { Text(if (input.isNotEmpty() && limit == null) "Enter between 10 and 10,000 metres." else "10–10,000 metres. You can change this later.") },
+                            isError = input.isNotEmpty() && limit == null,
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                            keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
+                        )
+                        if (limit != null) Text(comparison(limit.toDouble()), color = Trek.inkMuted)
+                        saveError?.let { Text(it, color = Trek.danger) }
+                        TrekGhostButton("Use my limit", {
+                            if (limit != null) { focus.clearFocus(); confirmLimit = limit }
+                        }, Modifier.fillMaxWidth(), enabled = limit != null)
+                        confirmLimit?.let { pending ->
+                            val apply = { meters: Float ->
+                                confirmLimit = null
+                                when (prefs.trySetDailyLimit(meters, weekKey())) {
+                                    is Prefs.LimitEditResult.Applied -> prefs.setOnboardingStep(3)
+                                    Prefs.LimitEditResult.NeedsPremium -> saveError = "Your limit could not be changed. Keep your current limit or learn your baseline."
+                                }
+                            }
+                            ManualLimitDialog(
+                                newM = pending.toDouble(),
+                                typicalM = baseline.typicalM,
+                                currentM = null,
+                                onConfirm = { apply(pending) },
+                                onDismiss = { confirmLimit = null },
+                                onUseBaseline = {
+                                    confirmLimit = null
+                                    prefs.startBaseline()
+                                    input = ""
+                                    prefs.setOnboardingStep(3)
+                                },
+                                onUseSuggested = { apply(it) },
+                            )
+                        }
+                    }
+                    Text("A limit is a gentle reference, never a block on your apps. Rather not have one at all? Turn it off anytime in Settings.", style = MaterialTheme.typography.bodySmall, color = Trek.inkMuted)
                 }
                 3 -> {
                     val social: SocialViewModel = viewModel()
