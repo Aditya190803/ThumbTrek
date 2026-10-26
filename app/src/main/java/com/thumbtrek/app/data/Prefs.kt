@@ -33,14 +33,26 @@ class Prefs private constructor(context: Context) {
                 if (limit != null) putFloat(KEY_DAILY_LIMIT_M, limit)
             }.apply()
         }
+        // Installs that finished setup before this flag existed are still sitting on step 4.
+        if (!sp.contains(KEY_SETUP_DONE) && sp.getInt("onboarding_step", 0) == 4) {
+            sp.edit().putBoolean(KEY_SETUP_DONE, true).apply()
+        }
     }
 
     private val _onboardingStep = MutableStateFlow(sp.getInt("onboarding_step", 0))
     val onboardingStep: StateFlow<Int> = _onboardingStep.asStateFlow()
 
+    /**
+     * True once setup has been finished at least once. Lets "Review setup" offer a way
+     * straight back to the app, where a first run has to walk every step.
+     */
+    val setupDone: Boolean get() = sp.getBoolean(KEY_SETUP_DONE, false)
+
     fun setOnboardingStep(step: Int) {
         require(step in 0..4)
-        sp.edit().putInt("onboarding_step", step).apply()
+        sp.edit().putInt("onboarding_step", step).apply {
+            if (step == 4) putBoolean(KEY_SETUP_DONE, true)
+        }.apply()
         _onboardingStep.value = step
     }
 
@@ -275,6 +287,7 @@ class Prefs private constructor(context: Context) {
     fun isTracked(pkg: String): Boolean = pkg in _trackedApps.value
 
     companion object {
+        private const val KEY_SETUP_DONE = "setup_done"
         private const val KEY_TRACKED_APPS = "tracked_apps"
         private const val KEY_CUSTOM_APPS = "custom_apps"
         private const val KEY_STREAK_REMINDER = "streak_reminder"

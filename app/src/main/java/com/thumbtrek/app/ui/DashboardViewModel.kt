@@ -21,15 +21,25 @@ import com.thumbtrek.app.stats.totalThisMonth
 import com.thumbtrek.app.stats.totalThisWeek
 import com.thumbtrek.app.stats.trekStreak
 import com.thumbtrek.app.track.ScrollTrackerService
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
 
 class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     data class UiState(
+        /** False until Room's first emission, so existing users never see first-run copy. */
+        val loaded: Boolean = false,
+        /** The day every "today" figure below belongs to. Rolls over at midnight. */
+        val today: LocalDate = LocalDate.now(),
         val trackingEnabled: Boolean = false,
         val todayPx: Long = 0,
         val perApp: List<AppTotal> = emptyList(),
@@ -55,41 +65,77 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     private val prefs = Prefs.get(app)
 
+    /**
+     * The current date as a flow. The day-scoped queries used to bind LocalDate.now() once,
+     * at construction, so an app left open overnight kept showing yesterday as "today"
+     * until the process died. This ticks just after midnight, and [refreshTrackingState]
+     * re-reads it on every resume in case the timer slept through Doze.
+     */
+    private val today = MutableStateFlow(LocalDate.now())
+
+    init {
+        viewModelScope.launch {
+            while (true) {
+                val now = LocalDateTime.now()
+                val midnight = now.toLocalDate().plusDays(1).atStartOfDay()
+                delay(Duration.between(now, midnight).toMillis() + 1_000)
+                today.value = LocalDate.now()
+            }
+        }
+    }
+
     /** Custom labels + daily limit as one flow: this coroutines version has no 6-way
      * combine overload, so the sixth flow rides here instead of in [state]. */
     private val prefsUi = combine(prefs.customApps, prefs.dailyLimitM) { custom, limit ->
         custom to limit
     }
 
+    private data class DayScope(
+        val date: LocalDate,
+        val perApp: List<AppTotal>,
+        val rows: List<com.thumbtrek.app.data.DailyScroll>,
+    )
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val dayScoped = today.flatMapLatest { date ->
+        combine(
+            dao.observeDay(date.toString()),
+            dao.observeRowsSince(date.minusDays(13).toString()),
+        ) { perApp, rows -> DayScope(date, perApp, rows) }
+    }
+
     val state = combine(
-        dao.observeDay(LocalDate.now().toString()),
+        dayScoped,
         dao.observeAllDays(),
-        dao.observeRowsSince(LocalDate.now().minusDays(13).toString()),
         trackingEnabled,
         prefsUi,
-    ) { perApp, allDays, rows, enabled, prefsPair ->
+    ) { scope, allDays, enabled, prefsPair ->
         val (customLabels, limitM) = prefsPair
+        val date = scope.date
         val byDate = allDays.associate { LocalDate.parse(it.date) to it.pixels }
-        val todayPx = perApp.sumOf { it.pixels }
+        val todayPx = scope.perApp.sumOf { it.pixels }
         val todayMeters = pixelsToMeters(todayPx, dpi)
         val dayMeters = byDate.mapValues { pixelsToMeters(it.value, dpi) }
-        val cleanRun = limitM?.let { limitStreak(dayMeters, it.toDouble()) } ?: 0
+        val cleanRun = limitM?.let { limitStreak(dayMeters, it.toDouble(), today = date) } ?: 0
+        val streak = trekStreak(byDate.keys, today = date)
         UiState(
+            loaded = true,
+            today = date,
             trackingEnabled = enabled,
             todayPx = todayPx,
-            perApp = perApp.sortedByDescending { it.pixels },
-            streak = trekStreak(byDate.keys),
-            weekPx = totalThisWeek(byDate),
-            monthPx = totalThisMonth(byDate),
+            perApp = scope.perApp.sortedByDescending { it.pixels },
+            streak = streak,
+            weekPx = totalThisWeek(byDate, today = date),
+            monthPx = totalThisMonth(byDate, today = date),
             record = personalRecord(byDate),
             days = allDays,
-            dailyBuckets = dailyBuckets(byDate),
-            appTrends = appTrends(rows),
+            dailyBuckets = dailyBuckets(byDate, today = date),
+            appTrends = appTrends(scope.rows, today = date),
             customLabels = customLabels,
             badges = badges(
                 totalMeters = pixelsToMeters(byDate.values.sum(), dpi),
                 bestDayMeters = pixelsToMeters(byDate.values.maxOrNull() ?: 0L, dpi),
-                streak = trekStreak(byDate.keys),
+                streak = streak,
                 cleanStreak = cleanRun,
             ).filter { limitM != null || !it.id.startsWith("clean_") },
             limitM = limitM,
@@ -100,5 +146,6 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshTrackingState() {
         trackingEnabled.value = ScrollTrackerService.isEnabled(getApplication())
+        today.value = LocalDate.now()
     }
 }

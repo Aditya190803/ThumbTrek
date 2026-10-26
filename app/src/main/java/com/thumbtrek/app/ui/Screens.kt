@@ -34,10 +34,15 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Info
@@ -58,6 +63,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -85,6 +91,7 @@ import com.thumbtrek.app.stats.comparison
 import com.thumbtrek.app.stats.dailyBuckets
 import com.thumbtrek.app.stats.dayOverDayDelta
 import com.thumbtrek.app.stats.formatDistance
+import com.thumbtrek.app.stats.limitNudgeLevel
 import com.thumbtrek.app.stats.monthlyBuckets
 import com.thumbtrek.app.stats.pixelsToMeters
 import com.thumbtrek.app.stats.weekOverWeekDelta
@@ -93,6 +100,7 @@ import com.thumbtrek.app.widget.TrekWidgetProvider
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
 private val GUTTER = 24.dp
 
@@ -125,6 +133,14 @@ fun MainScreen(
     var tab by rememberSaveable { mutableIntStateOf(0) }
     val slideDuration = trekDuration(TrekDur.MEDIUM)
 
+    // Hoisted out of the tabs so each keeps its place when you switch away and back, and
+    // so tapping the tab you are already on can return it to the top.
+    val dashboardScroll = rememberScrollState()
+    val historyList = rememberLazyListState()
+    val socialList = rememberLazyListState()
+    val settingsScroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
+
     LaunchedEffect(pendingInvite) {
         if (pendingInvite != null) tab = SOCIAL_TAB
     }
@@ -133,7 +149,22 @@ fun MainScreen(
         containerColor = Trek.ground,
         contentColor = Trek.ink,
         topBar = { TrekTopRail(tab, state) },
-        bottomBar = { TrekNavBar(tab) { tab = it } },
+        bottomBar = {
+            TrekNavBar(
+                selected = tab,
+                onSelect = { tab = it },
+                onReselect = { index ->
+                    scope.launch {
+                        when (index) {
+                            0 -> dashboardScroll.animateScrollTo(0)
+                            1 -> historyList.animateScrollToItem(0)
+                            SOCIAL_TAB -> socialList.animateScrollToItem(0)
+                            else -> settingsScroll.animateScrollTo(0)
+                        }
+                    }
+                },
+            )
+        },
     ) { padding ->
         AnimatedContent(
             targetState = tab,
@@ -154,13 +185,14 @@ fun MainScreen(
             label = "tab",
         ) { index ->
             when (index) {
-                0 -> Dashboard(state)
-                1 -> History(state)
+                0 -> Dashboard(state, dashboardScroll)
+                1 -> History(state, historyList)
                 SOCIAL_TAB -> SocialScreen(
                     inviteCode = pendingInvite,
                     onInviteConsumed = onInviteConsumed,
+                    listState = socialList,
                 )
-                else -> SettingsScreen()
+                else -> SettingsScreen(scrollState = settingsScroll)
             }
         }
     }
@@ -170,9 +202,8 @@ fun MainScreen(
 private fun TrekTopRail(tab: Int, state: DashboardViewModel.UiState) {
     val context = LocalContext.current
     val dpi = remember { context.resources.displayMetrics.densityDpi }
-    val today = remember { LocalDate.now() }
-    val dateLabel = remember(today) {
-        DateTimeFormatter.ofPattern("EEEE, d MMM").format(today)
+    val dateLabel = remember(state.today) {
+        DateTimeFormatter.ofPattern("EEEE, d MMM").format(state.today)
     }
 
     Row(
@@ -256,9 +287,12 @@ private val TABS = listOf(
     TrekTab(Icons.Default.Settings, "Settings"),
 )
 
-/** Familiar tabs with a soft, selected pill and a full touch target. */
+/**
+ * Familiar tabs with a soft, selected pill and a full touch target. Tapping the tab you
+ * are already on scrolls it back to the top, as on every other Android app.
+ */
 @Composable
-private fun TrekNavBar(selected: Int, onSelect: (Int) -> Unit) {
+private fun TrekNavBar(selected: Int, onSelect: (Int) -> Unit, onReselect: (Int) -> Unit) {
     val haptics = LocalHapticFeedback.current
     NavigationBar(containerColor = Trek.ground, tonalElevation = 0.dp) {
         TABS.forEachIndexed { index, item ->
@@ -268,6 +302,8 @@ private fun TrekNavBar(selected: Int, onSelect: (Int) -> Unit) {
                     if (index != selected) {
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         onSelect(index)
+                    } else {
+                        onReselect(index)
                     }
                 },
                 icon = { Icon(item.icon, contentDescription = null, modifier = Modifier.size(22.dp)) },
@@ -289,20 +325,24 @@ private fun TrekNavBar(selected: Int, onSelect: (Int) -> Unit) {
 // ---------------------------------------------------------------------------------------
 
 @Composable
-private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Modifier) {
+private fun Dashboard(
+    state: DashboardViewModel.UiState,
+    scrollState: ScrollState,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val dpi = remember { context.resources.displayMetrics.densityDpi }
     val todayMeters = pixelsToMeters(state.todayPx, dpi)
     val byDate = remember(state.days) {
         state.days.associate { LocalDate.parse(it.date) to it.pixels }
     }
-    val week = remember(byDate) { dailyBuckets(byDate, 7) }
+    val week = remember(byDate, state.today) { dailyBuckets(byDate, 7, state.today) }
     val hasEverTracked = state.days.isNotEmpty()
 
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = GUTTER)
             .padding(top = 6.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -322,9 +362,9 @@ private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Mo
                 val meters = pixelsToMeters(it.pixels, dpi)
                 ChartSlice(it.packageName, appName(it.packageName, state.customLabels), meters.toFloat(), formatDistance(meters))
             },
-            delta = dayOverDayDelta(byDate),
+            delta = dayOverDayDelta(byDate, state.today),
+            yesterdayMeters = pixelsToMeters(byDate[state.today.minusDays(1)] ?: 0L, dpi),
             limitM = state.limitM,
-            clean = state.todayClean,
             cleanStreak = state.cleanStreak,
         )
 
@@ -337,11 +377,14 @@ private fun Dashboard(state: DashboardViewModel.UiState, modifier: Modifier = Mo
                 week = week.map { pixelsToMeters(it.pixels, dpi).toFloat() },
                 labels = week.map { it.label },
                 weekMeters = pixelsToMeters(state.weekPx, dpi),
-                delta = weekOverWeekDelta(byDate),
+                delta = weekOverWeekDelta(byDate, state.today),
+                limitM = state.limitM,
             )
         }
 
-        if (!hasEverTracked || !state.trackingEnabled || state.streak < 2) {
+        // Held back until Room has answered, so a returning user never sees a flash of
+        // the first-run checklist while their history is still loading.
+        if (state.loaded && (!hasEverTracked || !state.trackingEnabled || state.streak < 2)) {
             FirstTrekChecklist(
                 trackingOn = state.trackingEnabled,
                 hasScrolled = state.todayPx > 0 || hasEverTracked,
@@ -365,8 +408,8 @@ private fun DailySummary(
     streak: Int,
     slices: List<ChartSlice>,
     delta: Int?,
+    yesterdayMeters: Double,
     limitM: Float?,
-    clean: Boolean,
     cleanStreak: Int,
 ) {
     Column(
@@ -400,12 +443,21 @@ private fun DailySummary(
             color = Trek.inkMuted,
             textAlign = TextAlign.Center,
         )
-        if (delta != null && todayMeters > 0.0) {
+        // Today is still running, so a percentage against all of yesterday reads as a big
+        // drop every morning. Show the percentage only once today has caught up (it can
+        // only grow from there); before that, yesterday's total is the honest reference.
+        if (delta != null && delta >= 0 && todayMeters > 0.0) {
             DeltaMark(delta, "vs yesterday")
+        } else if (yesterdayMeters > 0.0) {
+            Text(
+                "Yesterday: ${formatDistance(yesterdayMeters)}",
+                style = MaterialTheme.typography.labelMedium,
+                color = Trek.inkMuted,
+            )
         }
         TrekPanel {
             if (limitM != null) {
-                LimitGlance(todayMeters, limitM, clean, cleanStreak)
+                LimitGlance(todayMeters, limitM, cleanStreak)
             } else {
                 Text("Find your baseline", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
                 Spacer(Modifier.height(6.dp))
@@ -415,26 +467,45 @@ private fun DailySummary(
     }
 }
 
+/**
+ * Three readings of the same rail: comfortably inside, close (from the same 80% mark the
+ * limit nudge uses, so the screen and the notification agree), and over. Each is said in
+ * words as well as colour.
+ */
 @Composable
 private fun LimitGlance(
     todayMeters: Double,
     limitM: Float,
-    clean: Boolean,
     cleanStreak: Int,
 ) {
     val limit = limitM.toDouble().coerceAtLeast(1.0)
-    val tint = if (clean) Trek.success else Trek.danger
-    Column {
+    val level = limitNudgeLevel(todayMeters, limit)
+    val tint = when (level) {
+        2 -> Trek.danger
+        1 -> Trek.amber
+        else -> Trek.success
+    }
+    val remaining = formatDistance((limit - todayMeters).coerceAtLeast(0.0))
+    Column(
+        modifier = Modifier.semantics(mergeDescendants = true) {},
+    ) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
             Text("Daily limit", modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = Trek.ink)
-            Text(formatDistance(limit), style = TrekFigure, color = Trek.inkMuted)
+            Text(
+                "${formatDistance(todayMeters)} of ${formatDistance(limit)}",
+                style = TrekFigure,
+                color = Trek.inkMuted,
+            )
         }
         Spacer(Modifier.height(12.dp))
         Rail((todayMeters / limit).toFloat(), color = tint, track = tint.copy(alpha = 0.12f), height = 6.dp)
         Spacer(Modifier.height(10.dp))
         Text(
-            if (clean) "${formatDistance((limit - todayMeters).coerceAtLeast(0.0))} remaining today"
-            else "${formatDistance(todayMeters - limit)} over. A good moment to pause.",
+            when (level) {
+                2 -> "${formatDistance(todayMeters - limit)} over. A good moment to pause."
+                1 -> "$remaining left. You’re getting close."
+                else -> "$remaining remaining today"
+            },
             style = MaterialTheme.typography.bodyMedium, color = tint,
         )
         if (cleanStreak > 0) {
@@ -449,12 +520,41 @@ private fun WeekGlance(
     labels: List<String>,
     weekMeters: Double,
     delta: Int?,
+    limitM: Float?,
 ) {
     Column {
-        SectionHead("This week", trailing = formatDistance(weekMeters))
-        HistoryBars(week.mapIndexed { i, value -> ChartBar(labels.getOrElse(i) { "" }, value) }, highlight = week.lastIndex, height = 84.dp, barColor = Trek.accent.copy(alpha = 0.4f))
+        SectionHead("Last 7 days", trailing = formatDistance(weekMeters) + " this week")
+        HistoryBars(
+            week.mapIndexed { i, value -> ChartBar(labels.getOrElse(i) { "" }, value) },
+            highlight = week.lastIndex,
+            height = 84.dp,
+            barColor = Trek.accent.copy(alpha = 0.4f),
+            guide = limitM,
+        )
         Spacer(modifier = Modifier.height(8.dp))
-        DeltaMark(delta, "vs last week")
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { DeltaMark(delta, "vs last week") }
+            if (limitM != null && week.any { it > 0f }) {
+                LimitKey()
+            }
+        }
+    }
+}
+
+/** Legend for the dashed limit line drawn over the bar charts. */
+@Composable
+private fun LimitKey() {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Spacer(
+            modifier = Modifier
+                .width(14.dp)
+                .height(2.dp)
+                .background(Trek.danger.copy(alpha = 0.7f)),
+        )
+        Text("Daily limit", style = MaterialTheme.typography.bodySmall, color = Trek.inkMuted)
     }
 }
 
@@ -582,24 +682,31 @@ private fun TrackingOffBanner(onEnable: () -> Unit) {
 private val RANGES = listOf("7 days", "8 weeks", "6 months")
 
 @Composable
-private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modifier) {
+private fun History(
+    state: DashboardViewModel.UiState,
+    listState: LazyListState,
+    modifier: Modifier = Modifier,
+) {
     val context = LocalContext.current
     val dpi = remember { context.resources.displayMetrics.densityDpi }
     val dateFormat = remember { DateTimeFormatter.ofPattern("EEE d MMM") }
     val monthFormat = remember { DateTimeFormatter.ofPattern("MMMM yyyy") }
     var range by rememberSaveable { mutableIntStateOf(0) }
+    val today = state.today
 
     val byDate = remember(state.days) {
         state.days.associate { LocalDate.parse(it.date) to it.pixels }
     }
-    val buckets = remember(byDate, range) {
+    val buckets = remember(byDate, range, today) {
         when (range) {
-            0 -> dailyBuckets(byDate, 7)
-            1 -> weeklyBuckets(byDate, 8)
-            else -> monthlyBuckets(byDate, 6)
+            0 -> dailyBuckets(byDate, 7, today)
+            1 -> weeklyBuckets(byDate, 8, today)
+            else -> monthlyBuckets(byDate, 6, today)
         }
     }
     val allTime = remember(byDate) { byDate.values.sum() }
+
+    if (!state.loaded) return
 
     if (state.days.isEmpty()) {
         Column(
@@ -622,6 +729,7 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
     }
 
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = GUTTER),
@@ -665,7 +773,13 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
                         haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         selected = if (tapped == selected) -1 else tapped
                     },
+                    // The limit is per day, so it only means something on the day range.
+                    guide = state.limitM.takeIf { range == 0 },
                 )
+                if (range == 0 && state.limitM != null && buckets.any { it.pixels > 0 }) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LimitKey()
+                }
                 Spacer(modifier = Modifier.height(14.dp))
                 buckets.getOrNull(selected)?.let { bucket ->
                     PeriodDetail(
@@ -683,12 +797,49 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
 
         if (state.limitM != null) item("cleanMonth") {
             var calDay by rememberSaveable { mutableStateOf<String?>(null) }
+            // Months back from the current one. Bounded by the first tracked month, so
+            // paging back never lands on a calendar that can only ever be empty.
+            var monthsBack by rememberSaveable { mutableIntStateOf(0) }
+            val thisMonth = YearMonth.from(today)
+            val firstMonth = remember(byDate) {
+                byDate.keys.minOrNull()?.let { YearMonth.from(it) } ?: thisMonth
+            }
+            val maxBack = (thisMonth.year - firstMonth.year) * 12 +
+                (thisMonth.monthValue - firstMonth.monthValue)
+            val shownMonth = thisMonth.minusMonths(monthsBack.coerceIn(0, maxBack).toLong())
+            val (cleanDays, trackedDays) = remember(byDate, shownMonth, state.limitM, today) {
+                val days = (1..shownMonth.lengthOfMonth()).map { shownMonth.atDay(it) }
+                    .filter { !it.isAfter(today) && byDate[it] != null }
+                days.count { pixelsToMeters(byDate.getValue(it), dpi) <= state.limitM } to days.size
+            }
             Column {
-                SectionHead(
-                    "Days in balance",
-                    trailing = monthFormat.format(YearMonth.now()),
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text("Days in balance", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
+                        Text(
+                            if (trackedDays == 0) monthFormat.format(shownMonth)
+                            else "${monthFormat.format(shownMonth)} · $cleanDays of $trackedDays within limit",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Trek.inkMuted,
+                        )
+                    }
+                    IconAction(
+                        icon = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
+                        label = "Previous month",
+                        enabled = monthsBack < maxBack,
+                        onClick = { monthsBack++; calDay = null },
+                    )
+                    IconAction(
+                        icon = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                        label = "Next month",
+                        enabled = monthsBack > 0,
+                        onClick = { monthsBack--; calDay = null },
+                    )
+                }
+                Spacer(modifier = Modifier.height(10.dp))
                 CleanMonthGrid(
+                    month = shownMonth,
+                    today = today,
                     byDate = byDate,
                     dpi = dpi,
                     limitM = state.limitM,
@@ -738,8 +889,8 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
                         accent = Trek.amber,
                     )
                 }
-                val bestWeek = remember(byDate) {
-                    weeklyBuckets(byDate, 52).maxByOrNull { it.pixels }
+                val bestWeek = remember(byDate, today) {
+                    weeklyBuckets(byDate, 52, today).maxByOrNull { it.pixels }
                 }
                 if (bestWeek != null && bestWeek.pixels > 0) {
                     LedgerLine(
@@ -749,12 +900,38 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
                         accent = Trek.amber,
                     )
                 }
+                // Average over the days since tracking began, capped at a week, so a
+                // two-day-old install isn't divided by seven empty days.
+                val average = remember(byDate, today) {
+                    val first = byDate.keys.minOrNull() ?: today
+                    val span = (java.time.temporal.ChronoUnit.DAYS.between(first, today) + 1)
+                        .coerceIn(1, 7).toInt()
+                    dailyBuckets(byDate, span, today).sumOf { it.pixels } / span to span
+                }
+                if (average.first > 0) {
+                    LedgerLine(
+                        label = "Daily average",
+                        value = formatDistance(pixelsToMeters(average.first, dpi)),
+                        caption = if (average.second == 7) "over the last 7 days"
+                            else "over your first ${average.second} ${if (average.second == 1) "day" else "days"}",
+                        accent = Trek.ink,
+                    )
+                }
                 LedgerLine(
                     label = "Current streak",
-                    value = if (state.streak > 0) "${state.streak} days" else "None",
-                    caption = if (state.streak > 0) "keep it going" else "scroll today to start one",
+                    value = if (state.streak > 0) "${state.streak} ${if (state.streak == 1) "day" else "days"}" else "None",
+                    caption = if (state.streak > 0) "days in a row with tracked scrolling" else "scroll today to start one",
                     accent = if (state.streak > 0) Trek.amber else Trek.inkFaint,
                 )
+                if (state.limitM != null) {
+                    LedgerLine(
+                        label = "Within your limit",
+                        value = "${state.cleanStreak} ${if (state.cleanStreak == 1) "day" else "days"}",
+                        caption = if (state.cleanStreak > 0) "in a row, including today"
+                            else "stay under ${formatDistance(state.limitM.toDouble())} today to start a run",
+                        accent = if (state.cleanStreak > 0) Trek.success else Trek.inkFaint,
+                    )
+                }
             }
         }
 
@@ -819,8 +996,8 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
                     label = date.format(dateFormat),
                     value = formatDistance(meters),
                     fraction = if (busiestDay > 0) day.pixels.toFloat() / busiestDay else 0f,
-                    color = if (date == LocalDate.now()) Trek.accent else Trek.slate,
-                    labelColor = if (date == LocalDate.now()) Trek.ink else Trek.inkMuted,
+                    color = if (date == today) Trek.accent else Trek.slate,
+                    labelColor = if (date == today) Trek.ink else Trek.inkMuted,
                     modifier = Modifier.semantics(mergeDescendants = true) {
                         contentDescription = "${date.format(dateFormat)}: ${formatDistance(meters)}"
                     },
@@ -837,14 +1014,14 @@ private fun History(state: DashboardViewModel.UiState, modifier: Modifier = Modi
  */
 @Composable
 private fun CleanMonthGrid(
+    month: YearMonth,
+    today: LocalDate,
     byDate: Map<LocalDate, Long>,
     dpi: Int,
     limitM: Float,
     selectedDay: LocalDate?,
     onSelect: (LocalDate?) -> Unit,
 ) {
-    val month = remember { YearMonth.now() }
-    val today = remember { LocalDate.now() }
     val limit = limitM.toDouble()
     val cells = remember(month) {
         val first = month.atDay(1)
@@ -908,7 +1085,7 @@ private fun CleanMonthGrid(
                                     },
                                     shape,
                                 )
-                                .clickable(role = Role.Button) {
+                                .clickable(enabled = !future, role = Role.Button) {
                                     onSelect(if (selected) null else date)
                                 }
                                 .semantics(mergeDescendants = true) {
@@ -1070,43 +1247,55 @@ private fun CheckpointShelf(badges: List<Badge>) {
     }
     val earned = ordered.count { it.earned }
     val next = ordered.firstOrNull { !it.earned }
+    var picked by rememberSaveable { mutableStateOf<String?>(null) }
+    val focus = ordered.firstOrNull { it.id == picked }
 
     Column {
-        SectionHead("Achievements", trailing = "$earned / ${badges.size}")
+        SectionHead("Achievements", trailing = "$earned of ${badges.size} earned")
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             contentPadding = PaddingValues(vertical = 2.dp),
         ) {
             items(ordered, key = { it.id }) { badge ->
-                CheckpointTile(badge)
+                CheckpointTile(
+                    badge = badge,
+                    selected = badge.id == picked,
+                    onClick = { picked = if (picked == badge.id) null else badge.id },
+                )
             }
         }
-        if (next != null) {
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(
-                "Next up: ${next.detail.lowercase()} (${percentCaption(next.progress)}).",
-                style = MaterialTheme.typography.bodySmall,
-                color = Trek.inkMuted,
-            )
-        }
+        Spacer(modifier = Modifier.height(12.dp))
+        // A tapped tile explains itself; otherwise the shelf points at the nearest goal.
+        Text(
+            when {
+                focus?.earned == true -> "${focus.label}: earned. ${focus.detail}."
+                focus != null -> "${focus.label}: ${focus.detail.lowercase()} (${percentCaption(focus.progress)} there)."
+                next != null -> "Next up: ${next.detail.lowercase()} (${percentCaption(next.progress)})."
+                else -> "Every achievement earned. Impressive thumb."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = Trek.inkMuted,
+        )
     }
 }
 
 @Composable
-private fun CheckpointTile(badge: Badge) {
+private fun CheckpointTile(badge: Badge, selected: Boolean, onClick: () -> Unit) {
     val tint = if (badge.earned) Trek.accent else Trek.inkFaint
     Column(
         modifier = Modifier
             .width(116.dp)
+            .clip(MaterialTheme.shapes.medium)
             .background(
                 if (badge.earned) Trek.accentWash else Trek.groundRaised,
                 MaterialTheme.shapes.medium,
             )
             .border(
                 1.dp,
-                Color.Transparent,
+                if (selected) Trek.ink else Color.Transparent,
                 MaterialTheme.shapes.medium,
             )
+            .clickable(role = Role.Button, onClick = onClick)
             .padding(vertical = 14.dp, horizontal = 6.dp)
             .semantics(mergeDescendants = true) {
                 contentDescription = if (badge.earned) {

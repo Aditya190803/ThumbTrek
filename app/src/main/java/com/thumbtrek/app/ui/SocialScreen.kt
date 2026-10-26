@@ -21,7 +21,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
@@ -52,6 +55,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -89,6 +93,7 @@ fun SocialScreen(
     vm: SocialViewModel = viewModel(),
     inviteCode: String? = null,
     onInviteConsumed: () -> Unit = {},
+    listState: LazyListState = rememberLazyListState(),
 ) {
     val state by vm.state.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -125,6 +130,7 @@ fun SocialScreen(
     }
 
     LazyColumn(
+        state = listState,
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = GUTTER),
@@ -352,7 +358,7 @@ private fun ConsentPanel(state: SocialViewModel.UiState, vm: SocialViewModel) {
         TrekPanel {
             ConsentLine("An anonymous handle", "on the global board, unless you switch your name on")
             Hairline(modifier = Modifier.padding(vertical = 12.dp))
-            ConsentLine("Your Google name", "visible to friends you added · you chose them")
+            ConsentLine("Your Google name", "visible to friends you added, since you chose them")
             Hairline(modifier = Modifier.padding(vertical = 12.dp))
             ConsentLine("No profile photo", "on global; friends see yours")
             Hairline(modifier = Modifier.padding(vertical = 12.dp))
@@ -360,15 +366,15 @@ private fun ConsentPanel(state: SocialViewModel.UiState, vm: SocialViewModel) {
             Hairline(modifier = Modifier.padding(vertical = 12.dp))
             ConsentLine(
                 "Your day-by-day history",
-                "private to your account · never on the board",
+                "private to your account, never on the board",
             )
         }
         Text(
             "The handle and distances are the global board: anyone signed in can see them. " +
-                "Friends you added see your Google name instead · you chose them, so no " +
-                "handle there. Your history and " +
+                "Friends you added see your Google name instead, since you chose them. " +
+                "Your history and " +
                 "per-app split sync privately, so your own dashboard can chart them and they " +
-                "survive a reinstall · nobody else can read them. Never a URL, a message, or " +
+                "survive a reinstall. Nobody else can read them. Never a URL, a message, or " +
                 "anything you scrolled past. Boards reset every Monday, and switching this " +
                 "off deletes all of it from the server.",
             style = MaterialTheme.typography.bodyMedium,
@@ -667,6 +673,11 @@ private fun FriendCodeBlock(
                 shape = MaterialTheme.shapes.small,
                 keyboardOptions = KeyboardOptions(
                     capitalization = KeyboardCapitalization.Characters,
+                    autoCorrectEnabled = false,
+                    imeAction = ImeAction.Send,
+                ),
+                keyboardActions = KeyboardActions(
+                    onSend = { if (codeInput.isNotBlank()) vm.addFriend(codeInput) },
                 ),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = Trek.accent,
@@ -865,7 +876,7 @@ private fun AnonymousToggle(state: SocialViewModel.UiState, vm: SocialViewModel)
             Text("Show my name", style = MaterialTheme.typography.bodyLarge, color = Trek.ink)
             Text(
                 if (state.anonymous) {
-                    "Global board shows \"${state.myName}\" · friends always see your Google name"
+                    "Global board shows \"${state.myName}\". Friends always see your Google name."
                 } else {
                     "Global board shows your Google name and photo"
                 },

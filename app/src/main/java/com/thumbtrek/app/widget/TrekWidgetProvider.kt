@@ -44,6 +44,15 @@ class TrekWidgetProvider : AppWidgetProvider() {
                 setTextViewText(R.id.widget_limit, data.limitLabel)
                 setViewVisibility(R.id.widget_progress, if (data.limitPercent == null) android.view.View.GONE else android.view.View.VISIBLE)
                 setProgressBar(R.id.widget_progress, 100, data.limitPercent ?: 0, false)
+                // Past the limit the bar turns red as well as full, so the state reads
+                // without the caption. Resource ids keep it following the night palette.
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.S) {
+                    setColorStateList(
+                        R.id.widget_progress,
+                        "setProgressTintList",
+                        if (data.overLimit) R.color.widget_danger else R.color.widget_accent,
+                    )
+                }
                 setOnClickPendingIntent(
                     R.id.widget_root,
                     android.app.PendingIntent.getActivity(
@@ -72,6 +81,7 @@ class TrekWidgetProvider : AppWidgetProvider() {
                 weekLabel = formatDistance(pixelsToMeters(totalThisWeek(byDate), dpi)),
                 streak = trekStreak(byDate.keys),
                 limitPercent = limitM?.let { (todayM / it.coerceAtLeast(1.0) * 100).toInt().coerceIn(0, 100) },
+                overLimit = limitM != null && !isCleanDay(todayM, limitM),
                 // Ambient limit: "62 m of 100 m" on track, "112 m · over 100 m" past it.
                 limitLabel = if (limitM == null) "Tracking without a daily limit" else if (isCleanDay(todayM, limitM)) {
                     "${formatDistance(todayM)} of ${formatDistance(limitM)} limit"
@@ -89,4 +99,5 @@ private data class WidgetData(
     val streak: Int,
     val limitLabel: String,
     val limitPercent: Int?,
+    val overLimit: Boolean,
 )

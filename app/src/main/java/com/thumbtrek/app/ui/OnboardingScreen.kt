@@ -18,7 +18,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -51,7 +54,12 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
         ) == PackageManager.PERMISSION_GRANTED
         onPauseOrDispose { }
     }
-    BackHandler(enabled = step > 0) { prefs.setOnboardingStep(step - 1) }
+    val focus = LocalFocusManager.current
+    // With the keyboard up, Back belongs to the keyboard. Without this, dismissing it on
+    // the limit step also stepped the whole flow back a page.
+    @OptIn(ExperimentalLayoutApi::class)
+    val imeVisible = WindowInsets.isImeVisible
+    BackHandler(enabled = step > 0 && !imeVisible) { prefs.setOnboardingStep(step - 1) }
     if (showPicker) AppPickerDialog(settings) { showPicker = false }
 
     Scaffold(containerColor = Trek.ground, contentColor = Trek.ink) { padding ->
@@ -63,8 +71,10 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 BrandMark(Modifier.size(36.dp))
                 Spacer(Modifier.weight(1f))
-                Text("${step + 1} of 4", style = TrekOverline, color = Trek.inkMuted)
+                Text("Step ${step + 1} of 4", style = TrekOverline, color = Trek.inkMuted)
                 if (step > 0) TextButton(onClick = { prefs.setOnboardingStep(step - 1) }) { Text("Back") }
+                // Reviewing setup from Settings shouldn't mean walking all four steps again.
+                if (prefs.setupDone) TextButton(onClick = { prefs.setOnboardingStep(4) }) { Text("Done") }
             }
             Rail((step + 1) / 4f, height = 4.dp)
             when (step) {
@@ -109,6 +119,10 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
                     PageHeading("Find your own pace.", "There is no one-size-fits-all daily limit.")
                     Text("Choose a distance that feels right for you, or track your usual scrolling first. A limit is a gentle reference, not a block on your apps.", color = Trek.inkMuted)
                     val limit = parseDailyLimit(input)
+                    LimitPresets(
+                        selected = input.toIntOrNull(),
+                        onPick = { input = it.toString(); prefs.limitDraft = input; saveError = null },
+                    )
                     OutlinedTextField(
                         value = input,
                         onValueChange = { input = it.filter(Char::isDigit).take(5); prefs.limitDraft = input; saveError = null },
@@ -117,7 +131,8 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
                         supportingText = { Text(if (input.isNotEmpty() && limit == null) "Enter between 10 and 10,000 metres." else "10–10,000 metres. You can change this later.") },
                         isError = input.isNotEmpty() && limit == null,
                         singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
                     )
                     if (limit != null) Text(comparison(limit.toDouble()), color = Trek.inkMuted)
                     saveError?.let { Text(it, color = Trek.danger) }

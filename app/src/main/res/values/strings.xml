@@ -6,4 +6,5 @@
     <string name="widget_zero_distance">0 m</string>
     <string name="widget_ready">Ready when you are</string>
     <string name="widget_limit_label">Your daily limit</string>
+    <string name="widget_description">Today’s distance, this week and your daily limit at a glance</string>
 </resources>
