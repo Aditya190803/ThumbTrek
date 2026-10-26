@@ -99,7 +99,7 @@ const state = {
   today: todayIso(),
   user: null,
   code: '',
-  row: { exists: false, data: null, fromCache: false },
+  row: { exists: false, data: null, fromCache: false, loaded: false },
   days: { docs: [], fromCache: false, loaded: false },
   friends: { accepted: [], pending: [], fromCache: false },
   profiles: new Map(),
@@ -117,6 +117,13 @@ const state = {
 
 /** Live-query teardown, so switching accounts does not leave listeners on the old uid. */
 let unsubscribes = [];
+
+/**
+ * Bumped on every auth change. Attaching each listener is awaited, so a second change can
+ * land while the first account is still wiring up; anything that finishes under an old
+ * generation is torn down on arrival instead of writing the old account into the new view.
+ */
+let authGeneration = 0;
 
 /**
  * Whose friend code has already been published this session. Board-row snapshots arrive
@@ -165,6 +172,9 @@ function wireStaticControls() {
   for (const button of document.querySelectorAll('[data-signin]')) {
     button.addEventListener('click', async () => {
       button.disabled = true;
+      button.setAttribute('aria-busy', 'true');
+      // A retry should not keep showing the previous attempt's failure underneath it.
+      show(byId('welcome-error'), false);
       try {
         await signIn();
       } catch (error) {
@@ -172,6 +182,7 @@ function wireStaticControls() {
         show(byId('welcome-error'), true);
       } finally {
         button.disabled = false;
+        button.removeAttribute('aria-busy');
       }
     });
   }
@@ -189,6 +200,8 @@ function setOffline(offline) {
 
 async function onAuthChanged(user) {
   stopWatching();
+  const generation = ++authGeneration;
+  const current = () => generation === authGeneration;
   state.user = user;
   // The CSS layer hides the wrong header half for this value even before the show()
   // calls below run, so Sign out can never leak into a signed-out render.
@@ -196,13 +209,17 @@ async function onAuthChanged(user) {
   state.profiles = new Map();
   state.podium = [];
   state.board = { entries: [], cursor: null, exhausted: true, pages: 0, loading: false, error: null };
+  // Cleared for every change, not just sign-out, so the next account on this tab never
+  // paints the previous one's figures or friends before its own snapshots arrive.
+  state.row = { exists: false, data: null, fromCache: false, loaded: false };
+  state.days = { docs: [], fromCache: false, loaded: false };
+  state.friends = { accepted: [], pending: [], fromCache: false };
+  state.myRank = null;
 
   show(byId('welcome'), !user);
   show(byId('dashboard'), Boolean(user));
   show(byId('account'), Boolean(user));
   if (!user) {
-    state.row = { exists: false, data: null, fromCache: false };
-    state.days = { docs: [], fromCache: false, loaded: false };
     codeRegisteredFor = null;
     return;
   }
@@ -210,20 +227,37 @@ async function onAuthChanged(user) {
   byId('account-name').textContent = user.displayName || 'Trekker';
   const avatar = byId('account-avatar');
   if (user.photoURL) {
+    avatar.referrerPolicy = 'no-referrer';
     avatar.src = user.photoURL;
     show(avatar, true);
   } else {
     show(avatar, false);
   }
 
-  state.code = await friendCode(user.uid);
+  const code = await friendCode(user.uid);
+  if (!current()) return;
+  state.code = code;
   renderFriendCode();
 
-  unsubscribes.push(
+  /** Keeps a freshly attached listener, or stops it at once if the account changed. */
+  const keep = (stop) => {
+    if (current()) {
+      unsubscribes.push(stop);
+    } else {
+      try {
+        stop();
+      } catch {
+        /* see stopWatching */
+      }
+    }
+  };
+
+  keep(
     await watchBoardRow(
       user.uid,
       (row) => {
-        state.row = row;
+        if (!current()) return;
+        state.row = { ...row, loaded: true };
         // The friend-code index is only published once some client has opted this account
         // in — a board row existing IS that opt-in. Registering it earlier would put a
         // uid in a public collection for someone who never agreed to be findable.
@@ -233,27 +267,41 @@ async function onAuthChanged(user) {
         }
         renderAll();
       },
-      (error) => reportSection('history-error', explainError(error)),
+      (error) => current() && reportSection('history-error', explainError(error)),
     ),
+  );
+  keep(
     await watchDays(
       user.uid,
       (days) => {
+        if (!current()) return;
         state.days = { ...days, loaded: true };
         renderAll();
       },
-      (error) => reportSection('history-error', explainError(error)),
+      (error) => {
+        if (!current()) return;
+        // A failed listener never delivers a snapshot, so without this flag every section
+        // waiting on the first one would shimmer forever above the error that explains why.
+        state.days = { ...state.days, failed: true };
+        reportSection('history-error', explainError(error));
+        renderAll();
+      },
     ),
+  );
+  keep(
     await watchFriends(
       user.uid,
       (friends) => {
+        if (!current()) return;
         state.friends = friends;
         refreshFriendProfiles();
         if (state.boardKind === 'friends') refreshBoard();
         renderFriends();
       },
-      (error) => reportSection('friends-error', explainError(error)),
+      (error) => current() && reportSection('friends-error', explainError(error)),
     ),
   );
+  if (!current()) return;
 
   refreshBoard();
   loadLastWeekPodium();
@@ -338,6 +386,25 @@ function renderConnection() {
 
 function renderTotals({ byDate, active }) {
   const today = state.today;
+  const todayBlock = byId('today-figure').closest('.today');
+  const grid = byId('totals-grid');
+  // Same rule as the history: until the first day snapshot lands, "0 m" would be a claim
+  // about today rather than an admission that the page has not heard yet.
+  if (!state.days.loaded) {
+    todayBlock.setAttribute('aria-busy', String(!state.days.failed));
+    grid.setAttribute('aria-busy', String(!state.days.failed));
+    byId('today-figure').textContent = '—';
+    byId('today-unit').textContent = '';
+    byId('today-compare').textContent = state.days.failed
+      ? 'Your history could not be read — the reason is under History below.'
+      : 'Reading today’s trek…';
+    show(byId('today-goal'), false);
+    show(byId('today-delta'), false);
+    fill(grid, state.days.failed ? null : loadingSkeleton('Reading your totals', [60, 60, 60, 60]));
+    return;
+  }
+  todayBlock.removeAttribute('aria-busy');
+  grid.removeAttribute('aria-busy');
   const todayUm = byDate.get(today) ?? 0;
   let weekUm = 0;
   let monthUm = 0;
@@ -428,7 +495,8 @@ function renderHistory(derived) {
   // things, so the first snapshot has to land before either sentence is allowed on screen.
   if (!state.days.loaded) {
     show(body, false);
-    show(empty, true);
+    // After a failure the error above says it all; a skeleton under it would promise data.
+    show(empty, !state.days.failed);
     fill(empty, loadingSkeleton('Reading your history'));
     return;
   }
@@ -611,6 +679,15 @@ function renderDayLog(byDate) {
 }
 
 function renderRecords({ byDate, active }) {
+  if (!state.days.loaded) {
+    show(byId('streak'), false);
+    fill(
+      byId('records-rows'),
+      state.days.failed ? null : loadingSkeleton('Reading your records', [70, 55, 62]),
+    );
+    return;
+  }
+  show(byId('streak'), true);
   const streak = trekStreak(active, state.today);
   const record = personalRecord(byDate);
   const bestWeek = weeklyBuckets(byDate, 52, state.today).reduce(
@@ -638,11 +715,17 @@ function renderRecords({ byDate, active }) {
     ),
   );
 
+  // The clean-day badges are left out rather than shown at 0%. A daily limit is per-device
+  // and never synced (PRD §11.7), so this page cannot know whether a day was clean — and a
+  // row of "stay under your limit" tiles stuck at zero would pass that judgement on every
+  // visitor, including people in baseline mode who never set a limit at all.
   const earned = badges(
     metersFromUm(allUm),
     metersFromUm(record?.um ?? 0),
     streak,
-  ).sort((a, b) => Number(b.earned) - Number(a.earned) || b.progress - a.progress);
+  )
+    .filter((badge) => !badge.id.startsWith('clean_'))
+    .sort((a, b) => Number(b.earned) - Number(a.earned) || b.progress - a.progress);
 
   byId('badge-count').textContent = `${earned.filter((b) => b.earned).length} / ${earned.length}`;
   fill(
@@ -784,6 +867,8 @@ function renderBoard() {
   const keys = currentKeys(state.today);
   const ranked = rankEntries(state.board.entries, state.periodId, keys);
   const target = byId('board-rows');
+  target.setAttribute('aria-busy', String(state.board.loading));
+  byId('board-refresh').disabled = state.board.loading;
   reportSection('board-error', state.board.error);
 
   const mine = rankOf(ranked, state.user?.uid);
@@ -793,6 +878,9 @@ function renderBoard() {
     standing.textContent =
       state.boardKind === 'global' ? `You're #${rank} globally.` : `You're #${rank} of this group.`;
     show(standing, true);
+  } else if (!state.row.loaded) {
+    // Neither "not published" nor "not ranked" is true yet — the row has not arrived.
+    show(standing, false);
   } else if (state.row.exists) {
     standing.textContent = "You're not on this board for this period yet.";
     show(standing, true);
@@ -891,14 +979,26 @@ function boardRow(entry, leader) {
 }
 
 function avatar(photoUrl, name) {
-  if (photoUrl) {
-    return el('img', { class: 'avatar', src: photoUrl, alt: '', loading: 'lazy', width: 32, height: 32 });
-  }
-  return el('span', {
-    class: 'avatar avatar-blank',
-    'aria-hidden': 'true',
-    text: (name || '?').charAt(0).toUpperCase(),
+  const initial = () =>
+    el('span', {
+      class: 'avatar avatar-blank',
+      'aria-hidden': 'true',
+      text: (name || '?').charAt(0).toUpperCase(),
+    });
+  if (!photoUrl) return initial();
+  // Google profile photos refuse hotlinked requests that carry a referrer, and a dead
+  // photo URL should fall back to the initial rather than a broken-image glyph.
+  const img = el('img', {
+    class: 'avatar',
+    src: photoUrl,
+    alt: '',
+    loading: 'lazy',
+    width: 32,
+    height: 32,
+    referrerpolicy: 'no-referrer',
   });
+  img.addEventListener('error', () => img.replaceWith(initial()), { once: true });
+  return img;
 }
 
 function emptyState(title, body) {
@@ -1007,6 +1107,12 @@ async function refreshFriendProfiles() {
 }
 
 function renderFriends() {
+  // The code only resolves once some client has opted in and published the index entry,
+  // so say so rather than letting someone send out a code that finds nobody.
+  show(
+    byId('code-unpublished'),
+    Boolean(state.user) && state.row.loaded && !state.row.exists && !state.row.fromCache,
+  );
   const requests = state.friends.pending;
   show(byId('requests'), requests.length > 0);
   byId('requests-count').textContent = `${requests.length}`;
@@ -1133,9 +1239,10 @@ function wireDashboardControls() {
   });
 
   byId('board-more').addEventListener('click', loadMore);
-  byId('board-refresh').addEventListener('click', () => {
-    refreshBoard();
+  byId('board-refresh').addEventListener('click', async () => {
     loadLastWeekPodium();
+    await refreshBoard();
+    if (!state.board.error) announce('Leaderboard updated.');
   });
 
   byId('copy-code').addEventListener('click', async () => {

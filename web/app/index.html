@@ -7,13 +7,14 @@
   <meta name="description" content="Your ThumbTrek trek in the browser: totals, history, the split between phone and browser, streaks, records and the leaderboard." />
   <!-- A signed-in page has nothing to offer a crawler, and the URL is not a share target. -->
   <meta name="robots" content="noindex" />
-  <meta name="theme-color" content="#0c0f0b" />
+  <meta name="theme-color" content="#0c0f0b" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f3f1e8" media="(prefers-color-scheme: light)" />
   <link rel="icon" href="/assets/mark.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- The Firebase SDK is fetched from here on first paint; the handshake is worth pre-empting. -->
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/app/app.css" />
 </head>
@@ -34,7 +35,7 @@
     <div class="appbar-side">
       <button class="btn btn-primary btn-small" type="button" data-signin id="signin-head">Continue with Google</button>
       <span class="account" id="account" hidden>
-        <img class="avatar" id="account-avatar" alt="" width="28" height="28" hidden />
+        <img class="avatar" id="account-avatar" alt="" width="28" height="28" referrerpolicy="no-referrer" hidden />
         <span class="account-name" id="account-name"></span>
         <button class="btn btn-ghost btn-small" type="button" id="signout">Sign out</button>
       </span>
@@ -125,23 +126,23 @@
           <p class="overline">Today</p>
           <h2 id="totals-h" class="visually-hidden">Your totals</h2>
         </div>
-        <div class="today">
+        <div class="today" aria-busy="true">
           <p class="today-figure num">
-            <span id="today-figure">0</span><span class="unit" id="today-unit">m</span>
+            <span id="today-figure">—</span><span class="unit" id="today-unit"></span>
           </p>
           <p class="delta" id="today-delta" hidden></p>
           <p class="today-compare" id="today-compare"></p>
           <div id="today-goal" hidden></div>
         </div>
-        <div class="totals-grid" id="totals-grid"></div>
+        <div class="totals-grid" id="totals-grid" aria-busy="true"></div>
       </section>
 
       <section class="wrap" id="history" aria-labelledby="history-h">
         <div class="section-head">
           <p class="overline">History</p>
           <h2 id="history-h">Where the trek has been</h2>
-          <p>Every client writes one record per day, so this is the trek itself rather than a
-            running total. Pick a range; the split and the breakdown below follow it.</p>
+          <p>One record per device per day, so this is the trek itself rather than a running
+            total. Pick a range — the device split and the breakdown below follow it.</p>
         </div>
 
         <div class="control-row">
@@ -149,7 +150,7 @@
         </div>
 
         <p class="error" id="history-error" hidden></p>
-        <p class="empty-note" id="history-empty" hidden></p>
+        <div class="empty-note" id="history-empty" hidden></div>
 
         <div id="history-body">
           <div id="history-chart"></div>
@@ -194,14 +195,18 @@
         </h3>
         <ul class="badges" id="badges"></ul>
         <p class="fine" id="badge-next" hidden></p>
+        <p class="fine">
+          Clean-day checkpoints follow your daily limit, and that limit lives on each device
+          rather than in your account, so they are counted in the app, not here.
+        </p>
       </section>
 
       <section class="wrap" id="board-section" aria-labelledby="board-h">
         <div class="section-head">
           <p class="overline">Leaderboard</p>
           <h2 id="board-h">See how your week stacks up</h2>
-          <p>Boards rank on the shared unit, so a dense phone screen no longer wins by being
-            dense. Only trekkers who have opted in appear here.</p>
+          <p>Everyone is measured in the same metres, whatever their screen. Only trekkers who
+            turned leaderboards on in the app appear here.</p>
         </div>
 
         <div class="control-row">
@@ -245,6 +250,10 @@
           </div>
           <p class="fine">
             Invite link: <a id="invite-link" href="/i/">https://thumbtrek.adityamer.dev/i/</a>
+          </p>
+          <p class="fine" id="code-unpublished" hidden>
+            Nobody can find you by this code yet: it starts working once leaderboards are
+            turned on in the phone app. You can still add other people's codes below.
           </p>
         </div>
 

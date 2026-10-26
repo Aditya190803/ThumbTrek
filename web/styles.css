@@ -1,9 +1,12 @@
 /* ThumbTrek — survey-sheet landing page.
-   Committed dark: the mark, the app and the contour language are all built on the same
-   near-black ground, so there is no light variant to fall back to. Every colour is painted
-   explicitly rather than inherited, so the page holds wherever it is embedded. */
+   Two grounds, one identity (DESIGN.md): dark is the default paint — the mark, the app and
+   the contour language were all drawn on it — and a bone-paper light theme follows the
+   system preference. Every colour the pages use is a token below, so a surface never
+   hardcodes one theme's value and turns unreadable in the other. */
 
 :root {
+  color-scheme: dark light;
+
   --ground: #0c0f0b;
   --ground-raised: #13170f;
   --ground-sunken: #080a07;
@@ -11,14 +14,32 @@
   --hairline-soft: #1a1e14;
   --ink: #edf1e6;
   --ink-muted: #a9b39c;
-  --ink-faint: #79836d;
+  --ink-faint: #8a947d;
   --moss: #8be6a0;
+  --moss-hover: #a4efb5;
   --on-moss: #05210f;
   --moss-wash: #17281b;
+  --moss-line: rgba(139, 230, 160, 0.4);
   --amber: #f2b455;
+  --amber-wash: #2a2113;
+  --amber-ink: #f6e3c4;
+  --amber-line: rgba(242, 180, 85, 0.35);
+  --danger-wash: #2b1319;
+  --danger-ink: #f5d3d9;
+  --danger-line: rgba(240, 132, 151, 0.4);
   --slate: #8fb6cc;
+  --gold: #f2c55c;
+  --silver: #c9d2c2;
+  --bronze: #d09a66;
+  /* Frosted panels laid over the contour map. */
+  --glass: rgba(8, 10, 7, 0.72);
+  --tint: rgba(237, 241, 230, 0.03);
+  --map-top: rgba(23, 40, 27, 0.55);
+  --band-top: rgba(23, 40, 27, 0.3);
+  --shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
 
-  --display: "Space Grotesk", "Segoe UI", sans-serif;
+  /* One family (DESIGN.md): weight and size carry the hierarchy, not a second typeface. */
+  --display: "Manrope", "Segoe UI", sans-serif;
   --body: "Manrope", "Segoe UI", sans-serif;
 
   /* Modular scale, 1.25. Every size on the page is a step on it. */
@@ -43,6 +64,42 @@
   --gutter: clamp(1.25rem, 4vw, 2.5rem);
   --max: 68rem;
   --radius: 0.9rem;
+}
+
+/* Bone paper. Muted and faint inks are tuned to clear 4.5:1 on the ground, and amber and
+   slate are darkened so the same tokens still read as text. */
+@media (prefers-color-scheme: light) {
+  :root {
+    --ground: #f3f1e8;
+    --ground-raised: #fbfaf4;
+    --ground-sunken: #e9e6da;
+    --hairline: #d6d2c2;
+    --hairline-soft: #e3e0d3;
+    --ink: #171a10;
+    --ink-muted: #474d3d;
+    --ink-faint: #5f6953;
+    --moss: #1e6b3e;
+    --moss-hover: #17572f;
+    --on-moss: #ffffff;
+    --moss-wash: #e2eddf;
+    --moss-line: rgba(30, 107, 62, 0.35);
+    --amber: #9a5b00;
+    --amber-wash: #fbefd9;
+    --amber-ink: #5e3800;
+    --amber-line: rgba(154, 91, 0, 0.35);
+    --danger-wash: #fbe9ea;
+    --danger-ink: #82182a;
+    --danger-line: rgba(176, 40, 60, 0.35);
+    --slate: #3f6f8a;
+    --gold: #8a6200;
+    --silver: #5e6857;
+    --bronze: #8a5a2b;
+    --glass: rgba(251, 250, 244, 0.86);
+    --tint: rgba(23, 26, 16, 0.04);
+    --map-top: #e2eddf;
+    --band-top: rgba(30, 107, 62, 0.07);
+    --shadow: 0 20px 50px rgba(23, 26, 16, 0.08);
+  }
 }
 
 *,
@@ -94,13 +151,13 @@ a {
   font-variant-numeric: tabular-nums;
 }
 
-/* Wide-tracked overline. The same furniture the app uses for section markers. */
+/* Section overline. Sentence case at a readable size (DESIGN.md: no dense uppercase
+   labels) — the weight and the faint ink are what mark it as a label. */
 .overline {
   font-family: var(--display);
   font-weight: 600;
-  font-size: var(--t-xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-size: var(--t-sm);
+  letter-spacing: 0.01em;
   color: var(--ink-faint);
 }
 
@@ -168,13 +225,21 @@ a {
   transform: translateY(-1px);
 }
 
+/* A button waiting on the network says so, rather than looking like it ignored the click. */
+.btn[aria-busy="true"],
+.btn:disabled {
+  cursor: progress;
+  opacity: 0.7;
+  transform: none;
+}
+
 .btn-primary {
   background: var(--moss);
   color: var(--on-moss);
 }
 
 .btn-primary:hover {
-  background: #a4efb5;
+  background: var(--moss-hover);
 }
 
 .btn-ghost {
@@ -185,7 +250,7 @@ a {
 
 .btn-ghost:hover {
   border-color: var(--ink-faint);
-  background: rgba(237, 241, 230, 0.03);
+  background: var(--tint);
 }
 
 /* ——————————————————————————————— Hero ——————————————————————————————— */
@@ -238,9 +303,9 @@ a {
   position: relative;
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
-  background: linear-gradient(155deg, rgba(23, 40, 27, 0.55), var(--ground-sunken));
+  background: linear-gradient(155deg, var(--map-top), var(--ground-sunken));
   overflow: hidden;
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow);
 }
 
 .map svg {
@@ -290,9 +355,11 @@ a {
   animation: mark 400ms ease forwards;
 }
 
-.waypoint:nth-of-type(1) { animation-delay: 700ms; }
-.waypoint:nth-of-type(2) { animation-delay: 1400ms; }
-.waypoint:nth-of-type(3) { animation-delay: 1950ms; }
+/* Fill from tokens, not the markup's fill attribute (CSS wins over a presentation
+   attribute), so the dots darken with the light theme instead of washing out. */
+.waypoint:nth-of-type(1) { animation-delay: 700ms; fill: var(--amber); }
+.waypoint:nth-of-type(2) { animation-delay: 1400ms; fill: var(--moss); }
+.waypoint:nth-of-type(3) { animation-delay: 1950ms; fill: var(--slate); }
 
 @keyframes mark {
   from { opacity: 0; transform: scale(0.4); }
@@ -313,7 +380,7 @@ a {
   padding: 0.7rem 0.85rem;
   border: 1px solid var(--hairline);
   border-radius: 0.65rem;
-  background: rgba(8, 10, 7, 0.72);
+  background: var(--glass);
   backdrop-filter: blur(10px);
 }
 
@@ -353,6 +420,7 @@ section {
   margin-bottom: var(--s-5);
 }
 
+.section-head h1,
 .section-head h2 {
   margin: var(--s-2) 0 var(--s-2);
   font-family: var(--display);
@@ -514,7 +582,7 @@ section {
 .install {
   border-top: 1px solid var(--hairline);
   border-bottom: 1px solid var(--hairline);
-  background: linear-gradient(180deg, rgba(23, 40, 27, 0.3), transparent);
+  background: linear-gradient(180deg, var(--band-top), transparent);
 }
 
 .install-inner {
@@ -580,7 +648,13 @@ footer a:hover {
 }
 
 @media (max-width: 640px) {
-  .nav-links a:not(.btn) {
+  /* The in-page anchors go; the dashboard stays — on a phone it is the one other place
+     this page leads, and the footer is a long scroll away. */
+  .nav-links {
+    gap: var(--s-3);
+  }
+
+  .nav-links a:not(.btn):not([href^="/"]) {
     display: none;
   }
 
@@ -589,6 +663,25 @@ footer a:hover {
   }
 
   .rung-note {
+    display: none;
+  }
+}
+
+/* On a narrow phone three overlaid readouts would cover the whole route, so they drop
+   below the map instead of sitting on it. */
+@media (max-width: 480px) {
+  .readouts {
+    position: static;
+    padding: 0 var(--s-3) var(--s-3);
+  }
+
+  .nav .btn {
+    padding-inline: 0.9rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .nav-links a:not(.btn) {
     display: none;
   }
 }

@@ -59,10 +59,10 @@ code {
 .error {
   margin: var(--s-3) 0 0;
   padding: 0.85rem 1rem;
-  border: 1px solid rgba(240, 132, 151, 0.4);
+  border: 1px solid var(--danger-line);
   border-radius: 0.55rem;
-  background: #2b1319;
-  color: #f5d3d9;
+  background: var(--danger-wash);
+  color: var(--danger-ink);
   font-size: var(--t-sm);
 }
 
@@ -168,10 +168,10 @@ body[data-auth="out"] #signin-head:not([hidden]) {
   width: min(100% - 2 * var(--gutter), var(--max));
   margin: var(--s-4) auto 0;
   padding: 0.7rem 0.95rem;
-  border: 1px solid rgba(242, 180, 85, 0.35);
+  border: 1px solid var(--amber-line);
   border-radius: 0.55rem;
-  background: #2a2113;
-  color: #f6e3c4;
+  background: var(--amber-wash);
+  color: var(--amber-ink);
   font-size: var(--t-sm);
 }
 
@@ -205,8 +205,7 @@ body[data-auth="out"] #signin-head:not([hidden]) {
   font-family: var(--display);
   font-weight: 600;
   font-size: var(--t-xs);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  letter-spacing: 0.01em;
   color: var(--ink-faint);
   white-space: nowrap;
 }
@@ -233,7 +232,7 @@ body[data-auth="out"] #signin-head:not([hidden]) {
   border: 1px solid var(--hairline);
   border-radius: var(--radius);
   background: linear-gradient(160deg, var(--ground-raised), var(--ground-sunken));
-  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.35);
+  box-shadow: var(--shadow);
   padding: clamp(1.5rem, 4vw, 3rem);
   max-width: 56rem;
 }
@@ -315,19 +314,21 @@ body[data-auth="out"] #signin-head:not([hidden]) {
   font-size: var(--t-base);
 }
 
+/* Sentence case, like every other label (DESIGN.md) — the rule does the dividing. */
 .marker-text,
 .marker-trailing {
   font-family: var(--display);
   font-weight: 600;
-  font-size: var(--t-xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
+  font-size: var(--t-sm);
+  letter-spacing: 0.01em;
+  color: var(--ink-muted);
   white-space: nowrap;
 }
 
 .marker-trailing {
-  color: var(--ink-muted);
+  color: var(--ink-faint);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
 }
 
 .marker-rule {
@@ -645,8 +646,8 @@ body[data-auth="out"] #signin-head:not([hidden]) {
 }
 
 .streak-live {
-  border-color: rgba(242, 180, 85, 0.35);
-  background: #2a2113;
+  border-color: var(--amber-line);
+  background: var(--amber-wash);
   color: var(--amber);
 }
 
@@ -696,7 +697,7 @@ body[data-auth="out"] #signin-head:not([hidden]) {
 }
 
 .badge-earned {
-  border-color: rgba(139, 230, 160, 0.4);
+  border-color: var(--moss-line);
   background: var(--moss-wash);
 }
 
@@ -751,7 +752,7 @@ body[data-auth="out"] #signin-head:not([hidden]) {
 }
 
 .board-row-me {
-  border-color: rgba(139, 230, 160, 0.4);
+  border-color: var(--moss-line);
   background: var(--moss-wash);
 }
 
@@ -772,9 +773,9 @@ body[data-auth="out"] #signin-head:not([hidden]) {
 
 /* Gold, silver, bronze for the top three; everyone else a plain tabular figure, which
    keeps the eye on the podium without turning the list into confetti. */
-.rank-1 { color: #f2c55c; }
-.rank-2 { color: #c9d2c2; }
-.rank-3 { color: #d09a66; }
+.rank-1 { color: var(--gold); }
+.rank-2 { color: var(--silver); }
+.rank-3 { color: var(--bronze); }
 
 .board-name {
   flex: 1;
@@ -794,9 +795,10 @@ body[data-auth="out"] #signin-head:not([hidden]) {
   margin: 0.5rem 0 0;
 }
 
+/* 2.5rem: the remove control sits at the end of a row people scroll past with a thumb. */
 .icon-button {
-  width: 2rem;
-  height: 2rem;
+  width: 2.5rem;
+  height: 2.5rem;
   flex: 0 0 auto;
   border: 1px solid transparent;
   border-radius: 999px;
@@ -855,9 +857,15 @@ body[data-auth="out"] #signin-head:not([hidden]) {
   font-size: var(--t-lg);
 }
 
-.podium-1 .podium-block { height: 4.6rem; background: rgba(242, 197, 92, 0.16); border: 1px solid rgba(242, 197, 92, 0.5); color: #f2c55c; }
-.podium-2 .podium-block { height: 3.4rem; background: rgba(201, 210, 194, 0.16); border: 1px solid rgba(201, 210, 194, 0.5); color: #c9d2c2; }
-.podium-3 .podium-block { height: 2.5rem; background: rgba(208, 154, 102, 0.16); border: 1px solid rgba(208, 154, 102, 0.5); color: #d09a66; }
+/* Medal tint mixed from the medal token, so the blocks follow the theme with the ranks. */
+.podium-block { border: 1px solid; }
+.podium-1 .podium-block { height: 4.6rem; color: var(--gold); }
+.podium-2 .podium-block { height: 3.4rem; color: var(--silver); }
+.podium-3 .podium-block { height: 2.5rem; color: var(--bronze); }
+.podium-slot .podium-block {
+  border-color: color-mix(in srgb, currentColor 50%, transparent);
+  background: color-mix(in srgb, currentColor 16%, transparent);
+}
 
 /* ——————————————————————————————— Friends ——————————————————————————————— */
 
@@ -933,10 +941,8 @@ body[data-auth="out"] #signin-head:not([hidden]) {
   display: block;
   font-family: var(--display);
   font-weight: 600;
-  font-size: var(--t-xs);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
+  font-size: var(--t-sm);
+  color: var(--ink-muted);
   margin-bottom: var(--s-2);
 }
 
@@ -1014,7 +1020,7 @@ body[data-auth="out"] #signin-head:not([hidden]) {
   margin: 0;
   border: 1px solid var(--hairline);
   border-radius: 0.65rem;
-  background: rgba(8, 10, 7, 0.72);
+  background: var(--glass);
   backdrop-filter: blur(10px);
   display: grid;
   gap: 0.35rem;
@@ -1027,7 +1033,37 @@ body[data-auth="out"] #signin-head:not([hidden]) {
   color: var(--moss);
 }
 
+/* ——————————————————————————————— Loading ——————————————————————————————— */
+
+/* Before the first day snapshot lands, the figures are a placeholder rather than a "0 m"
+   that reads as a verdict on someone who scrolled all morning. */
+.today[aria-busy="true"] .today-figure,
+.totals-grid[aria-busy="true"] .readout-figure {
+  color: var(--ink-faint);
+}
+
 /* ——————————————————————————————— Responsive ——————————————————————————————— */
+
+@media (max-width: 480px) {
+  /* The gateway carries its own sign-in button; a second one squeezed into the bar is
+     what pushes the brand off a 360px screen. */
+  #signin-head,
+  body[data-auth="out"] #signin-head:not([hidden]) {
+    display: none;
+  }
+
+  .appbar-tag {
+    display: none;
+  }
+
+  .code-block {
+    padding: var(--s-3);
+  }
+
+  .my-code {
+    font-size: var(--t-lg);
+  }
+}
 
 @media (max-width: 640px) {
   .account-name {
@@ -1049,6 +1085,7 @@ body[data-auth="out"] #signin-head:not([hidden]) {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .icon-button,
   .rail-fill,
   .segment,
   .skip-link,

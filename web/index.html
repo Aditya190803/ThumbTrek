@@ -4,15 +4,20 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>ThumbTrek — Strava for scrolling</title>
-  <meta name="description" content="Track how far your thumb travels across Instagram, YouTube, X, and Reddit. Streaks, trek stats, share cards, and opt-in leaderboards." />
-  <meta property="og:title" content="ThumbTrek" />
-  <meta property="og:description" content="Strava for scrolling. Measure the trek your thumb already takes." />
+  <meta name="description" content="See how far your thumb scrolls on Instagram, YouTube, X and Reddit, in metres. Set a daily limit or just watch, with streaks, history and opt-in leaderboards. Android, no account needed." />
+  <link rel="canonical" href="https://thumbtrek.adityamer.dev/" />
+  <meta property="og:site_name" content="ThumbTrek" />
+  <meta property="og:title" content="ThumbTrek — Strava for scrolling" />
+  <meta property="og:description" content="Measure the trek your thumb already takes. Distance, daily limits, streaks and opt-in boards." />
   <meta property="og:type" content="website" />
-  <meta name="theme-color" content="#0c0f0b" />
+  <meta property="og:url" content="https://thumbtrek.adityamer.dev/" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="theme-color" content="#0c0f0b" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f3f1e8" media="(prefers-color-scheme: light)" />
   <link rel="icon" href="/assets/mark.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
@@ -31,13 +36,14 @@
   </header>
 
   <main>
-    <section class="wrap hero" aria-label="Hero">
+    <section class="wrap hero" aria-labelledby="hero-h">
       <div class="hero-copy">
         <p class="overline">Android · sideload</p>
-        <h1>Your thumb<br />goes <span>somewhere</span>.</h1>
+        <h1 id="hero-h">Your thumb<br />goes <span>somewhere</span>.</h1>
         <p class="hero-lead">
           ThumbTrek measures how far. Instagram, YouTube, X and Reddit, converted from
-          pixels to metres — with streaks, records and boards you opt into.
+          pixels to metres — with a daily limit if you want one, streaks, records and
+          boards you opt into.
         </p>
         <div class="cta-row">
           <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>
@@ -102,6 +108,12 @@
           <div>
             <h3>Scroll like you already do</h3>
             <p>Pixels become metres using your screen's density: <span class="num">pixels ÷ dpi × 0.0254</span>. Nothing to start, nothing to stop, no timer running in the corner.</p>
+          </div>
+        </article>
+        <article class="trail-step">
+          <div>
+            <h3>Pick a limit, or don't</h3>
+            <p>Set a daily distance and every day you finish at or under it counts toward a clean-day run. Rather just watch? Baseline mode keeps the numbers with no cap and no verdicts.</p>
           </div>
         </article>
         <article class="trail-step">
@@ -247,16 +259,25 @@
   <script>
     // The download buttons point at the Releases page as a working href; when the API is
     // reachable we upgrade that to the APK asset itself so the click is a single download.
+    // Modified clicks (new tab, new window) keep the plain link: hijacking them would
+    // turn "open in a new tab" into a download in this one.
+    const FALLBACK = 'https://github.com/Aditya190803/ThumbTrek/releases/latest';
     async function handleDirectDownload(e) {
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
       e.preventDefault();
-      const fallback = 'https://github.com/Aditya190803/ThumbTrek/releases/latest';
+      const btn = e.currentTarget;
+      if (btn.getAttribute('aria-busy') === 'true') return;
+      btn.setAttribute('aria-busy', 'true');
       try {
         const res = await fetch('https://api.github.com/repos/Aditya190803/ThumbTrek/releases/latest');
+        if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
         const data = await res.json();
         const apk = data.assets?.find(a => a.name.endsWith('.apk'));
-        window.location.href = apk ? apk.browser_download_url : fallback;
+        window.location.href = apk ? apk.browser_download_url : FALLBACK;
       } catch {
-        window.location.href = fallback;
+        window.location.href = FALLBACK;
+      } finally {
+        btn.removeAttribute('aria-busy');
       }
     }
     document.querySelectorAll('[data-direct-download]').forEach(btn => {
