@@ -2,33 +2,70 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>ThumbTrek — Settings</title>
+  <meta name="color-scheme" content="light dark" />
+  <title>ThumbTrek settings</title>
   <link rel="stylesheet" href="../ui/trek.css" />
   <link rel="stylesheet" href="options.css" />
 </head>
 <body>
+  <a class="skip" href="#limit">Skip to settings</a>
   <main class="wrap">
     <header class="head">
-      <span class="brand">
+      <h1 class="brand">
         <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-          <g stroke="#8BE6A0" stroke-width="2" stroke-linecap="round" fill="none">
+          <g class="arcs" stroke-width="2" stroke-linecap="round" fill="none">
             <path d="M13 21 C13 17.5 19 17.5 19 21" />
             <path d="M10 21 C10 14.5 22 14.5 22 21" />
             <path d="M7 21 C7 11.5 25 11.5 25 21" />
           </g>
-          <path d="M5 25.5 L11 23 L17 25 L25.5 20" stroke="#EDF1E6" stroke-width="2"
+          <path class="trail" d="M5 25.5 L11 23 L17 25 L25.5 20" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round" fill="none" />
-          <circle cx="25.5" cy="20" r="2.2" fill="#F2B455" />
+          <circle class="tip" cx="25.5" cy="20" r="2.2" />
         </svg>
         ThumbTrek
-      </span>
-      <span class="overline">Settings</span>
+      </h1>
+      <span class="caption">Settings</span>
     </header>
 
-    <!-- ————————————————————————— Sites ————————————————————————— -->
-    <section>
+    <!-- A long page in one column: a jump list so keyboard users are not tabbing through
+         every site switch to reach their data. -->
+    <nav class="jump" aria-label="Sections">
+      <a href="#limit">Daily limit</a>
+      <a href="#sites">Sites</a>
+      <a href="#history">History</a>
+      <a href="#badges">Badges</a>
+      <a href="#account">Leaderboard</a>
+      <a href="#data">Your data</a>
+    </nav>
+
+    <!-- ————————————————————————— Daily limit ————————————————————————— -->
+    <section id="limit" aria-labelledby="limit-title" tabindex="-1">
       <div class="section">
-        <span class="overline">Sites</span>
+        <h2 class="overline" id="limit-title">Daily limit</h2>
+        <span class="rule"></span>
+        <span class="trailing num" id="limit-current">Not set</span>
+      </div>
+      <p class="lede" id="limit-lede">
+        Track your usual scrolling first, or choose a daily cap. Your limit is always your
+        choice, and it only covers scrolling measured in this browser.
+      </p>
+      <form class="add" id="limit-form" novalidate>
+        <label class="visually-hidden" for="limit-input">Daily limit in metres</label>
+        <div class="unit-field">
+          <input type="number" id="limit-input" inputmode="numeric" min="10" max="10000" step="1"
+                 placeholder="e.g. 200" aria-describedby="limit-note" />
+          <span class="unit" aria-hidden="true">m / day</span>
+        </div>
+        <button class="btn btn-primary" type="submit" id="limit-save">Set limit</button>
+        <button class="btn btn-ghost" type="button" id="limit-clear" hidden>Track without a limit</button>
+      </form>
+      <p class="note" id="limit-note" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- ————————————————————————— Sites ————————————————————————— -->
+    <section id="sites" aria-labelledby="sites-title">
+      <div class="section">
+        <h2 class="overline" id="sites-title">Sites</h2>
         <span class="rule"></span>
         <span class="trailing" id="tracked-count"></span>
       </div>
@@ -39,27 +76,63 @@
 
       <div class="row">
         <div class="row-text">
-          <strong>Track everything</strong>
-          <span class="faint">Count every site you scroll, not just the list below.</span>
+          <strong id="track-everything-label">Track everything</strong>
+          <span class="faint" id="track-everything-help">Count every site you scroll, not just the list below.</span>
         </div>
-        <button class="toggle" id="track-everything" role="switch" aria-checked="false"
-                aria-label="Track every site"></button>
+        <button class="toggle" id="track-everything" type="button" role="switch" aria-checked="false"
+                aria-labelledby="track-everything-label" aria-describedby="track-everything-help"></button>
       </div>
 
       <div id="site-list" class="list"></div>
 
       <form class="add" id="add-form">
-        <input type="text" id="add-input" placeholder="Add a site — e.g. news.ycombinator.com"
-               autocomplete="off" spellcheck="false" aria-label="Domain to add" />
-        <button class="btn btn-ghost" type="submit">Add</button>
+        <label class="visually-hidden" for="add-input">Domain to add</label>
+        <input type="text" id="add-input" placeholder="Add a site, e.g. news.ycombinator.com"
+               autocomplete="off" spellcheck="false" aria-describedby="add-note" />
+        <button class="btn btn-ghost" type="submit">Add site</button>
       </form>
-      <p class="note" id="add-note"></p>
+      <p class="note" id="add-note" role="status" aria-live="polite"></p>
+    </section>
+
+    <!-- ————————————————————————— History ————————————————————————— -->
+    <section id="history" aria-labelledby="history-title">
+      <div class="section">
+        <h2 class="overline" id="history-title">History</h2>
+        <span class="rule"></span>
+        <span class="trailing" id="history-delta"></span>
+      </div>
+      <dl class="records">
+        <div><dt class="caption">Today</dt><dd class="figure num" id="rec-today">—</dd></div>
+        <div><dt class="caption">This week</dt><dd class="figure num" id="rec-week">—</dd></div>
+        <div><dt class="caption">This month</dt><dd class="figure num" id="rec-month">—</dd></div>
+        <div><dt class="caption">All time</dt><dd class="figure num" id="rec-all">—</dd></div>
+        <div><dt class="caption">Best day</dt><dd class="figure num amber" id="rec-best">—</dd>
+          <dd class="faint" id="rec-best-when"></dd></div>
+        <div><dt class="caption">Streak</dt><dd class="figure num" id="rec-streak">—</dd>
+          <dd class="faint" id="rec-clean"></dd></div>
+      </dl>
+      <h3 class="sub">Last 8 weeks</h3>
+      <div id="weeks" class="weeks"></div>
+    </section>
+
+    <!-- ————————————————————————— Badges ————————————————————————— -->
+    <section id="badges" aria-labelledby="badges-title">
+      <div class="section">
+        <h2 class="overline" id="badges-title">Badges</h2>
+        <span class="rule"></span>
+        <span class="trailing" id="badge-count"></span>
+      </div>
+      <p class="lede" id="badge-lede">
+        Earned from your local history alone. Clean-day badges appear once you set a daily
+        limit.
+      </p>
+      <ul class="badges" id="badge-list"></ul>
     </section>
 
     <!-- ————————————————————————— Account ————————————————————————— -->
-    <section>
+    <section id="account" aria-labelledby="account-title">
       <div class="section">
-        <span class="overline">Leaderboard</span>
+        <h2 class="overline" id="account-title">Leaderboard and sync</h2>
         <span class="rule"></span>
         <span class="trailing" id="sync-when"></span>
       </div>
@@ -83,39 +156,47 @@
 
       <div class="row">
         <div class="row-text">
-          <strong>Publish to the leaderboard</strong>
-          <span class="faint">
+          <strong id="opt-in-label">Publish to the leaderboard</strong>
+          <span class="faint" id="opt-in-help">
             Sends three distances and a name. Your per-site history stays private. Turning
             this off deletes what this browser published.
           </span>
         </div>
-        <button class="toggle" id="opt-in" role="switch" aria-checked="false"
-                aria-label="Publish to the leaderboard"></button>
+        <button class="toggle" id="opt-in" type="button" role="switch" aria-checked="false"
+                aria-labelledby="opt-in-label" aria-describedby="opt-in-help"></button>
       </div>
 
       <div class="row">
         <div class="row-text">
-          <strong>Show my name</strong>
+          <strong id="anonymous-label">Show my name</strong>
           <span class="faint" id="handle-preview">Anonymous by default — your handle appears after sign-in.</span>
         </div>
-        <button class="toggle" id="anonymous" role="switch" aria-checked="false"
-                aria-label="Show my name"></button>
+        <button class="toggle" id="anonymous" type="button" role="switch" aria-checked="false"
+                aria-labelledby="anonymous-label" aria-describedby="handle-preview"></button>
       </div>
 
       <div class="row">
         <div class="row-text">
           <strong>Friend code</strong>
-          <span class="faint" id="friend-code">Sign in to get yours.</span>
+          <span class="faint num" id="friend-code">Sign in to get yours.</span>
+        </div>
+        <button class="btn btn-ghost" id="copy-code" type="button" hidden>Copy</button>
+      </div>
+
+      <div class="row">
+        <div class="row-text">
+          <strong>Sync</strong>
+          <span class="faint" id="sync-detail">Runs every 30 minutes while you're publishing.</span>
         </div>
         <button class="btn btn-ghost" id="sync-button" type="button">Sync now</button>
       </div>
-      <p class="note" id="sync-note"></p>
+      <p class="note" id="sync-note" role="status" aria-live="polite"></p>
     </section>
 
     <!-- ————————————————————————— Data ————————————————————————— -->
-    <section>
+    <section id="data" aria-labelledby="data-title">
       <div class="section">
-        <span class="overline">Your data</span>
+        <h2 class="overline" id="data-title">Your data</h2>
         <span class="rule"></span>
         <span class="trailing" id="row-count"></span>
       </div>
@@ -137,7 +218,7 @@
         <button class="btn btn-danger" id="wipe-button" type="button"
                 data-armed="false">Delete everything</button>
       </div>
-      <p class="note" id="data-note"></p>
+      <p class="note" id="data-note" role="status" aria-live="polite"></p>
     </section>
 
     <footer class="foot faint">

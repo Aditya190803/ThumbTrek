@@ -8,9 +8,9 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  badges, comparison, dailyBuckets, dayOverDayDelta, distanceParts, formatDistance, monthKey,
-  monthlyBuckets, percentDelta, personalRecord, siteTrends, totalThisMonth, totalThisWeek,
-  trekStreak, weekKey, weeklyBuckets, weekOverWeekDelta,
+  badges, comparison, dailyBuckets, dayOverDayDelta, distanceParts, formatDistance, isCleanDay,
+  limitStreak, monthKey, monthlyBuckets, percentDelta, personalRecord, siteTrends,
+  totalThisMonth, totalThisWeek, trekStreak, weekKey, weeklyBuckets, weekOverWeekDelta,
 } from '../lib/stats.js';
 import { addDays, dayLabel, mondayOf, todayKey } from '../lib/dates.js';
 
@@ -266,4 +266,39 @@ test('todayKey reads the local calendar day, not UTC', () => {
   // Constructed in local time; the key must be that same local date whatever the offset.
   const local = new Date(2026, 8, 6, 23, 30); // 6 Sep 2026, 23:30 local
   assert.equal(todayKey(local), '2026-09-06');
+});
+
+// ——— Daily limit. Lifted from StatsTest's limit cases; values are metres. ———
+
+test('a clean day stays at or under the limit', () => {
+  assert.equal(isCleanDay(0, 100), true); // abstinence is the ultimate under-limit day
+  assert.equal(isCleanDay(100, 100), true); // exactly at the limit still counts
+  assert.equal(isCleanDay(62.5, 100), true);
+  assert.equal(isCleanDay(100.1, 100), false);
+  assert.equal(isCleanDay(0, 0), false); // a non-positive limit is misconfiguration
+  assert.equal(isCleanDay(50, -10), false);
+  assert.equal(isCleanDay(0, null), false); // baseline mode never judges a day
+});
+
+test('limit streak counts consecutive clean days ending today', () => {
+  const days = new Map([[TODAY, 40], [back(1), 90], [back(2), 0]]);
+  assert.equal(limitStreak(days, 100, TODAY), 3);
+});
+
+test('limit streak is zero the moment today goes over', () => {
+  const days = new Map([[TODAY, 150], [back(1), 10], [back(2), 10]]);
+  assert.equal(limitStreak(days, 100, TODAY), 0);
+});
+
+test('limit streak breaks on a dirty day in the middle', () => {
+  const days = new Map([[TODAY, 20], [back(1), 500], [back(2), 20], [back(3), 20]]);
+  assert.equal(limitStreak(days, 100, TODAY), 1);
+});
+
+test('limit streak treats missing days as zero but never pre-install', () => {
+  const days = new Map([[TODAY, 20], [back(2), 20]]);
+  assert.equal(limitStreak(days, 100, TODAY), 3);
+  assert.equal(limitStreak(new Map(), 100, TODAY), 1);
+  assert.equal(limitStreak(new Map(), 0, TODAY), 0);
+  assert.equal(limitStreak(days, null, TODAY), 0);
 });

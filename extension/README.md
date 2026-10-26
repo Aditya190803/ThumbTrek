@@ -222,7 +222,7 @@ from it.
 - The extension reads no page content. It reads one number per scroll event (a scroll
   offset) and the hostname of the tab. Untracked sites are discarded in the service worker
   and never stored or sent.
-- The two fonts are bundled, so opening the popup does not tell a CDN that you did.
+- The font (Manrope) is bundled, so opening the popup does not tell a CDN that you did.
 
 ## Known limits
 

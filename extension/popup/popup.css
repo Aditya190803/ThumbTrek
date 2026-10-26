@@ -2,18 +2,22 @@
 
    360px because that is the width at which a 3.75rem hero figure and a "That's 1.4× a
    school bus" line both sit on one line at the default font size. Chrome caps a popup at
-   600px tall, so nothing here scrolls: the five things worth knowing fit, and the sixth
-   belongs on the options page. */
+   600px tall and scrolls past that, so the order is the priority: distance, limit, sites,
+   week, records. The site list is capped (popup.js) so a busy day does not push the rest
+   below the fold, and anything deeper belongs on the options page. */
 
 body {
   width: 360px;
+  /* Past 600px Chrome adds a vertical scrollbar inside the fixed width; without this the
+     scrollbar's own width spills into a horizontal one too. */
+  overflow-x: hidden;
 }
 
 .sheet {
   padding: var(--s-3) var(--s-3) var(--s-2);
   display: flex;
   flex-direction: column;
-  gap: var(--s-3);
+  gap: 0.9rem;
 }
 
 /* ————————————————————————————— Head ————————————————————————————— */
@@ -26,6 +30,7 @@ body {
 }
 
 .brand {
+  margin: 0;
   display: inline-flex;
   align-items: center;
   gap: 0.45rem;
@@ -40,13 +45,23 @@ body {
   height: 1.4rem;
 }
 
+.alert {
+  margin: 0;
+  padding: var(--s-2) var(--s-3);
+  border: 1px solid var(--danger-line);
+  border-radius: var(--r-sm);
+  background: var(--danger-wash);
+  color: var(--danger);
+  font-size: 0.8125rem;
+}
+
 /* ————————————————————————————— Hero ————————————————————————————— */
 
 /* No card. The contours *are* the container: survey linework behind the figure, barely
    there, doing the job a border would do without adding a box to a screen of boxes. */
 .hero {
   position: relative;
-  padding: var(--s-2) 0 var(--s-1);
+  padding: var(--s-1) 0 0;
 }
 
 .contours {
@@ -76,8 +91,7 @@ body {
   z-index: 1;
 }
 
-.hero .overline {
-  display: block;
+.hero .caption {
   margin: 0 0 0.25rem;
 }
 
@@ -97,16 +111,76 @@ body {
   margin: var(--s-2) 0 0;
   display: flex;
   align-items: center;
-  gap: var(--s-2);
+  gap: var(--s-1) var(--s-2);
   flex-wrap: wrap;
   font-size: 0.75rem;
   font-weight: 600;
 }
 
+/* ————————————————————————— Daily limit ————————————————————————— */
+
+.limit .section {
+  margin-bottom: var(--s-1);
+}
+
+.limit .rail {
+  height: 6px;
+  margin-top: 0.35rem;
+}
+
+.limit-text {
+  margin: 0.4rem 0 0;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+#baseline {
+  font-weight: 500;
+}
+
 /* ————————————————————————————— Sites ————————————————————————————— */
 
-#sites .measure-row:not(:last-child) {
+.site-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.site-rows .measure-row {
+  padding: 0.3rem 0;
+  gap: 0.25rem;
+}
+
+.site-rows .measure-row:not(:last-child) {
   border-bottom: 1px solid var(--hairline-soft);
+}
+
+.more {
+  margin: 0.2rem 0 0;
+  font-size: 0.75rem;
+}
+
+/* The current tab: one quiet line, not a panel — it is a shortcut, not a section. */
+.here {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-2);
+  margin-top: -0.3rem;
+  font-size: 0.8125rem;
+  color: var(--ink-muted);
+}
+
+.here-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.here .link-btn {
+  flex: 0 0 auto;
+  font-size: 0.8125rem;
 }
 
 /* ———————————————————————— The week's route ———————————————————————— */
@@ -170,9 +244,7 @@ body {
   margin-top: 0.35rem;
   font-family: var(--body);
   font-weight: 600;
-  font-size: 0.625rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 0.6875rem;
   color: var(--ink-faint);
 }
 
@@ -204,13 +276,4 @@ body {
 
 .foot .btn {
   margin-left: auto;
-}
-
-.visually-hidden {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
 }

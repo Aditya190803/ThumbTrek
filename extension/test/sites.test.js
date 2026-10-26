@@ -9,7 +9,9 @@ import assert from 'node:assert/strict';
 import {
   DEFAULT_SITES, parseSiteInput, registrableDomain, siteName,
 } from '../lib/domain.js';
-import { DEFAULTS, listedSites, shouldTrack } from '../lib/settings.js';
+import {
+  DEFAULTS, dailyLimit, listedSites, parseDailyLimit, shouldTrack,
+} from '../lib/settings.js';
 import { toCsv } from '../lib/csv.js';
 
 test('subdomains collapse to the registrable domain', () => {
@@ -125,4 +127,22 @@ test('CSV escapes a label that contains a quote or a comma', () => {
 
 test('an empty export is a header, not an empty file', () => {
   assert.equal(toCsv([]), 'date,site,um\n');
+});
+
+test('a fresh install has no daily limit -- baseline mode', () => {
+  assert.equal(DEFAULTS.dailyLimitM, null);
+  assert.equal(dailyLimit(DEFAULTS), null);
+  assert.equal(dailyLimit({ dailyLimitM: 0 }), null);
+  assert.equal(dailyLimit({ dailyLimitM: 250 }), 250);
+});
+
+test('daily limit input is refused outside the phone\'s bounds', () => {
+  assert.equal(parseDailyLimit('250'), 250);
+  assert.equal(parseDailyLimit(' 10 '), 10);
+  assert.equal(parseDailyLimit('10000'), 10000);
+  assert.equal(parseDailyLimit('9'), null);
+  assert.equal(parseDailyLimit('10001'), null);
+  assert.equal(parseDailyLimit(''), null);
+  assert.equal(parseDailyLimit('abc'), null);
+  assert.equal(parseDailyLimit('-50'), null);
 });

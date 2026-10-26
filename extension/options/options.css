@@ -25,6 +25,7 @@ body {
 }
 
 .brand {
+  margin: 0;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -65,7 +66,7 @@ body {
 
 .row-text strong {
   font-family: var(--display);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.9375rem;
   color: var(--ink);
 }
@@ -99,7 +100,7 @@ body {
 
 .site-name b {
   font-family: var(--display);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.9375rem;
 }
 
@@ -120,8 +121,15 @@ body {
   border-radius: var(--r-sm);
 }
 
-.site .remove:hover {
+.site .remove:hover,
+.site .remove:focus-visible {
   color: var(--danger);
+}
+
+/* "Track everything" is on: the switches still record what applies once it is turned off,
+   but they are not what decides counting right now, and they look it. */
+.list.overridden .toggle {
+  opacity: 0.55;
 }
 
 .add {
@@ -170,7 +178,7 @@ body {
    settings page is ceremony, but one click is an accident. */
 .btn-danger[data-armed="true"] {
   background: var(--danger);
-  color: #2b0810;
+  color: var(--on-danger);
   border-color: var(--danger);
 }
 
@@ -179,4 +187,182 @@ body {
   border-top: 1px solid var(--hairline);
   font-size: 0.8125rem;
   max-width: 38rem;
+}
+
+/* ———————————————————————— Navigation ———————————————————————— */
+
+/* Hidden until focused: the first Tab on the page offers a jump past the header. */
+.skip {
+  position: absolute;
+  left: var(--s-3);
+  top: -3rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: var(--r-sm);
+  background: var(--moss);
+  color: var(--on-moss);
+  font-weight: 600;
+  z-index: 10;
+}
+
+.skip:focus {
+  top: var(--s-2);
+}
+
+.jump {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1) var(--s-3);
+  margin-top: calc(var(--s-3) - var(--s-5));
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.jump a {
+  color: var(--ink-muted);
+}
+
+.jump a:hover {
+  color: var(--moss);
+}
+
+/* Sections are jump targets; the programmatic focus ring on a whole section is noise. */
+section:focus {
+  outline: none;
+}
+
+/* ———————————————————————— Daily limit ———————————————————————— */
+
+.unit-field {
+  position: relative;
+  flex: 0 1 12rem;
+  display: flex;
+}
+
+.unit-field input {
+  padding-right: 4.2rem;
+  /* Spinners on a field for a number in the hundreds are a click target nobody wants. */
+  -moz-appearance: textfield;
+}
+
+.unit-field input::-webkit-inner-spin-button,
+.unit-field input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.unit-field .unit {
+  position: absolute;
+  right: 0.7rem;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8125rem;
+  color: var(--ink-faint);
+  pointer-events: none;
+}
+
+.add {
+  flex-wrap: wrap;
+}
+
+/* ———————————————————————— History ———————————————————————— */
+
+/* Records as a definition list: each figure has its label, for screen readers too. */
+.records {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr));
+  gap: var(--s-3);
+  margin: 0 0 var(--s-4);
+}
+
+.records div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.records dd {
+  margin: 0;
+}
+
+.records .figure {
+  font-size: 1.25rem;
+  line-height: 1.2;
+}
+
+.records .faint {
+  font-size: 0.75rem;
+}
+
+.sub {
+  margin: 0 0 var(--s-1);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--ink-muted);
+}
+
+.week-rows,
+.badges {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.week-rows .measure-row:not(:last-child) {
+  border-bottom: 1px solid var(--hairline-soft);
+}
+
+/* ———————————————————————— Badges ———————————————————————— */
+
+/* A grid of small rows rather than cards: each badge is an emoji, a name, and how far
+   along it is. Locked badges are quieter, and say their progress in words. */
+.badges {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: var(--s-2) var(--s-4);
+}
+
+.badge {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s-2);
+  padding: 0.45rem 0;
+}
+
+.badge-emoji {
+  flex: 0 0 auto;
+  font-size: 1.35rem;
+  line-height: 1.2;
+}
+
+.badge:not(.earned) .badge-emoji {
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
+.badge-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.badge-text b {
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.badge-text span {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: var(--ink-muted);
+}
+
+.badge.earned .badge-text span {
+  color: var(--moss);
+}
+
+.badge .rail {
+  height: 4px;
+  margin-top: 0.2rem;
 }

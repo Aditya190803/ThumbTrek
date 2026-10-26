@@ -16,16 +16,27 @@ import { dayTotals, rowsForDate } from '../lib/db.js';
 import { micrometresToMetres } from '../lib/units.js';
 import {
   badges, comparison, dailyBuckets, dayOverDayDelta, distanceParts, formatDistance,
-  personalRecord, totalThisWeek, trekStreak,
+  isCleanDay, limitStreak, personalRecord, totalThisWeek, trekStreak,
 } from '../lib/stats.js';
 import { dayLabel, todayKey } from '../lib/dates.js';
-import { siteName } from '../lib/domain.js';
-import { customLabels, readSettings } from '../lib/settings.js';
+import { DEFAULT_SITES, registrableDomain, siteName } from '../lib/domain.js';
+import {
+  addCustomSite, customLabels, dailyLimit, readSettings, setSiteTracked, shouldTrack,
+} from '../lib/settings.js';
 
 const $ = (id) => document.getElementById(id);
 const metres = (um) => formatDistance(micrometresToMetres(um));
 
-function renderHero(todayUm, totals, today) {
+/**
+ * Chrome caps a popup at 600px and this one does not scroll, so the breakdown shows the
+ * biggest few and summarises the tail. Under "track everything" a day can easily touch
+ * twenty domains, and an unbounded list pushed the week and the footer off the bottom.
+ */
+const MAX_SITE_ROWS = 4;
+
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+function renderHero(todayUm, totals, today, cleanStreak) {
   const [figure, unit] = distanceParts(micrometresToMetres(todayUm));
   const hero = $('hero-figure');
   hero.textContent = figure;
@@ -43,60 +54,177 @@ function renderHero(todayUm, totals, today) {
   // disappears teaches a new user nothing.
   $('streak-text').textContent = streak > 0 ? `${streak} day streak` : 'No streak yet';
 
-  const delta = dayOverDayDelta(totals, today);
-  const deltaEl = $('delta');
-  if (delta === null) {
-    deltaEl.textContent = '';
-    deltaEl.className = 'delta';
-  } else {
-    // Coloured only by direction, never by judgement about the number.
-    deltaEl.textContent = `${delta >= 0 ? '+' : '−'}${Math.abs(delta)}% vs yesterday`;
-    deltaEl.className = `delta ${delta >= 0 ? 'up' : 'down'}`;
+  // Only exists with a limit. Baseline mode makes no clean-day judgments (DESIGN.md).
+  $('clean-streak').hidden = cleanStreak === null || cleanStreak === 0;
+  if (cleanStreak) {
+    $('clean-streak-text').textContent = `${plural(cleanStreak, 'day')} within limit`;
   }
+
+  // Like the phone's DeltaMark: only once there is something today to compare, so a fresh
+  // morning does not open on "−100% vs yesterday".
+  const delta = todayUm > 0 ? dayOverDayDelta(totals, today) : null;
+  // Neutral colour either way; the arrow carries the direction and the words the meaning.
+  $('delta').textContent = delta === null
+    ? ''
+    : `${delta >= 0 ? '↑' : '↓'} ${Math.abs(delta)}% vs yesterday`;
 }
 
-function renderSites(rows, labels) {
+/** The limit rail, or the baseline invitation. Mirrors LimitGlance on Android. */
+function renderLimit(todayMeters, limitM) {
+  const hasLimit = limitM !== null;
+  $('limit-gauge').hidden = !hasLimit;
+  $('baseline').hidden = hasLimit;
+  $('limit-title').textContent = hasLimit ? 'Daily limit' : 'Finding your baseline';
+  $('limit-value').textContent = hasLimit ? formatDistance(limitM) : '';
+  if (!hasLimit) return;
+
+  const clean = isCleanDay(todayMeters, limitM);
+  const share = Math.min(1, todayMeters / limitM);
+  const fill = $('limit-fill');
+  fill.style.width = `${share * 100}%`;
+  fill.classList.toggle('zero', todayMeters <= 0);
+  const rail = $('limit-rail');
+  rail.classList.toggle('over', !clean);
+  rail.setAttribute('aria-valuenow', String(Math.round(share * 100)));
+  rail.setAttribute('aria-valuetext',
+    `${formatDistance(todayMeters)} of ${formatDistance(limitM)}`);
+
+  const text = $('limit-text');
+  // Words as well as colour, and no shaming: the phone's exact phrasing.
+  text.textContent = clean
+    ? `${formatDistance(Math.max(0, limitM - todayMeters))} remaining today`
+    : `${formatDistance(todayMeters - limitM)} over. A good moment to pause.`;
+  text.className = `limit-text ${clean ? 'moss' : 'danger'}`;
+}
+
+function emptyState(title, body) {
+  const empty = document.createElement('div');
+  empty.className = 'empty';
+  const heading = document.createElement('h3');
+  heading.textContent = title;
+  const text = document.createElement('p');
+  text.textContent = body;
+  empty.append(heading, text);
+  return empty;
+}
+
+function renderSites(rows, labels, settings, hasHistory) {
   const host = $('sites');
   host.replaceChildren();
   if (rows.length === 0) {
-    // Always names what will appear here and what the single next move is.
-    const empty = document.createElement('div');
-    empty.className = 'empty';
-    const title = document.createElement('h3');
-    title.textContent = 'Nothing measured yet today';
-    const body = document.createElement('p');
-    body.textContent = 'Open a feed and scroll. Instagram, YouTube, X and Reddit are on by '
-      + 'default; add any other site in Settings.';
-    empty.append(title, body);
-    host.append(empty);
+    // Always names what will appear here and what the single next move is. Three
+    // different reasons for an empty list, three different next moves.
+    const nothingTracked = !settings.trackEverything && settings.trackedSites.length === 0;
+    host.append(nothingTracked
+      ? emptyState('Tracking is off for every site',
+        'Turn a site back on in Settings, or use the button below on a page you want counted.')
+      : hasHistory
+        ? emptyState('Nothing measured yet today',
+          'Scroll a tracked site and it appears here within a few seconds.')
+        : emptyState('Your first trek starts here',
+          'Open a feed and scroll. Instagram, YouTube, X and Reddit are on by default; '
+          + 'add any other site in Settings.'));
     $('site-count').textContent = '';
     return;
   }
 
   const biggest = rows[0].um;
-  for (const row of rows) {
-    const item = document.createElement('div');
+  const list = document.createElement('ul');
+  list.className = 'site-rows';
+  for (const row of rows.slice(0, MAX_SITE_ROWS)) {
+    const item = document.createElement('li');
     item.className = 'measure-row';
     const line = document.createElement('div');
     line.className = 'line';
     const label = document.createElement('span');
     label.className = 'label';
     label.textContent = siteName(row.domain, labels);
+    label.title = row.domain;
     const value = document.createElement('span');
     value.className = 'value num';
     value.textContent = metres(row.um);
     line.append(label, value);
     const rail = document.createElement('div');
     rail.className = 'rail';
+    rail.setAttribute('aria-hidden', 'true');
     const fill = document.createElement('i');
     // Proportional to the biggest row, not to the day's total: the question a split answers
     // is "which of these is the big one", and shares of a total flatten that to slivers.
     fill.style.width = `${Math.max(2, (row.um / biggest) * 100)}%`;
     rail.append(fill);
     item.append(line, rail);
-    host.append(item);
+    list.append(item);
   }
-  $('site-count').textContent = `${rows.length} site${rows.length === 1 ? '' : 's'}`;
+  host.append(list);
+
+  const rest = rows.slice(MAX_SITE_ROWS);
+  if (rest.length > 0) {
+    const more = document.createElement('p');
+    more.className = 'more faint';
+    const restUm = rest.reduce((sum, row) => sum + row.um, 0);
+    more.textContent = `${plural(rest.length, 'more site')} · ${metres(restUm)}`;
+    host.append(more);
+  }
+  $('site-count').textContent = plural(rows.length, 'site');
+}
+
+/**
+ * The active tab, and one click to start (or stop) counting it. Adding a site used to mean
+ * opening Settings and typing the domain you were already looking at. `activeTab` makes the
+ * URL readable only for the tab the user opened the popup on, only while it is open.
+ */
+async function renderHere(settings) {
+  const box = $('here');
+  box.hidden = true;
+  let tab;
+  try {
+    [tab] = await api.tabs.query({ active: true, currentWindow: true });
+  } catch {
+    return;
+  }
+  let hostname = '';
+  try {
+    const url = new URL(tab?.url ?? '');
+    if (url.protocol === 'http:' || url.protocol === 'https:') hostname = url.hostname;
+  } catch {
+    return;
+  }
+  const domain = registrableDomain(hostname);
+  if (!domain) return;
+
+  const labels = customLabels(settings);
+  const name = siteName(domain, labels);
+  const tracked = shouldTrack(domain, settings);
+  const action = $('here-action');
+
+  if (settings.trackEverything) {
+    // Under "track everything" a per-site switch here would do nothing; say so and stop.
+    $('here-text').textContent = `Counting ${name}, along with every other site.`;
+    action.hidden = true;
+  } else if (tracked) {
+    $('here-text').textContent = `Counting ${name} on this tab.`;
+    action.hidden = false;
+    action.textContent = 'Stop counting';
+    action.onclick = async () => {
+      await setSiteTracked(domain, false);
+      render();
+    };
+  } else {
+    $('here-text').textContent = `${name} isn't being counted.`;
+    action.hidden = false;
+    action.textContent = 'Count this site';
+    action.onclick = async () => {
+      // A site already known (built-in, or added before and switched off) is just switched
+      // back on; a new one is remembered as well, exactly like the options page's Add.
+      if (DEFAULT_SITES.has(domain) || domain in settings.customSites) {
+        await setSiteTracked(domain, true);
+      } else {
+        await addCustomSite(domain, name);
+      }
+      render();
+    };
+  }
+  box.hidden = false;
 }
 
 /**
@@ -104,7 +232,7 @@ function renderSites(rows, labels) {
  *
  * Same survey language as the landing page's hero, and a line reads a trend at a glance
  * where seven columns have to be compared pairwise. Drawn by hand in SVG: a chart library
- * would be the extension's only dependency, for one 300x74 polyline.
+ * would be the extension's only dependency, for one 300x60 polyline.
  */
 function renderSparkline(totals, today) {
   const buckets = dailyBuckets(totals, 7, today);
@@ -112,7 +240,7 @@ function renderSparkline(totals, today) {
   svg.replaceChildren();
 
   const W = 300;
-  const H = 74;
+  const H = 60;
   const PAD_X = 6;
   const PAD_TOP = 8;
   const BASE = H - 12;
@@ -138,10 +266,16 @@ function renderSparkline(totals, today) {
   const route = line({ class: 'route', d });
   svg.append(route);
   points.forEach(([x, y], i) => {
-    svg.append(line({
+    const stop = line({
       class: i === points.length - 1 ? 'stop today' : 'stop',
       cx: x.toFixed(1), cy: y.toFixed(1), r: i === points.length - 1 ? 3.6 : 2.4,
-    }, 'circle'));
+    }, 'circle');
+    // A native tooltip per day: hovering a stop answers "how far was Tuesday" without a
+    // tooltip layer. Screen readers get the whole week from the caption instead.
+    stop.append(Object.assign(document.createElementNS(ns, 'title'), {
+      textContent: `${buckets[i].label}: ${metres(buckets[i].value)}`,
+    }));
+    svg.append(stop);
   });
 
   // The dash length comes from the path itself, so a flat week and a jagged one both trace
@@ -157,28 +291,28 @@ function renderSparkline(totals, today) {
     Object.assign(document.createElement('span'), { textContent: dayLabel(buckets[0].key) }),
     Object.assign(document.createElement('span'), { textContent: 'Today' }),
   );
-  $('week-total').textContent = metres(totalThisWeek(totals, today));
-  $('spark-caption').textContent = buckets
+  $('week-total').textContent = `${metres(totalThisWeek(totals, today))} this week`;
+  $('spark-caption').textContent = `Distance per day, last 7 days. ${buckets
     .map((b) => `${b.label}: ${metres(b.value)}`)
-    .join(', ');
+    .join(', ')}`;
 }
 
-function renderFooter(totals) {
+function renderFooter(totals, today, cleanStreak) {
   const record = personalRecord(totals);
   $('best-day').textContent = record ? metres(record[1]) : '—';
-  $('best-day-when').textContent = record ? dayLabel(record[0]) : 'no days yet';
+  $('best-day-when').textContent = record ? dayLabel(record[0]) : 'No days yet';
 
   let allTime = 0;
   for (const value of totals.values()) allTime += value;
   $('all-time').textContent = metres(allTime);
 
-  const today = todayKey();
   const earned = badges(
     micrometresToMetres(allTime),
-    micrometresToMetres(personalRecord(totals)?.[1] ?? 0),
+    micrometresToMetres(record?.[1] ?? 0),
     trekStreak(totals.keys(), today),
+    cleanStreak ?? 0,
   ).filter((badge) => badge.earned).length;
-  $('badge-count').textContent = `${earned} badge${earned === 1 ? '' : 's'}`;
+  $('badge-count').textContent = `${plural(earned, 'badge')} earned`;
 }
 
 async function render() {
@@ -189,10 +323,24 @@ async function render() {
     dayTotals(), rowsForDate(today), readSettings(),
   ]);
 
-  renderHero(totals.get(today) ?? 0, totals, today);
-  renderSites(rows, customLabels(settings));
-  renderSparkline(totals, today);
-  renderFooter(totals);
+  const limitM = dailyLimit(settings);
+  const todayUm = totals.get(today) ?? 0;
+  const todayMeters = micrometresToMetres(todayUm);
+  // limitStreak works in metres, like the Kotlin; the stored totals are µm.
+  const cleanStreak = limitM === null ? null : limitStreak(
+    new Map([...totals].map(([key, um]) => [key, micrometresToMetres(um)])), limitM, today,
+  );
+
+  renderHero(todayUm, totals, today, cleanStreak);
+  renderLimit(todayMeters, limitM);
+  renderSites(rows, customLabels(settings), settings, totals.size > 0);
+  // A brand-new install has no week to draw: a flat line at zero next to "Your first trek
+  // starts here" says the same thing twice.
+  $('week').hidden = totals.size === 0;
+  if (totals.size > 0) renderSparkline(totals, today);
+  renderFooter(totals, today, cleanStreak);
+  $('sheet').setAttribute('aria-busy', 'false');
+  await renderHere(settings);
 }
 
 $('open-options').addEventListener('click', () => {
@@ -200,8 +348,17 @@ $('open-options').addEventListener('click', () => {
   window.close();
 });
 
+$('set-limit').addEventListener('click', () => {
+  // Straight to the limit section rather than the top of Settings.
+  api.tabs.create({ url: api.runtime.getURL('options/options.html#limit') });
+  window.close();
+});
+
 render().catch((error) => {
   // A popup that fails silently looks like an extension that stopped working. Say what
   // happened, in the one place the user is already looking.
-  $('comparison').textContent = `Could not read local history: ${error.message}`;
+  const alert = $('error');
+  alert.textContent = `Could not read local history: ${error.message}`;
+  alert.hidden = false;
+  $('sheet').setAttribute('aria-busy', 'false');
 });

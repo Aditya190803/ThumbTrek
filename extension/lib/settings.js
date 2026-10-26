@@ -16,6 +16,7 @@
 
 import { api } from './browser.js';
 import { DEFAULT_SITES } from './domain.js';
+import { MAX_DAILY_LIMIT_M, MIN_DAILY_LIMIT_M } from './stats.js';
 
 const KEY = 'settings';
 
@@ -32,6 +33,10 @@ export const DEFAULTS = Object.freeze({
    *  into their Google name. Same clean migration as the phone — a stored explicit choice
    *  wins over this default, so only the never-chosen inherit it. */
   anonymous: true,
+  /** Daily limit in metres, or null for baseline mode. Local to this browser and never
+   *  synced -- the phone keeps its own. Null by default, like a fresh phone install:
+   *  nobody is judged against a cap they did not choose. */
+  dailyLimitM: null,
 });
 
 /** Reads the whole settings object, with defaults filled in for anything never written. */
@@ -79,6 +84,31 @@ export async function removeCustomSite(domain) {
 export const setTrackEverything = (enabled) => write({ trackEverything: enabled });
 export const setLeaderboardOptIn = (enabled) => write({ leaderboardOptIn: enabled });
 export const setAnonymous = (enabled) => write({ anonymous: enabled });
+
+/** Saves a limit in metres (clamped to the phone's bounds), or null to return to baseline. */
+export function setDailyLimit(meters) {
+  if (meters === null) return write({ dailyLimitM: null });
+  return write({
+    dailyLimitM: Math.min(MAX_DAILY_LIMIT_M, Math.max(MIN_DAILY_LIMIT_M, Math.round(meters))),
+  });
+}
+
+/**
+ * `parseDailyLimit`: a whole-ish number of metres inside the bounds, else null. Rejecting
+ * rather than clamping at the input is what lets the form say *why* a value was refused.
+ */
+export function parseDailyLimit(input) {
+  const text = String(input ?? '').trim();
+  if (!/^\d+(\.\d+)?$/.test(text)) return null;
+  const value = Number(text);
+  return value >= MIN_DAILY_LIMIT_M && value <= MAX_DAILY_LIMIT_M ? value : null;
+}
+
+/** The stored limit, or null when unset or unusable -- baseline mode either way. */
+export function dailyLimit(settings) {
+  const value = settings?.dailyLimitM;
+  return typeof value === 'number' && value > 0 ? value : null;
+}
 
 /**
  * The tracking decision, kept pure so it can be tested without a browser and so the service
