@@ -61,6 +61,44 @@ export function trekStreak(activeDates, today = todayKey()) {
   return streak;
 }
 
+/**
+ * Daily-limit bounds, from Stats.kt. Clamped so a typo cannot create an unwinnable game (or
+ * a trivially won one). The limit itself is optional: null is baseline mode, which has no
+ * assumed cap and makes no clean-day judgments at all.
+ */
+export const MIN_DAILY_LIMIT_M = 10;
+export const MAX_DAILY_LIMIT_M = 10_000;
+
+/** `isCleanDay`: at or under the limit. A non-positive (or absent) limit is never clean. */
+export function isCleanDay(meters, limitMeters) {
+  return limitMeters > 0 && meters <= limitMeters;
+}
+
+/**
+ * `limitStreak`: consecutive clean days ending today. Unlike `trekStreak` there is no
+ * yesterday fallback -- a day over the limit breaks the streak *today*. A date with no entry
+ * reads as 0 (nothing measured), and the run never extends before the first tracked day, so
+ * a fresh install does not inherit an infinite pre-install streak. Values are metres.
+ */
+export function limitStreak(dayMeters, limitMeters, today = todayKey(), firstDay = undefined) {
+  if (!(limitMeters > 0)) return 0;
+  let first = firstDay;
+  if (first === undefined) {
+    first = null;
+    for (const key of dayMeters.keys()) if (first === null || key < first) first = key;
+  }
+  let streak = 0;
+  let cursor = today;
+  for (;;) {
+    if (first !== null && cursor < first) break;
+    if ((dayMeters.get(cursor) ?? 0) > limitMeters) break;
+    streak++;
+    if (first === null) break; // no history: today alone counts once
+    cursor = addDays(cursor, -1);
+  }
+  return streak;
+}
+
 const sumWhere = (days, predicate) => {
   let total = 0;
   for (const [key, value] of days) if (predicate(key)) total += value;

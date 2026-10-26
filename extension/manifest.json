@@ -37,7 +37,7 @@
       "all_frames": false
     }
   ],
-  "permissions": ["storage", "alarms", "identity"],
+  "permissions": ["storage", "alarms", "identity", "activeTab"],
   "host_permissions": [
     "https://identitytoolkit.googleapis.com/*",
     "https://securetoken.googleapis.com/*",

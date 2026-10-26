@@ -1,34 +1,30 @@
 /* ThumbTrek — the survey-sheet system, ported from ui/Theme.kt and web/styles.css.
    Shared by the popup and the options page.
 
-   This is the same instrument the app is. Three accents, each owning exactly one job:
+   This is the same instrument the app is. Each accent owns exactly one job:
 
-     moss   today, you, anything live
+     moss   today, you, anything live, and days within a limit
      amber  streak heat and records — never decoration
+     red    an exceeded daily limit — and nothing else
      slate  the past, and other people — context, not competition
 
    And the structural rule from ui/Surfaces.kt, which is the easiest one to lose in a
    browser: a bordered panel is used ONLY where the content genuinely is a discrete object.
-   Sections are separated by an overline, a hairline rule and whitespace. Boxing every group
+   Sections are separated by a heading, a hairline rule and whitespace. Boxing every group
    is what made an earlier pass of the app "read as a stock dashboard", and a popup is
    exactly the surface where that temptation is strongest.
 
-   Committed dark, like the landing page: the mark, the app and the contour language are all
-   built on the same near-black ground, so there is no light variant to fall back to. Every
-   colour is painted explicitly rather than inherited. */
+   Light and dark, following the system, exactly like the app: bone ground with moss in
+   light, green-black ground with mint in dark. The hex values are Theme.kt's two palettes
+   transcribed, so the extension and the phone look like one product side by side. Every
+   colour is a token; nothing below the token blocks names a hex value. */
 
 /* Bundled, not fetched. An extension that pulls a font from a CDN tells that CDN every time
    the user opens their own scroll statistics, which is precisely the thing this extension
    exists not to do — and it would break offline, where everything else still works.
-   Both files are the variable originals from app/src/main/res/font/, so one file per family
-   covers 400–700 the same way FontVariation does on Android. */
-@font-face {
-  font-family: "Space Grotesk";
-  src: url("../fonts/space_grotesk.ttf") format("truetype-variations");
-  font-weight: 400 700;
-  font-display: block;
-}
-
+   The variable original from app/src/main/res/font/, so one file covers 400–700 the same
+   way FontVariation does on Android. Manrope only: the app's type scale uses one family
+   for headings, figures and body alike (Type.kt). */
 @font-face {
   font-family: "Manrope";
   src: url("../fonts/manrope.ttf") format("truetype-variations");
@@ -37,26 +33,39 @@
 }
 
 :root {
-  --ground: #0c0f0b;
-  --ground-raised: #13170f;
-  --ground-sunken: #080a07;
-  --hairline: #262c1d;
-  --hairline-soft: #1a1f15;
-  --contour: #1b2114;
-  --ink: #edf1e6;
-  --ink-muted: #a9b39c;
-  --ink-faint: #79836d;
-  --moss: #8be6a0;
-  --on-moss: #05210f;
-  --moss-wash: #17281b;
-  --amber: #f2b455;
-  --amber-wash: #2a2113;
-  --slate: #8fb6cc;
-  --slate-wash: #16212a;
-  --danger: #f08497;
-  --danger-wash: #2b1319;
+  color-scheme: light dark;
 
-  --display: "Space Grotesk", "Segoe UI", sans-serif;
+  /* Light — Theme.kt's light palette. */
+  --ground: #f3f1e8;
+  --ground-raised: #fbfaf4;
+  --ground-sunken: #e6e3d6;
+  --hairline: #dcd8c8;
+  --hairline-soft: #eae7da;
+  --ink: #171a10;
+  --ink-muted: #5a6151;
+  --ink-faint: #646a59; /* a step darker than the app's #6B7160 so 11px captions clear 4.5:1 */
+  --moss: #1e6b3e;
+  --on-moss: #fbfaf4;
+  --moss-wash: #dfeee2;
+  --moss-hover: #185832;
+  --moss-line: rgba(30, 107, 62, 0.4);
+  --amber: #8a5806;
+  --amber-dot: #c98a1e;
+  --amber-wash: #f6e9ce;
+  --amber-line: rgba(138, 88, 6, 0.3);
+  --slate: #1d5f80;
+  --slate-wash: #ddeaf1;
+  --danger: #a32639;
+  --on-danger: #fff7f7;
+  --danger-wash: #f7dfe2;
+  --danger-line: rgba(163, 38, 57, 0.35);
+  --hover-wash: rgba(23, 26, 16, 0.04);
+
+  /* The mark: arcs in the action colour, the trail in ink, the tip always amber. */
+  --mark-arc: var(--moss);
+  --mark-trail: var(--ink);
+
+  --display: "Manrope", "Segoe UI", sans-serif;
   --body: "Manrope", "Segoe UI", sans-serif;
 
   --s-1: 0.35rem;
@@ -75,10 +84,46 @@
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
+/* Dark — Theme.kt's dark palette, the one the landing page is built on. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ground: #0c0f0b;
+    --ground-raised: #13170f;
+    --ground-sunken: #080a07;
+    --hairline: #262c1d;
+    --hairline-soft: #1a1f15;
+    --ink: #edf1e6;
+    --ink-muted: #a9b39c;
+    --ink-faint: #858f78; /* lifted from #79836D so 11px captions clear 4.5:1 */
+    --moss: #8be6a0;
+    --on-moss: #05210f;
+    --moss-wash: #17281b;
+    --moss-hover: #a4efb5;
+    --moss-line: rgba(139, 230, 160, 0.45);
+    --amber: #f2b455;
+    --amber-dot: #f2b455;
+    --amber-wash: #2a2113;
+    --amber-line: rgba(242, 180, 85, 0.35);
+    --slate: #8fb6cc;
+    --slate-wash: #16212a;
+    --danger: #f08497;
+    --on-danger: #2b0810;
+    --danger-wash: #2b1319;
+    --danger-line: rgba(240, 132, 151, 0.4);
+    --hover-wash: rgba(237, 241, 230, 0.04);
+  }
+}
+
 *,
 *::before,
 *::after {
   box-sizing: border-box;
+}
+
+/* `hidden` has to win over any class that sets `display` (chips, flex rows). Without this a
+   hidden chip still renders, because author CSS beats the UA's [hidden] rule. */
+[hidden] {
+  display: none !important;
 }
 
 body {
@@ -111,9 +156,13 @@ a:hover {
   font-variant-numeric: tabular-nums lining-nums;
 }
 
+.mark .arcs { stroke: var(--mark-arc); }
+.mark .trail { stroke: var(--mark-trail); }
+.mark .tip { fill: var(--amber-dot); }
+
 /* ————————————————————— Section furniture, not cards ————————————————————— */
 
-/* SectionHead: a wide-tracked overline, a hairline rule running to the edge of the content
+/* SectionHead: a sentence-case heading, a hairline rule running to the edge of the content
    column, and an optional trailing value. */
 .section {
   display: flex;
@@ -122,14 +171,25 @@ a:hover {
   margin: 0 0 var(--s-2);
 }
 
+/* Sentence case at normal tracking (DESIGN.md: no dense uppercase labels). The hierarchy
+   comes from weight and the rule beside it, not from shouting. Used on <h2> as well as
+   <span>, so it resets heading margins itself. */
 .overline {
+  margin: 0;
   font-family: var(--body);
-  font-weight: 600;
-  font-size: 0.6875rem;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--ink-faint);
+  font-weight: 700;
+  font-size: 0.8125rem;
+  line-height: 1.3;
+  color: var(--ink);
   white-space: nowrap;
+}
+
+/* The quieter variant: a caption above a figure rather than a section heading. */
+.caption {
+  margin: 0;
+  font-weight: 600;
+  font-size: 0.75rem;
+  color: var(--ink-muted);
 }
 
 .section .rule {
@@ -141,9 +201,7 @@ a:hover {
 .section .trailing {
   font-family: var(--body);
   font-weight: 600;
-  font-size: 0.6875rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-size: 0.75rem;
   color: var(--ink-muted);
   white-space: nowrap;
 }
@@ -165,12 +223,12 @@ a:hover {
 }
 
 .panel.warn {
-  border-color: rgba(242, 180, 85, 0.35);
+  border-color: var(--amber-line);
   background: var(--amber-wash);
 }
 
 .panel.danger {
-  border-color: rgba(240, 132, 151, 0.35);
+  border-color: var(--danger-line);
   background: var(--danger-wash);
 }
 
@@ -183,7 +241,7 @@ a:hover {
   font-weight: 700;
   font-size: 3.75rem;
   line-height: 1;
-  letter-spacing: -0.045em;
+  letter-spacing: -0.04em;
   font-variant-numeric: tabular-nums lining-nums;
   color: var(--ink);
 }
@@ -196,7 +254,7 @@ a:hover {
 
 .hero-unit {
   font-family: var(--display);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 1.15rem;
   letter-spacing: -0.01em;
   color: var(--ink-muted);
@@ -205,7 +263,7 @@ a:hover {
 
 .figure {
   font-family: var(--display);
-  font-weight: 500;
+  font-weight: 700;
   font-variant-numeric: tabular-nums lining-nums;
   letter-spacing: -0.01em;
   color: var(--ink);
@@ -213,9 +271,9 @@ a:hover {
 
 /* ———————————————————————— Rails, chips, rows ———————————————————————— */
 
-/* The one bar primitive: a sunken track with a filled portion. Site splits, day history
-   and badge progress all use it, so proportion looks the same wherever it appears and a
-   reader learns it once. */
+/* The one bar primitive: a sunken track with a filled portion. Site splits, day history,
+   the daily limit and badge progress all use it, so proportion looks the same wherever it
+   appears and a reader learns it once. */
 .rail {
   height: 5px;
   border-radius: 999px;
@@ -232,6 +290,17 @@ a:hover {
      that reads like a rendering bug. */
   min-width: 5px;
   transition: width 520ms var(--ease);
+}
+
+/* An empty rail: nothing filled, rather than a 5px stub claiming a little progress. */
+.rail > i.zero {
+  min-width: 0;
+}
+
+/* Over the daily limit: red, and always paired with words that say so — colour is never
+   the only signal. */
+.rail.over > i {
+  background: var(--danger);
 }
 
 .measure-row {
@@ -257,7 +326,7 @@ a:hover {
 
 .measure-row .value {
   font-family: var(--display);
-  font-weight: 500;
+  font-weight: 600;
   font-size: 0.875rem;
   font-variant-numeric: tabular-nums lining-nums;
   color: var(--ink-muted);
@@ -280,16 +349,20 @@ a:hover {
    than "look here". At zero it becomes a quiet invitation instead of vanishing — an element
    that disappears teaches a new user nothing. */
 .chip.streak {
-  border-color: rgba(242, 180, 85, 0.35);
+  border-color: var(--amber-line);
   background: var(--amber-wash);
   color: var(--amber);
 }
 
-.chip.streak .dot {
+.chip .dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--amber);
+  background: var(--ink-faint);
+}
+
+.chip.streak .dot {
+  background: var(--amber-dot);
   animation: pulse 1800ms ease-in-out infinite alternate;
 }
 
@@ -297,11 +370,15 @@ a:hover {
   color: var(--ink-faint);
 }
 
-.chip.idle .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--ink-faint);
+/* Clean days under a limit: moss, the streak that rewards scrolling less. */
+.chip.clean {
+  border-color: var(--moss-line);
+  background: var(--moss-wash);
+  color: var(--moss);
+}
+
+.chip.clean .dot {
+  background: var(--moss);
 }
 
 @keyframes pulse {
@@ -309,9 +386,11 @@ a:hover {
   to { opacity: 1; }
 }
 
-/* A percentage delta, coloured only by direction — never by judgement about the number. */
-.delta.up { color: var(--amber); }
-.delta.down { color: var(--slate); }
+/* A percentage delta. Neutral in both directions: amber belongs to streaks, red to an
+   exceeded limit, and "more than yesterday" is neither — the arrow carries the direction. */
+.delta {
+  color: var(--ink-muted);
+}
 
 /* ————————————————————————————— Controls ————————————————————————————— */
 
@@ -342,7 +421,7 @@ a:hover {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #a4efb5;
+  background: var(--moss-hover);
 }
 
 .btn-ghost {
@@ -353,17 +432,32 @@ a:hover {
 
 .btn-ghost:hover:not(:disabled) {
   border-color: var(--ink-faint);
-  background: rgba(237, 241, 230, 0.04);
+  background: var(--hover-wash);
 }
 
 .btn-danger {
   background: transparent;
   color: var(--danger);
-  border-color: rgba(240, 132, 151, 0.4);
+  border-color: var(--danger-line);
 }
 
 .btn-danger:hover:not(:disabled) {
   background: var(--danger-wash);
+}
+
+/* A text-only action inside a sentence or a row: "Set a limit", "Forget". */
+.link-btn {
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--moss);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
 }
 
 /* A switch, not a checkbox: the state has to be readable at a glance in a list of ten. */
@@ -395,7 +489,7 @@ a:hover {
 
 .toggle[aria-checked="true"] {
   background: var(--moss-wash);
-  border-color: rgba(139, 230, 160, 0.45);
+  border-color: var(--moss-line);
 }
 
 .toggle[aria-checked="true"]::after {
@@ -403,21 +497,41 @@ a:hover {
   transform: translateY(-50%) translateX(1.03rem);
 }
 
-input[type="text"] {
+.toggle:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+input[type="text"],
+input[type="number"] {
   flex: 1;
   min-width: 0;
   min-height: 2.25rem;
   padding: 0.4rem 0.7rem;
   border-radius: var(--r-sm);
   border: 1px solid var(--hairline);
-  background: var(--ground-sunken);
+  background: var(--ground-raised);
   color: var(--ink);
   font-family: var(--body);
   font-size: 0.8125rem;
 }
 
-input[type="text"]::placeholder {
+input[type="text"]::placeholder,
+input[type="number"]::placeholder {
   color: var(--ink-faint);
+}
+
+input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+/* Windows high contrast flattens backgrounds, which would leave every switch reading "off"
+   and every rail empty. System colours keep both legible. */
+@media (forced-colors: active) {
+  .toggle[aria-checked="true"]::after,
+  .rail > i {
+    background: Highlight;
+  }
 }
 
 /* ————————————————————————————— States ————————————————————————————— */
@@ -431,7 +545,7 @@ input[type="text"]::placeholder {
 .empty h3 {
   margin: 0 0 0.2rem;
   font-family: var(--display);
-  font-weight: 500;
+  font-weight: 700;
   font-size: 0.9375rem;
   color: var(--ink);
 }
@@ -447,6 +561,17 @@ input[type="text"]::placeholder {
 .moss { color: var(--moss); }
 .amber { color: var(--amber); }
 .slate { color: var(--slate); }
+.danger { color: var(--danger); }
+
+/* Read by screen readers, invisible on screen: chart captions, live announcements. */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,

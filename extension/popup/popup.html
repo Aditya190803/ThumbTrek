@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
+  <meta name="color-scheme" content="light dark" />
   <title>ThumbTrek</title>
   <link rel="stylesheet" href="../ui/trek.css" />
   <link rel="stylesheet" href="popup.css" />
@@ -10,75 +11,107 @@
   <!-- Everything below renders from IndexedDB alone. No account, no network, no exceptions:
        contract §5 makes local storage the source of truth and the network a mirror, so this
        surface has to be complete without either. -->
-  <main class="sheet">
+  <main class="sheet" id="sheet" aria-busy="true">
     <header class="head">
-      <span class="brand">
+      <h1 class="brand">
         <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-          <g stroke="#8BE6A0" stroke-width="2" stroke-linecap="round" fill="none">
+          <g class="arcs" stroke-width="2" stroke-linecap="round" fill="none">
             <path d="M13 21 C13 17.5 19 17.5 19 21" />
             <path d="M10 21 C10 14.5 22 14.5 22 21" />
             <path d="M7 21 C7 11.5 25 11.5 25 21" />
           </g>
-          <path d="M5 25.5 L11 23 L17 25 L25.5 20" stroke="#EDF1E6" stroke-width="2"
+          <path class="trail" d="M5 25.5 L11 23 L17 25 L25.5 20" stroke-width="2"
                 stroke-linecap="round" stroke-linejoin="round" fill="none" />
-          <circle cx="25.5" cy="20" r="2.2" fill="#F2B455" />
+          <circle class="tip" cx="25.5" cy="20" r="2.2" />
         </svg>
         ThumbTrek
-      </span>
-      <span class="overline" id="today-label"></span>
+      </h1>
+      <span class="caption" id="today-label"></span>
     </header>
 
+    <!-- Failures land here, in the one place the user is already looking. -->
+    <p class="alert" id="error" role="alert" hidden></p>
+
     <!-- The hero. Contour lines behind the figure, not a card around it. -->
-    <section class="hero" aria-labelledby="hero-figure">
+    <section class="hero" aria-labelledby="hero-title">
       <svg class="contours" viewBox="0 0 320 120" preserveAspectRatio="none" aria-hidden="true">
         <path d="M-10 104 C60 92 110 114 170 100 C230 86 280 106 330 92" />
         <path d="M-10 82 C60 66 110 90 170 74 C230 58 280 80 330 64" />
         <path d="M-10 60 C60 40 110 66 170 48 C230 30 280 54 330 36" />
         <path d="M-10 38 C60 14 110 42 170 22 C230 2 280 28 330 8" />
       </svg>
-      <p class="overline">Today's trek</p>
+      <h2 class="caption" id="hero-title">Today's trek</h2>
+      <!-- A dash, not a zero, until the database answers: "0 m" for a beat on every open
+           reads as "you scrolled nothing" to someone who just did. -->
       <p class="hero-line">
-        <span class="hero-figure num" id="hero-figure">0</span><span class="hero-unit" id="hero-unit">m</span>
+        <span class="hero-figure num" id="hero-figure">—</span><span class="hero-unit" id="hero-unit"></span>
       </p>
-      <p class="comparison" id="comparison"></p>
+      <p class="comparison" id="comparison">&nbsp;</p>
       <p class="hero-meta">
-        <span class="chip idle" id="streak"><span class="dot"></span><span id="streak-text">No streak yet</span></span>
+        <span class="chip idle" id="streak"><span class="dot" aria-hidden="true"></span><span id="streak-text">No streak yet</span></span>
+        <span class="chip clean" id="clean-streak" hidden><span class="dot" aria-hidden="true"></span><span id="clean-streak-text"></span></span>
         <span class="delta" id="delta"></span>
       </p>
     </section>
 
-    <section>
+    <!-- Daily limit, or baseline mode. Second only to the distance itself (PRODUCT.md:
+         "lead with today's distance and daily limit"). With no limit set there is no rail,
+         no colour and no verdict — just an invitation. -->
+    <section class="limit" id="limit" aria-labelledby="limit-title">
       <div class="section">
-        <span class="overline">Today's sites</span>
+        <h2 class="overline" id="limit-title">Daily limit</h2>
+        <span class="rule"></span>
+        <span class="trailing num" id="limit-value"></span>
+      </div>
+      <div id="limit-gauge" hidden>
+        <div class="rail" id="limit-rail" role="progressbar" aria-labelledby="limit-title"
+             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="limit-fill"></i></div>
+        <p class="limit-text" id="limit-text"></p>
+      </div>
+      <p class="limit-text muted" id="baseline" hidden>
+        Tracking your usual scrolling with no cap.
+        <button class="link-btn" id="set-limit" type="button">Set a daily limit</button>
+      </p>
+    </section>
+
+    <section aria-labelledby="sites-title">
+      <div class="section">
+        <h2 class="overline" id="sites-title">Today's sites</h2>
         <span class="rule"></span>
         <span class="trailing" id="site-count"></span>
       </div>
       <div id="sites"></div>
     </section>
 
-    <section>
+    <!-- The page you were on when you opened this, and one click to count it (or stop). -->
+    <div class="here" id="here" hidden>
+      <span class="here-text" id="here-text"></span>
+      <button class="link-btn" id="here-action" type="button"></button>
+    </div>
+
+    <section id="week" aria-labelledby="week-title">
       <div class="section">
-        <span class="overline">Last 7 days</span>
+        <h2 class="overline" id="week-title">Last 7 days</h2>
         <span class="rule"></span>
-        <span class="trailing" id="week-total"></span>
+        <span class="trailing num" id="week-total"></span>
       </div>
       <!-- A route across the week rather than a bar chart: same survey language as the
            landing page's hero, and a line reads a trend faster than seven columns do. -->
       <figure class="spark" id="spark-figure">
-        <svg viewBox="0 0 300 74" id="spark" role="img" aria-labelledby="spark-caption"></svg>
-        <figcaption class="axis" id="spark-axis"></figcaption>
+        <svg viewBox="0 0 300 60" id="spark" role="img" aria-labelledby="spark-caption"></svg>
+        <figcaption class="axis" id="spark-axis" aria-hidden="true"></figcaption>
         <span id="spark-caption" class="visually-hidden"></span>
       </figure>
     </section>
 
     <footer class="foot">
       <div class="stat">
-        <span class="overline">Best day</span>
+        <span class="caption">Best day</span>
         <span class="figure num" id="best-day">—</span>
         <span class="faint" id="best-day-when"></span>
       </div>
       <div class="stat">
-        <span class="overline">All time</span>
+        <span class="caption">All time</span>
         <span class="figure num" id="all-time">—</span>
         <span class="faint" id="badge-count"></span>
       </div>
