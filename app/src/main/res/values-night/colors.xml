@@ -5,4 +5,5 @@
     <color name="widget_muted">#A9B39C</color>
     <color name="widget_accent">#8BE6A0</color>
     <color name="widget_track">#262C1D</color>
+    <color name="widget_danger">#F08497</color>
 </resources>

@@ -232,6 +232,8 @@ fun TrekGauge(
  * @param highlight index drawn in the accent colour, normally today. -1 for none.
  * @param selected index the user tapped, drawn ink-dark with the rest dimmed. -1 for none.
  * @param onSelect tap handler; null renders a static chart with no touch handling.
+ * @param guide optional reference value (the daily limit) drawn as a dashed line. Skipped
+ *   when it sits far above every bar, where it would only squash the data into a sliver.
  */
 @Composable
 fun HistoryBars(
@@ -244,9 +246,13 @@ fun HistoryBars(
     maxInlineLabels: Int = 8,
     selected: Int = -1,
     onSelect: ((Int) -> Unit)? = null,
+    guide: Float? = null,
+    guideColor: Color = Trek.danger,
 ) {
     if (bars.isEmpty()) return
-    val max = bars.maxOf { it.value }.coerceAtLeast(1f)
+    val tallest = bars.maxOf { it.value }
+    val shownGuide = guide?.takeIf { it > 0f && tallest > 0f && it <= tallest * 2f }
+    val max = maxOf(tallest, shownGuide ?: 0f).coerceAtLeast(1f)
     val track = Trek.groundSunken
     // Palette reads are @Composable, so resolve them before the draw scope below.
     val selectedColor = Trek.accent
@@ -324,6 +330,16 @@ fun HistoryBars(
                     topLeft = Offset(x, size.height - barHeight),
                     size = Size(barWidth, barHeight),
                     cornerRadius = corner,
+                )
+            }
+            if (shownGuide != null) {
+                val y = size.height - shownGuide / max * size.height
+                drawLine(
+                    color = guideColor.copy(alpha = 0.7f),
+                    start = Offset(0f, y),
+                    end = Offset(size.width, y),
+                    strokeWidth = 1.5.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(6.dp.toPx(), 5.dp.toPx())),
                 )
             }
         }

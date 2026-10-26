@@ -93,7 +93,13 @@ adb('shell','input','keyevent','4')
 tap('Continue for now')
 assert prefs()['onboarding_step'] == '2'
 shot('limit-empty')
-field = next(n for n in tree().iter('node') if n.get('class') == 'android.widget.EditText')
+field = None
+for _ in range(10):  # give the field a moment to lay out before reading the tree
+    field = next((n for n in tree().iter('node') if n.get('class') == 'android.widget.EditText'), None)
+    if field is not None:
+        break
+    time.sleep(.5)
+assert field is not None, 'Manual limit field never appeared'
 tap_node(field)
 adb('shell','input','text','250')
 adb('shell','input','keyevent','4')

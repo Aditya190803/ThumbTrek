@@ -10,6 +10,10 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.border
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.Arrangement
@@ -28,7 +32,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.Icon
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -46,8 +54,12 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -62,6 +74,7 @@ import com.thumbtrek.app.share.DataExporter
 import com.thumbtrek.app.stats.BILLING_ENFORCED
 import com.thumbtrek.app.stats.MAX_DAILY_LIMIT_M
 import com.thumbtrek.app.stats.MIN_DAILY_LIMIT_M
+import com.thumbtrek.app.stats.comparison
 import com.thumbtrek.app.stats.formatDistance
 import com.thumbtrek.app.stats.pixelsToMeters
 import com.thumbtrek.app.track.ScrollDiagnostics
@@ -71,7 +84,11 @@ import kotlinx.coroutines.launch
 private val GUTTER = 24.dp
 
 @Composable
-fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewModel()) {
+fun SettingsScreen(
+    modifier: Modifier = Modifier,
+    vm: SettingsViewModel = viewModel(),
+    scrollState: ScrollState = rememberScrollState(),
+) {
     LifecycleResumeEffect(Unit) {
         vm.refreshTrackingState()
         onPauseOrDispose { }
@@ -107,7 +124,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
     Column(
         modifier = modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scrollState)
             .padding(horizontal = GUTTER)
             .padding(top = 10.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
@@ -213,7 +230,7 @@ fun SettingsScreen(modifier: Modifier = Modifier, vm: SettingsViewModel = viewMo
                 when {
                     !BILLING_ENFORCED -> "Change your limit as often as you like. It’s free for now."
                     state.premium -> "Premium: unlimited changes."
-                    state.freeEditsLeft > 0 -> "One free change per week · yours is still " +
+                    state.freeEditsLeft > 0 -> "One free change per week. Yours is still " +
                         "available this week."
                     else -> "This week's free change is used. The quota resets Monday; " +
                         "Premium (coming soon) unlocks unlimited changes."
@@ -496,7 +513,16 @@ private fun ActionRow(
 @Composable
 internal fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
     val apps by vm.installedApps.collectAsStateWithLifecycle()
+    val settings by vm.state.collectAsStateWithLifecycle()
+    var query by rememberSaveable { mutableStateOf("") }
     LaunchedEffect(Unit) { vm.loadInstalledApps() }
+
+    // Apps already on the list would only be added twice, so they are left out here.
+    val known = TRACKED_APPS.keys + settings.customApps.keys
+    val shown = remember(apps, known, query) {
+        apps.filter { it.packageName !in known }
+            .filter { query.isBlank() || it.label.contains(query.trim(), ignoreCase = true) }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -511,28 +537,56 @@ internal fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
                     repeat(4) { Skeleton(modifier = Modifier.fillMaxWidth(), height = 20.dp) }
                 }
             } else {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                ) {
-                    apps.forEach { app ->
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 48.dp)
-                                .clickable(role = Role.Button) {
-                                    vm.addCustomApp(app.packageName, app.label)
-                                    onDismiss()
-                                }
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                app.label,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = Trek.ink,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                Column {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = { query = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        placeholder = { Text("Search apps") },
+                        leadingIcon = {
+                            Icon(Icons.Default.Search, contentDescription = null, tint = Trek.inkFaint)
+                        },
+                        singleLine = true,
+                        shape = MaterialTheme.shapes.small,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Trek.accent,
+                            unfocusedBorderColor = Trek.hairline,
+                        ),
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (shown.isEmpty()) {
+                        Text(
+                            if (query.isBlank()) "Every installed app is already on your list."
+                            else "No apps match \"${query.trim()}\".",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = Trek.inkMuted,
+                            modifier = Modifier.padding(vertical = 12.dp),
+                        )
+                    }
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                    ) {
+                        shown.forEach { app ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .heightIn(min = 48.dp)
+                                    .clickable(role = Role.Button) {
+                                        vm.addCustomApp(app.packageName, app.label)
+                                        onDismiss()
+                                    }
+                                    .padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(
+                                    app.label,
+                                    style = MaterialTheme.typography.bodyLarge,
+                                    color = Trek.ink,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                     }
                 }
@@ -576,7 +630,32 @@ private fun LimitEditor(vm: SettingsViewModel, currentM: Float?) {
     var input by remember(currentM) { mutableStateOf(currentM?.toInt()?.toString().orEmpty()) }
     var error by remember { mutableStateOf<String?>(null) }
     val result by vm.limitEdit.collectAsStateWithLifecycle()
+    val focus = LocalFocusManager.current
 
+    val save = {
+        val value = input.toFloatOrNull()
+        error = when {
+            value == null -> "Enter your daily limit in metres."
+            value < MIN_DAILY_LIMIT_M.toFloat() || value > MAX_DAILY_LIMIT_M.toFloat() ->
+                "Between ${MIN_DAILY_LIMIT_M.toInt()} and " +
+                    "${MAX_DAILY_LIMIT_M.toInt()} m, so a typo can't break the game."
+            else -> null
+        }
+        if (error == null && value != null) {
+            vm.trySetLimit(value)
+            focus.clearFocus()
+        }
+    }
+
+    LimitPresets(
+        selected = input.toIntOrNull(),
+        onPick = {
+            input = it.toString()
+            error = null
+            vm.clearLimitEdit()
+        },
+    )
+    Spacer(modifier = Modifier.height(12.dp))
     Row(verticalAlignment = Alignment.Top) {
         OutlinedTextField(
             value = input,
@@ -592,7 +671,11 @@ private fun LimitEditor(vm: SettingsViewModel, currentM: Float?) {
             shape = MaterialTheme.shapes.small,
             isError = error != null,
             supportingText = error?.let { { Text(it) } },
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            keyboardOptions = KeyboardOptions(
+                keyboardType = KeyboardType.Number,
+                imeAction = ImeAction.Done,
+            ),
+            keyboardActions = KeyboardActions(onDone = { save() }),
             colors = OutlinedTextFieldDefaults.colors(
                 focusedTextColor = Trek.ink,
                 unfocusedTextColor = Trek.ink,
@@ -608,26 +691,29 @@ private fun LimitEditor(vm: SettingsViewModel, currentM: Float?) {
         Spacer(modifier = Modifier.width(10.dp))
         TrekButton(
             "Save",
-            onClick = {
-                val value = input.toFloatOrNull()
-                error = when {
-                    value == null -> "Enter your daily limit in metres."
-                    value < MIN_DAILY_LIMIT_M.toFloat() || value > MAX_DAILY_LIMIT_M.toFloat() ->
-                        "Between ${MIN_DAILY_LIMIT_M.toInt()} and " +
-                            "${MAX_DAILY_LIMIT_M.toInt()} m, so a typo can't break the game."
-                    else -> null
-                }
-                if (error == null && value != null) vm.trySetLimit(value)
-            },
+            onClick = save,
+            // Saving the value that is already set would only spend a weekly edit.
+            enabled = input.toFloatOrNull() != currentM,
         )
     }
+    // What the typed number means, before it is saved: the same landmark line onboarding
+    // shows, so "250" reads as a distance rather than an arbitrary figure.
+    input.toDoubleOrNull()
+        ?.takeIf { it in MIN_DAILY_LIMIT_M..MAX_DAILY_LIMIT_M && error == null && result == null }
+        ?.let {
+            Text(
+                comparison(it),
+                style = MaterialTheme.typography.bodySmall,
+                color = Trek.inkMuted,
+            )
+        }
     when (val applied = result) {
         is Prefs.LimitEditResult.Applied -> {
             Spacer(modifier = Modifier.height(8.dp))
             val noun = if (applied.freeLeft == 1) "change" else "changes"
             Text(
                 when {
-                    !BILLING_ENFORCED -> "Saved. Limits are free for now · change it whenever."
+                    !BILLING_ENFORCED -> "Saved. Limits are free for now, so change it whenever you like."
                     applied.freeLeft == Int.MAX_VALUE -> "Saved. Premium: unlimited changes."
                     else -> "Saved. ${applied.freeLeft} free $noun left this week."
                 },
@@ -638,13 +724,49 @@ private fun LimitEditor(vm: SettingsViewModel, currentM: Float?) {
         Prefs.LimitEditResult.NeedsPremium -> {
             Spacer(modifier = Modifier.height(8.dp))
             Text(
-                "This week's free change is used · the quota resets Monday. Premium " +
+                "This week's free change is used. The quota resets Monday. Premium " +
                     "(coming soon) unlocks unlimited changes. Nothing was changed.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Trek.danger,
             )
         }
         null -> Unit
+    }
+}
+
+/** Common starting points, so choosing a limit doesn't begin with a blank number field. */
+private val LIMIT_PRESETS = listOf(50, 100, 250, 500)
+
+/**
+ * One-tap limit presets, shared by onboarding and Settings. A preset is only a suggestion:
+ * it fills the field, and the caller still decides when to save.
+ */
+@Composable
+internal fun LimitPresets(selected: Int?, onPick: (Int) -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth().selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        LIMIT_PRESETS.forEach { meters ->
+            val active = meters == selected
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .heightIn(min = 48.dp)
+                    .clip(CircleShape)
+                    .background(if (active) Trek.accentWash else Color.Transparent)
+                    .border(1.dp, if (active) Trek.accent else Trek.hairline, CircleShape)
+                    .selectable(selected = active, role = Role.RadioButton) { onPick(meters) },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    "$meters m",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = if (active) Trek.accent else Trek.ink,
+                    maxLines = 1,
+                )
+            }
+        }
     }
 }
 
@@ -682,7 +804,7 @@ private fun DiagnosticsTable(
     TrekPanel(padding = PaddingValues(4.dp)) {
         if (packages.isEmpty()) {
             Text(
-                "Nothing tracked yet · switch an app on above and its row appears here.",
+                "Nothing tracked yet. Switch an app on above and its row appears here.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Trek.inkFaint,
                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -692,11 +814,11 @@ private fun DiagnosticsTable(
             val diag = byPkg[pkg]
             val countedPx = diag?.countedPixels ?: 0L
             val detail = when {
-                pkg !in trackedApps -> "off"
-                diag == null -> "idle · no scroll heard yet"
-                else -> "fg=${diag.foregroundSightings} · " +
-                    "${formatDistance(pixelsToMeters(countedPx, dpi))}" +
-                    (diag.dominantPath?.let { " · $it" } ?: "")
+                pkg !in trackedApps -> "Not tracked"
+                diag == null -> "Idle. No scroll heard yet"
+                else -> "Seen in foreground ${diag.foregroundSightings}× · " +
+                    "${formatDistance(pixelsToMeters(countedPx, dpi))} counted" +
+                    (diag.dominantPath?.let { " · via $it" } ?: "")
             }
             Row(
                 modifier = Modifier
@@ -739,7 +861,7 @@ private fun DiagnosticsTable(
         if (clearedNote) {
             Spacer(modifier = Modifier.width(10.dp))
             Text(
-                "Counters cleared · scroll a feed to start them again.",
+                "Counters cleared. Scroll a feed to start them again.",
                 style = MaterialTheme.typography.bodySmall,
                 color = Trek.inkFaint,
             )
