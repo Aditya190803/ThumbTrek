@@ -16,15 +16,16 @@ import { parseSiteInput, siteName } from '../lib/domain.js';
 import { signIn, signOut } from '../lib/auth.js';
 import { syncedAgo } from '../lib/sync.js';
 import { micrometresToMetres } from '../lib/units.js';
-import { dayLabel, todayKey } from '../lib/dates.js';
+import { addDays, dayLabel, todayKey } from '../lib/dates.js';
 import {
-  MAX_DAILY_LIMIT_M, MIN_DAILY_LIMIT_M, badges, formatDistance, limitStreak, personalRecord,
-  totalThisMonth, totalThisWeek, trekStreak, weekOverWeekDelta, weeklyBuckets,
+  BASELINE_DAYS, MAX_DAILY_LIMIT_M, MIN_DAILY_LIMIT_M, badges, formatDistance, limitStreak,
+  personalRecord, suggestedLimit, totalThisMonth, totalThisWeek, trackedDaysSince, trekStreak,
+  typicalDayMeters, weekOverWeekDelta, weeklyBuckets,
 } from '../lib/stats.js';
 import {
   addCustomSite, customLabels, dailyLimit, listedSites, parseDailyLimit, readSettings,
   removeCustomSite, setAnonymous, setDailyLimit, setLeaderboardOptIn, setSiteTracked,
-  setTrackEverything,
+  setTrackEverything, startBaseline,
 } from '../lib/settings.js';
 
 const $ = (id) => document.getElementById(id);
@@ -52,22 +53,108 @@ function setToggle(id, on) {
 // ———————————————————————————— Daily limit ————————————————————————————
 
 /**
- * Optional, and null by default: baseline mode, the phone's fresh-install behaviour. The
- * rest of the page (badges, the clean-day streak) only mentions limits once one exists.
+ * Baseline is the default: a fresh install learns a typical day for a week and then sets a
+ * limit about 10% under it. Setting one by hand is allowed, and goes through a caution step.
  */
+async function typicalDay() {
+  const totals = await dayTotals();
+  const dayMeters = new Map([...totals].map(([key, um]) => [key, micrometresToMetres(um)]));
+  const today = todayKey();
+  return {
+    typical: typicalDayMeters(dayMeters, addDays(today, -28), today, 3),
+    dayMeters,
+    today,
+  };
+}
+
 async function renderLimit() {
-  const limit = dailyLimit(await readSettings());
-  $('limit-current').textContent = limit === null ? 'Not set' : `${formatDistance(limit)} / day`;
-  $('limit-lede').textContent = limit === null
-    ? 'Track your usual scrolling first, or choose a daily cap. Your limit is always your '
-      + 'choice, and it only covers scrolling measured in this browser.'
-    : 'Stay within your limit to earn a clean day. It covers scrolling measured in this '
-      + 'browser; your phone keeps its own.';
-  $('limit-save').textContent = limit === null ? 'Set limit' : 'Update limit';
-  $('limit-clear').hidden = limit === null;
+  const settings = await readSettings();
+  const limit = dailyLimit(settings);
+  const learning = limit === null && Boolean(settings.baselineSince);
+  const { typical, dayMeters, today } = await typicalDay();
+  const days = learning
+    ? Math.min(BASELINE_DAYS, trackedDaysSince(dayMeters, settings.baselineSince, today).length)
+    : 0;
+  $('limit-current').textContent = limit !== null
+    ? `${formatDistance(limit)} / day`
+    : learning ? `Learning · day ${days} of ${BASELINE_DAYS}` : 'Not set';
+  $('limit-lede').textContent = limit !== null
+    ? 'Stay within your limit to earn a clean day. It covers scrolling measured in this '
+      + 'browser; your phone keeps its own.'
+    : learning
+      ? `ThumbTrek is learning your usual day. After ${BASELINE_DAYS} tracked days your limit `
+        + 'is set about 10% under it. You can also set one yourself now.'
+      : 'No limit and no clean-day scores. Learn your baseline and ThumbTrek will suggest one, '
+        + 'or set your own below.';
+  $('limit-typical').hidden = typical === null;
+  $('limit-typical').textContent = typical === null ? ''
+    : `Your usual day lately: about ${formatDistance(typical)}`;
+  $('limit-baseline').hidden = limit !== null || learning;
+  $('limit-save').textContent = limit === null ? 'Set my own limit' : 'Change limit';
+  $('limit-clear').hidden = limit === null && !learning;
   const input = $('limit-input');
   // Never overwrite what the user is in the middle of typing.
   if (document.activeElement !== input) input.value = limit === null ? '' : String(limit);
+}
+
+/**
+ * The caution step, worded like ManualLimitDialog on the phone. The dialog resolves to
+ * "confirm", "alternative" (the better option it offered) or "cancel".
+ */
+function cautionFor(newM, typical, currentM) {
+  const verb = currentM === null ? 'Set' : 'Change';
+  if (typical === null) {
+    return {
+      title: 'Set a limit without a baseline?',
+      body: `ThumbTrek doesn’t know your usual day in this browser yet, so ${formatDistance(newM)} `
+        + 'is a guess. Too low and every day reads as over; too high and it never matters. '
+        + `Learning your baseline takes ${BASELINE_DAYS} tracked days.`,
+      alternative: 'Learn my baseline instead',
+      verb,
+    };
+  }
+  if (newM > typical) {
+    return {
+      title: `${verb} your limit to ${formatDistance(newM)}?`,
+      body: `That’s above your usual day of about ${formatDistance(typical)}, so most days would `
+        + 'pass under it without you noticing. Limits work best a little below what you '
+        + 'normally scroll.',
+      verb,
+    };
+  }
+  if (newM < typical * 0.5) {
+    const suggested = suggestedLimit(typical);
+    return {
+      title: `${verb} your limit to ${formatDistance(newM)}?`,
+      body: `That’s less than half your usual day of about ${formatDistance(typical)}, so most `
+        + 'days will count as over. Big cuts are hard to keep. About '
+        + `${formatDistance(suggested)} is a steadier start.`,
+      alternative: suggested !== newM ? `Use ${formatDistance(suggested)} instead` : null,
+      suggested,
+      verb,
+    };
+  }
+  return {
+    title: `${verb} your limit to ${formatDistance(newM)}?`,
+    body: `That’s ${Math.round((1 - newM / typical) * 100)}% under your usual day of about `
+      + `${formatDistance(typical)}. Clean days are judged against it from today.`,
+    verb,
+  };
+}
+
+function confirmLimit(caution, newM) {
+  const dialog = $('limit-confirm');
+  $('limit-confirm-title').textContent = caution.title;
+  $('limit-confirm-body').textContent = caution.body;
+  $('limit-confirm-ok').textContent = `${caution.verb} to ${formatDistance(newM)}`;
+  const alt = $('limit-confirm-alt');
+  alt.hidden = !caution.alternative;
+  alt.textContent = caution.alternative ?? '';
+  dialog.returnValue = 'cancel';
+  return new Promise((resolve) => {
+    dialog.addEventListener('close', () => resolve(dialog.returnValue || 'cancel'), { once: true });
+    dialog.showModal();
+  });
 }
 
 $('limit-form').addEventListener('submit', async (event) => {
@@ -84,17 +171,38 @@ $('limit-form').addEventListener('submit', async (event) => {
     return;
   }
   input.removeAttribute('aria-invalid');
-  await setDailyLimit(value);
-  input.blur();
-  note('limit-note', `Daily limit set to ${formatDistance(value)}.`, 'good');
+  const current = dailyLimit(await readSettings());
+  const { typical } = await typicalDay();
+  const caution = cautionFor(value, typical, current);
+  const choice = await confirmLimit(caution, value);
+  if (choice === 'cancel') {
+    note('limit-note', 'Nothing was changed.');
+    return;
+  }
+  if (choice === 'alternative' && caution.suggested === undefined) {
+    await startBaseline();
+    input.value = '';
+    note('limit-note', `Learning your baseline. Your limit is set after ${BASELINE_DAYS} tracked days.`, 'good');
+  } else {
+    const chosen = choice === 'alternative' ? caution.suggested : value;
+    await setDailyLimit(chosen);
+    input.blur();
+    note('limit-note', `Daily limit set to ${formatDistance(chosen)}.`, 'good');
+  }
   await Promise.all([renderLimit(), renderTrek()]);
 });
 
 $('limit-input').addEventListener('input', () => $('limit-input').removeAttribute('aria-invalid'));
 
+$('limit-baseline').addEventListener('click', async () => {
+  await startBaseline();
+  note('limit-note', `Learning your baseline. Your limit is set after ${BASELINE_DAYS} tracked days.`, 'good');
+  await Promise.all([renderLimit(), renderTrek()]);
+});
+
 $('limit-clear').addEventListener('click', async () => {
   await setDailyLimit(null);
-  note('limit-note', 'Tracking without a limit. No clean-day judgments until you set one.');
+  note('limit-note', 'Tracking without a limit. No clean-day judgments, and none set automatically.');
   await Promise.all([renderLimit(), renderTrek()]);
   $('limit-input').focus();
 });
@@ -223,9 +331,13 @@ async function renderTrek() {
   for (const value of totals.values()) allTime += value;
   const record = personalRecord(totals);
   const streak = trekStreak(totals.keys(), today);
-  const clean = limit === null ? null : limitStreak(
-    new Map([...totals].map(([key, um]) => [key, micrometresToMetres(um)])), limit, today,
-  );
+  const dayMeters = new Map([...totals].map(([key, um]) => [key, micrometresToMetres(um)]));
+  // Days before the limit began are never scored against it.
+  const earliest = [...dayMeters.keys()].sort()[0];
+  const firstDay = settings.limitSince
+    ? (earliest !== undefined && earliest > settings.limitSince ? earliest : settings.limitSince)
+    : undefined;
+  const clean = limit === null ? null : limitStreak(dayMeters, limit, today, firstDay);
 
   $('rec-today').textContent = metres(totals.get(today) ?? 0);
   $('rec-week').textContent = metres(totalThisWeek(totals, today));

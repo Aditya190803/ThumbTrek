@@ -366,3 +366,33 @@ section:focus {
   height: 4px;
   margin-top: 0.2rem;
 }
+
+/* The caution step before a hand-set limit. Native <dialog>: focus is trapped and Escape
+   cancels for free, which a hand-rolled overlay would have to re-implement. */
+.confirm {
+  max-width: 28rem;
+  border: 1px solid var(--hairline);
+  border-radius: 1rem;
+  padding: var(--s-3);
+  background: var(--ground-raised);
+  color: var(--ink);
+}
+
+.confirm::backdrop {
+  background: rgb(0 0 0 / 0.35);
+}
+
+.confirm h3 {
+  margin: 0 0 var(--s-1);
+}
+
+.confirm p {
+  margin: 0 0 var(--s-3);
+  color: var(--ink-muted);
+}
+
+.confirm-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}

@@ -17,6 +17,7 @@
 import { api } from './browser.js';
 import { DEFAULT_SITES } from './domain.js';
 import { MAX_DAILY_LIMIT_M, MIN_DAILY_LIMIT_M } from './stats.js';
+import { todayKey } from './dates.js';
 
 const KEY = 'settings';
 
@@ -37,6 +38,16 @@ export const DEFAULTS = Object.freeze({
    *  synced -- the phone keeps its own. Null by default, like a fresh phone install:
    *  nobody is judged against a cap they did not choose. */
   dailyLimitM: null,
+  /** The day the current limit started counting (`yyyy-MM-dd`). Earlier days are never
+   *  judged against it. Null for limits that predate this field: all history, as before. */
+  limitSince: null,
+  /** The day the baseline week began; non-null while one is being learned. Set on install
+   *  and update by the service worker, so the default is learning, never a guessed cap. */
+  baselineSince: null,
+  /** The typical day behind a just-applied automatic limit, until it is acknowledged. */
+  autoLimitNotice: null,
+  /** True once the user has explicitly chosen no limit at all. Nothing overrides that. */
+  noLimitChosen: false,
 });
 
 /** Reads the whole settings object, with defaults filled in for anything never written. */
@@ -85,13 +96,60 @@ export const setTrackEverything = (enabled) => write({ trackEverything: enabled 
 export const setLeaderboardOptIn = (enabled) => write({ leaderboardOptIn: enabled });
 export const setAnonymous = (enabled) => write({ anonymous: enabled });
 
-/** Saves a limit in metres (clamped to the phone's bounds), or null to return to baseline. */
-export function setDailyLimit(meters) {
-  if (meters === null) return write({ dailyLimitM: null });
+/**
+ * A hand-set limit in metres (clamped to the phone's bounds), or null for explicitly no
+ * limit. Either way it is the user's call, so any baseline week and its pending notice end
+ * here. A first limit counts from today; changing an existing one keeps its start date.
+ */
+export async function setDailyLimit(meters, today = todayKey()) {
+  if (meters === null) {
+    return write({
+      dailyLimitM: null, limitSince: null, baselineSince: null, autoLimitNotice: null,
+      noLimitChosen: true,
+    });
+  }
+  const settings = await readSettings();
+  const since = settings.limitSince ?? (dailyLimit(settings) === null ? today : null);
   return write({
     dailyLimitM: Math.min(MAX_DAILY_LIMIT_M, Math.max(MIN_DAILY_LIMIT_M, Math.round(meters))),
+    limitSince: since,
+    baselineSince: null,
+    autoLimitNotice: null,
+    noLimitChosen: false,
   });
 }
+
+/** Begin (or restart) a baseline week: no cap and no judgements until it is done. */
+export const startBaseline = (today = todayKey()) => write({
+  dailyLimitM: null, limitSince: null, baselineSince: today, autoLimitNotice: null,
+  noLimitChosen: false,
+});
+
+/**
+ * Starts a baseline week for anyone who has neither a limit nor an explicit "no limit".
+ * Run on install and on update, so existing users get a fresh week rather than a limit
+ * computed from older history -- the phone's migration rule.
+ */
+export async function ensureBaselineDefault(today = todayKey()) {
+  const settings = await readSettings();
+  if (dailyLimit(settings) !== null || settings.baselineSince || settings.noLimitChosen) return;
+  await startBaseline(today);
+}
+
+/**
+ * The baseline week is done: set its limit, starting today. ThumbTrek acting, not the user
+ * editing. Does nothing once the week has been consumed, so callers can race safely.
+ */
+export async function applyAutoLimit(limitM, baselineM, today = todayKey()) {
+  const settings = await readSettings();
+  if (!settings.baselineSince) return settings;
+  return write({
+    dailyLimitM: limitM, limitSince: today, baselineSince: null,
+    autoLimitNotice: Math.round(baselineM),
+  });
+}
+
+export const dismissAutoLimitNotice = () => write({ autoLimitNotice: null });
 
 /**
  * `parseDailyLimit`: a whole-ish number of metres inside the bounds, else null. Rejecting

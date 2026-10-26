@@ -11,7 +11,8 @@ import { api } from '../lib/browser.js';
 import { accumulate, dayTotals, wipeLocalData } from '../lib/db.js';
 import { cssPixelsToMicrometres } from '../lib/units.js';
 import { registrableDomain } from '../lib/domain.js';
-import { readSettings, shouldTrack } from '../lib/settings.js';
+import { ensureBaselineDefault, readSettings, shouldTrack } from '../lib/settings.js';
+import { applyBaselineIfReady } from '../lib/baseline.js';
 import { todayKey } from '../lib/dates.js';
 import {
   backfillEverything, optOutRemote, syncNow, syncStatus,
@@ -34,11 +35,19 @@ function ensureAlarm() {
   api.alarms.create(SYNC_ALARM, { periodInMinutes: SYNC_PERIOD_MINUTES, delayInMinutes: 1 });
 }
 
-api.runtime.onInstalled.addListener(ensureAlarm);
+api.runtime.onInstalled.addListener(() => {
+  ensureAlarm();
+  // Baseline is the default path to a limit: a fresh install, and an existing one updating
+  // into this version without a limit, both start learning a typical day from today.
+  ensureBaselineDefault().catch(() => {});
+});
 api.runtime.onStartup.addListener(ensureAlarm);
 
 api.alarms.onAlarm.addListener((alarm) => {
-  if (alarm.name === SYNC_ALARM) syncNow();
+  if (alarm.name !== SYNC_ALARM) return;
+  syncNow();
+  // Piggybacks on the half-hourly alarm: the week ends on day eight with the popup closed.
+  applyBaselineIfReady().catch(() => {});
 });
 
 /**

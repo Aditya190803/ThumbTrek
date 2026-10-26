@@ -16,13 +16,16 @@ import { dayTotals, rowsForDate } from '../lib/db.js';
 import { micrometresToMetres } from '../lib/units.js';
 import {
   badges, comparison, dailyBuckets, dayOverDayDelta, distanceParts, formatDistance,
-  isCleanDay, limitStreak, personalRecord, totalThisWeek, trekStreak,
+  BASELINE_DAYS, isCleanDay, limitStreak, personalRecord, totalThisWeek, trackedDaysSince,
+  trekStreak,
 } from '../lib/stats.js';
 import { dayLabel, todayKey } from '../lib/dates.js';
 import { DEFAULT_SITES, registrableDomain, siteName } from '../lib/domain.js';
 import {
-  addCustomSite, customLabels, dailyLimit, readSettings, setSiteTracked, shouldTrack,
+  addCustomSite, customLabels, dailyLimit, dismissAutoLimitNotice, readSettings, setDailyLimit,
+  setSiteTracked, shouldTrack, startBaseline,
 } from '../lib/settings.js';
+import { applyBaselineIfReady } from '../lib/baseline.js';
 
 const $ = (id) => document.getElementById(id);
 const metres = (um) => formatDistance(micrometresToMetres(um));
@@ -69,12 +72,40 @@ function renderHero(todayUm, totals, today, cleanStreak) {
     : `${delta >= 0 ? '↑' : '↓'} ${Math.abs(delta)}% vs yesterday`;
 }
 
-/** The limit rail, or the baseline invitation. Mirrors LimitGlance on Android. */
-function renderLimit(todayMeters, limitM) {
+/**
+ * The limit rail, the baseline week, or plain no-limit. Mirrors LimitGlance and
+ * BaselineGlance on Android.
+ */
+function renderLimit(todayMeters, limitM, settings, dayMeters, today) {
   const hasLimit = limitM !== null;
+  const learning = !hasLimit && Boolean(settings.baselineSince);
   $('limit-gauge').hidden = !hasLimit;
-  $('baseline').hidden = hasLimit;
-  $('limit-title').textContent = hasLimit ? 'Daily limit' : 'Finding your baseline';
+  $('learning').hidden = !learning;
+  $('baseline').hidden = hasLimit || learning;
+  $('limit-title').textContent = hasLimit
+    ? 'Daily limit'
+    : learning ? 'Learning your baseline' : 'No daily limit';
+
+  // The announcement card, until it has been seen.
+  const notice = hasLimit && typeof settings.autoLimitNotice === 'number';
+  $('auto-limit').hidden = !notice;
+  if (notice) {
+    $('auto-limit-text').textContent = `Your usual day is about ${formatDistance(settings.autoLimitNotice)}, `
+      + `so your limit is now ${formatDistance(limitM)}. Clean days count from today.`;
+  }
+
+  if (learning) {
+    const days = Math.min(BASELINE_DAYS, trackedDaysSince(dayMeters, settings.baselineSince, today).length);
+    $('limit-value').textContent = `Day ${days} of ${BASELINE_DAYS}`;
+    $('learning-fill').style.width = `${(days / BASELINE_DAYS) * 100}%`;
+    $('learning-fill').classList.toggle('zero', days === 0);
+    $('learning-rail').setAttribute('aria-valuenow', String(days));
+    $('learning-text').textContent = days === 0
+      ? 'Scroll as you normally would. Nothing is judged this week.'
+      : `After ${BASELINE_DAYS} tracked days, your limit is set about 10% under your usual day. `
+        + 'Nothing is judged until then.';
+    return;
+  }
   $('limit-value').textContent = hasLimit ? formatDistance(limitM) : '';
   if (!hasLimit) return;
 
@@ -319,6 +350,8 @@ async function render() {
   const today = todayKey();
   $('today-label').textContent = dayLabel(today);
 
+  // Day eight may have arrived since the worker's last alarm; settle it before reading.
+  await applyBaselineIfReady(today).catch(() => null);
   const [totals, rows, settings] = await Promise.all([
     dayTotals(), rowsForDate(today), readSettings(),
   ]);
@@ -327,12 +360,16 @@ async function render() {
   const todayUm = totals.get(today) ?? 0;
   const todayMeters = micrometresToMetres(todayUm);
   // limitStreak works in metres, like the Kotlin; the stored totals are µm.
-  const cleanStreak = limitM === null ? null : limitStreak(
-    new Map([...totals].map(([key, um]) => [key, micrometresToMetres(um)])), limitM, today,
-  );
+  const dayMeters = new Map([...totals].map(([key, um]) => [key, micrometresToMetres(um)]));
+  // Never reaches back past the day the limit began: a baseline week is not scored.
+  const earliest = [...dayMeters.keys()].sort()[0];
+  const firstDay = settings.limitSince
+    ? (earliest !== undefined && earliest > settings.limitSince ? earliest : settings.limitSince)
+    : undefined;
+  const cleanStreak = limitM === null ? null : limitStreak(dayMeters, limitM, today, firstDay);
 
   renderHero(todayUm, totals, today, cleanStreak);
-  renderLimit(todayMeters, limitM);
+  renderLimit(todayMeters, limitM, settings, dayMeters, today);
   renderSites(rows, customLabels(settings), settings, totals.size > 0);
   // A brand-new install has no week to draw: a flat line at zero next to "Your first trek
   // starts here" says the same thing twice.
@@ -348,17 +385,37 @@ $('open-options').addEventListener('click', () => {
   window.close();
 });
 
-$('set-limit').addEventListener('click', () => {
-  // Straight to the limit section rather than the top of Settings.
-  api.tabs.create({ url: api.runtime.getURL('options/options.html#limit') });
-  window.close();
+$('set-limit').addEventListener('click', async () => {
+  // Baseline is the default way to a limit, so this starts one right here.
+  await startBaseline();
+  render().catch(showError);
 });
 
-render().catch((error) => {
+const openLimitSettings = () => {
+  api.tabs.create({ url: api.runtime.getURL('options/options.html#limit') });
+  window.close();
+};
+
+$('auto-keep').addEventListener('click', async () => {
+  await dismissAutoLimitNotice();
+  render().catch(showError);
+});
+$('auto-adjust').addEventListener('click', async () => {
+  await dismissAutoLimitNotice();
+  openLimitSettings();
+});
+$('auto-decline').addEventListener('click', async () => {
+  await setDailyLimit(null);
+  render().catch(showError);
+});
+
+function showError(error) {
   // A popup that fails silently looks like an extension that stopped working. Say what
   // happened, in the one place the user is already looking.
   const alert = $('error');
   alert.textContent = `Could not read local history: ${error.message}`;
   alert.hidden = false;
   $('sheet').setAttribute('aria-busy', 'false');
-});
+}
+
+render().catch(showError);
