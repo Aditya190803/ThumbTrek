@@ -9,6 +9,7 @@ import com.thumbtrek.app.stats.MIN_DAILY_LIMIT_M
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.time.LocalDate
 
 /**
  * User settings, backed by SharedPreferences.
@@ -37,6 +38,19 @@ class Prefs private constructor(context: Context) {
         if (!sp.contains(KEY_SETUP_DONE) && sp.getInt("onboarding_step", 0) == 4) {
             sp.edit().putBoolean(KEY_SETUP_DONE, true).apply()
         }
+        // Finished installs running without a limit start a fresh baseline week on the day
+        // they update, rather than being handed a limit computed from older history.
+        if (!sp.contains(KEY_BASELINE_MIGRATED)) {
+            sp.edit().apply {
+                if (sp.getInt("onboarding_step", 0) == 4 &&
+                    !sp.contains(KEY_DAILY_LIMIT_M) &&
+                    !sp.getBoolean(KEY_NO_LIMIT_CHOSEN, false)
+                ) {
+                    putString(KEY_BASELINE_SINCE, LocalDate.now().toString())
+                }
+                putBoolean(KEY_BASELINE_MIGRATED, true)
+            }.apply()
+        }
     }
 
     private val _onboardingStep = MutableStateFlow(sp.getInt("onboarding_step", 0))
@@ -60,11 +74,86 @@ class Prefs private constructor(context: Context) {
         get() = sp.getString("limit_draft", null) ?: dailyLimitM.value?.toInt()?.toString().orEmpty()
         set(value) { sp.edit().putString("limit_draft", value).apply() }
 
+    /**
+     * Explicitly no limit: no cap, no baseline being learned, and nothing set
+     * automatically later. Only the user can choose this, and only they can undo it.
+     */
     fun clearDailyLimit() {
-        sp.edit().remove(KEY_DAILY_LIMIT_M).remove("limit_draft").apply()
+        sp.edit()
+            .remove(KEY_DAILY_LIMIT_M).remove(KEY_LIMIT_SINCE).remove("limit_draft")
+            .remove(KEY_BASELINE_SINCE).remove(KEY_AUTO_LIMIT_NOTICE)
+            .putBoolean(KEY_NO_LIMIT_CHOSEN, true)
+            .apply()
         _dailyLimitM.value = null
+        _limitSince.value = null
+        _baselineSince.value = null
+        _autoLimitNotice.value = null
         setLimitNudge(false)
     }
+
+    private val _baselineSince = MutableStateFlow(readDate(KEY_BASELINE_SINCE))
+    /**
+     * The day the baseline week began. Non-null while ThumbTrek is learning a typical day;
+     * once enough days are in, [applyAutoLimit] turns that into a limit.
+     */
+    val baselineSince: StateFlow<LocalDate?> = _baselineSince.asStateFlow()
+
+    private val _limitSince = MutableStateFlow(readDate(KEY_LIMIT_SINCE))
+    /**
+     * The day the current limit started counting. Days before it are never judged against
+     * it, so a baseline week can't retroactively become a run of "over" days. Null for
+     * limits set before this existed, which keep judging all history as they always did.
+     */
+    val limitSince: StateFlow<LocalDate?> = _limitSince.asStateFlow()
+
+    private val _autoLimitNotice = MutableStateFlow(
+        if (sp.contains(KEY_AUTO_LIMIT_NOTICE)) sp.getFloat(KEY_AUTO_LIMIT_NOTICE, 0f) else null,
+    )
+    /**
+     * The typical day an automatic limit came from, while the card announcing it is
+     * waiting to be seen. Null once it has been acknowledged.
+     */
+    val autoLimitNotice: StateFlow<Float?> = _autoLimitNotice.asStateFlow()
+
+    /** Begin (or restart) learning a baseline: no cap and no judgements until it's done. */
+    fun startBaseline(today: LocalDate = LocalDate.now()) {
+        sp.edit()
+            .remove(KEY_DAILY_LIMIT_M).remove(KEY_LIMIT_SINCE).remove("limit_draft")
+            .remove(KEY_AUTO_LIMIT_NOTICE).remove(KEY_NO_LIMIT_CHOSEN)
+            .putString(KEY_BASELINE_SINCE, today.toString())
+            .apply()
+        _dailyLimitM.value = null
+        _limitSince.value = null
+        _autoLimitNotice.value = null
+        _baselineSince.value = today
+        setLimitNudge(false)
+    }
+
+    /**
+     * The baseline week is done: set its limit, starting today. This is ThumbTrek acting,
+     * not the user editing, so it never spends a weekly limit change.
+     */
+    fun applyAutoLimit(limitM: Float, baselineM: Double, today: LocalDate = LocalDate.now()) {
+        if (_baselineSince.value == null) return
+        sp.edit()
+            .putFloat(KEY_DAILY_LIMIT_M, limitM)
+            .putString(KEY_LIMIT_SINCE, today.toString())
+            .putFloat(KEY_AUTO_LIMIT_NOTICE, baselineM.toFloat())
+            .remove(KEY_BASELINE_SINCE)
+            .apply()
+        _dailyLimitM.value = limitM
+        _limitSince.value = today
+        _baselineSince.value = null
+        _autoLimitNotice.value = baselineM.toFloat()
+    }
+
+    fun dismissAutoLimitNotice() {
+        sp.edit().remove(KEY_AUTO_LIMIT_NOTICE).apply()
+        _autoLimitNotice.value = null
+    }
+
+    private fun readDate(key: String): LocalDate? =
+        sp.getString(key, null)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
 
     private val _trackedApps = MutableStateFlow(readTrackedApps())
     /** Packages the accessibility service should count. Defaults to all of [TRACKED_APPS]. */
@@ -170,8 +259,21 @@ class Prefs private constructor(context: Context) {
         require(meters.isFinite()) { "Limit must be finite" }
         if (!canEditLimitFree(todayWeekKey)) return LimitEditResult.NeedsPremium
         val clamped = meters.coerceIn(MIN_DAILY_LIMIT_M.toFloat(), MAX_DAILY_LIMIT_M.toFloat())
-        sp.edit().putFloat(KEY_DAILY_LIMIT_M, clamped).remove("limit_draft").apply()
+        // A first limit counts from today; changing an existing one keeps its start date.
+        val since = _limitSince.value ?: if (_dailyLimitM.value == null) LocalDate.now() else null
+        sp.edit().apply {
+            putFloat(KEY_DAILY_LIMIT_M, clamped)
+            if (since != null) putString(KEY_LIMIT_SINCE, since.toString())
+            // Choosing a limit yourself ends any baseline week and its pending card.
+            remove("limit_draft")
+            remove(KEY_BASELINE_SINCE)
+            remove(KEY_AUTO_LIMIT_NOTICE)
+            remove(KEY_NO_LIMIT_CHOSEN)
+        }.apply()
         _dailyLimitM.value = clamped
+        _limitSince.value = since
+        _baselineSince.value = null
+        _autoLimitNotice.value = null
         if (limitEditWeek != todayWeekKey) {
             limitEditWeek = todayWeekKey
             limitEditCount = 1
@@ -288,6 +390,11 @@ class Prefs private constructor(context: Context) {
 
     companion object {
         private const val KEY_SETUP_DONE = "setup_done"
+        private const val KEY_BASELINE_SINCE = "baseline_since"
+        private const val KEY_BASELINE_MIGRATED = "baseline_migrated"
+        private const val KEY_LIMIT_SINCE = "limit_since"
+        private const val KEY_AUTO_LIMIT_NOTICE = "auto_limit_notice"
+        private const val KEY_NO_LIMIT_CHOSEN = "no_limit_chosen"
         private const val KEY_TRACKED_APPS = "tracked_apps"
         private const val KEY_CUSTOM_APPS = "custom_apps"
         private const val KEY_STREAK_REMINDER = "streak_reminder"

@@ -15,6 +15,7 @@ import com.thumbtrek.app.MainActivity
 import com.thumbtrek.app.R
 import com.thumbtrek.app.ThumbTrekApp
 import com.thumbtrek.app.widget.TrekWidgetProvider
+import com.thumbtrek.app.data.BaselineLimit
 import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.data.ScrollDatabase
 import com.thumbtrek.app.stats.comparison
@@ -31,6 +32,9 @@ class DailySummaryWorker(
 ) : CoroutineWorker(appContext, params) {
 
     override suspend fun doWork(): Result {
+        // Before anything that can return early: the baseline week ends on schedule even
+        // for someone with notifications off or no scrolling yesterday.
+        val baselineM = BaselineLimit.applyIfReady(applicationContext)
         val days = ScrollDatabase.get(applicationContext).dao().allDays()
             .associate { LocalDate.parse(it.date) to it.pixels }
 
@@ -61,8 +65,14 @@ class DailySummaryWorker(
         )
 
         val headline = "You trekked ${formatDistance(meters)} yesterday$trend."
-        val limitM = Prefs.get(applicationContext).dailyLimitM.value?.toDouble()
-        val verdict = if (limitM == null) "" else if (isCleanDay(meters, limitM)) {
+        val prefs = Prefs.get(applicationContext)
+        val limitM = prefs.dailyLimitM.value?.toDouble()
+        // A limit that started today has nothing to say about yesterday.
+        val judged = limitM != null && prefs.limitSince.value?.let { !yesterday.isBefore(it) } ?: true
+        val verdict = if (baselineM != null && limitM != null) {
+            "Your baseline week is done: a usual day is about ${formatDistance(baselineM)}, " +
+                "so your daily limit is now ${formatDistance(limitM)}."
+        } else if (limitM == null || !judged) "" else if (isCleanDay(meters, limitM)) {
             "Clean — under your ${formatDistance(limitM)} limit."
         } else {
             "Over your ${formatDistance(limitM)} limit by " +

@@ -92,9 +92,11 @@ assert b'com.android.settings' in adb('shell','dumpsys','activity','activities')
 adb('shell','input','keyevent','4')
 tap('Continue for now')
 assert prefs()['onboarding_step'] == '2'
+shot('limit-baseline-default')
+tap('I already know my limit')
 shot('limit-empty')
 field = None
-for _ in range(10):  # give the field a moment to lay out before reading the tree
+for _ in range(10):  # the field is revealed by the tap above; give it a moment to lay out
     field = next((n for n in tree().iter('node') if n.get('class') == 'android.widget.EditText'), None)
     if field is not None:
         break
@@ -108,6 +110,9 @@ assert prefs()['onboarding_step'] == '2'
 assert '250' in text(), 'Draft must survive process death'
 shot('limit-custom')
 tap('Use my limit')
+assert 'Set a limit without a baseline?' in text(), 'A manual limit must be confirmed'
+shot('limit-caution')
+tap('Set to 250 m')
 assert float(prefs()['daily_limit_m']) == 250
 assert prefs()['onboarding_step'] == '3'
 shot('account')
@@ -122,13 +127,14 @@ tap('Settings')
 tap('Review setup')
 tap('Get started')
 tap('Continue for now')
-tap('Learn my baseline first')
+tap('Learn my baseline')
 tap('Continue without an account')
 assert 'daily_limit_m' not in prefs()
+assert 'baseline_since' in prefs(), 'Baseline is the default path'
 assert prefs().get('limit_nudge') == 'false'
 restart()
 assert 'daily_limit_m' not in prefs(), 'No default may reappear'
-assert 'Find your baseline' in text()
+assert 'Learning your baseline' in text()
 assert 'remaining today' not in text()
 shot('baseline-dashboard')
 tap('Settings')
@@ -143,7 +149,7 @@ for _ in range(5):
 else:
     raise AssertionError('No limit editor in Settings')
 shot('baseline-settings')
-print('PASS replay setup, baseline persistence, no assumed cap or nudges', flush=True)
+print('PASS replay setup, baseline week, no assumed cap or nudges', flush=True)
 
 # Simulate a pre-onboarding installation with explicit settings. No phone is touched.
 adb('shell','am','force-stop',PACKAGE)

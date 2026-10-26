@@ -12,7 +12,7 @@ Manrope, sentence-case headings, readable captions and tabular distances. Use 24
 
 ## Onboarding
 
-Four resumable steps: privacy, app selection and tracking permission, an explicit limit or baseline mode, optional account and notifications. Baseline mode has no assumed cap or clean-day judgments. Settings allows setup to be revisited.
+Four resumable steps: privacy, app selection and tracking permission, a daily limit, optional account and notifications. Learning a baseline is the recommended default: seven tracked days with no cap or clean-day judgments, after which the limit is set about 10% under the median day and announced with a one-tap undo. Setting a limit by hand is offered second and always goes through a caution step that compares it with the user's usual day. Days before a limit existed are never scored against it. Settings allows setup to be revisited.
 
 ## Identity and motion
 

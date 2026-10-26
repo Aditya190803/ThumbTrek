@@ -8,7 +8,13 @@ import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.thumbtrek.app.data.Prefs
+import com.thumbtrek.app.data.ScrollDatabase
+import com.thumbtrek.app.stats.BASELINE_DAYS
 import com.thumbtrek.app.stats.BILLING_ENFORCED
+import com.thumbtrek.app.stats.pixelsToMeters
+import com.thumbtrek.app.stats.trackedDaysSince
+import com.thumbtrek.app.stats.typicalDayMeters
+import java.time.LocalDate
 import com.thumbtrek.app.stats.freeLimitEditsLeft
 import com.thumbtrek.app.stats.weekKey
 import com.thumbtrek.app.track.ScrollTrackerService
@@ -129,6 +135,39 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
 
     fun refreshTrackingState() {
         trackingEnabled.value = ScrollTrackerService.isEnabled(getApplication())
+    }
+
+    /**
+     * Where the user's scrolling sits, for the limit panel: the baseline week's progress
+     * while it runs, and a typical recent day for the raise-the-limit check. Kept apart
+     * from [state] because it is the only part that needs the database.
+     */
+    data class BaselineInfo(
+        val since: LocalDate? = null,
+        val days: Int = 0,
+        /** Median of recent tracked days, once there are a few. Null before that. */
+        val typicalM: Double? = null,
+    )
+
+    private val dpi = app.resources.displayMetrics.densityDpi
+
+    val baseline = combine(
+        ScrollDatabase.get(app).dao().observeAllDays(),
+        prefs.baselineSince,
+    ) { allDays, since ->
+        val today = LocalDate.now()
+        val dayMeters = allDays.associate { LocalDate.parse(it.date) to pixelsToMeters(it.pixels, dpi) }
+        BaselineInfo(
+            since = since,
+            days = since?.let { trackedDaysSince(dayMeters, it, today).size.coerceAtMost(BASELINE_DAYS) } ?: 0,
+            typicalM = typicalDayMeters(dayMeters, today.minusDays(28), today, minDays = 3),
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), BaselineInfo(since = prefs.baselineSince.value))
+
+    fun startBaseline() {
+        prefs.startBaseline()
+        LimitNudgeWorker.cancel(getApplication())
+        _limitEdit.value = null
     }
 
     /** Launchable user-installed apps, for the "add another app" picker. */
