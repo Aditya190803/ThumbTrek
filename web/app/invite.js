@@ -39,6 +39,9 @@ function render() {
   byId('code-inline').textContent = valid ? formatFriendCode(code) : 'the code';
   show(byId('invalid'), !valid);
   show(byId('add-here'), valid);
+  // Nothing to copy from a mangled link — an enabled button would put an empty string or
+  // half a code on the clipboard and report success.
+  byId('copy-code').disabled = !valid;
 
   // Chrome for Android launches an installed app straight from an intent: URL, and
   // MainActivity parses the last path segment as a friend code (`thumbtrek://i/<code>`),
@@ -103,6 +106,7 @@ byId('copy-code').addEventListener('click', async () => {
 byId('add-button').addEventListener('click', async () => {
   const button = byId('add-button');
   button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
   reportError('');
   try {
     await sendRequest(state.user.uid, code);
@@ -113,15 +117,23 @@ byId('add-button').addEventListener('click', async () => {
     announce(explainError(error));
   } finally {
     button.disabled = false;
+    button.removeAttribute('aria-busy');
     renderAuth();
   }
 });
 
 byId('signin-button').addEventListener('click', async () => {
+  const button = byId('signin-button');
+  button.disabled = true;
+  button.setAttribute('aria-busy', 'true');
+  reportError('');
   try {
     await signIn();
   } catch (error) {
     reportError(explainError(error));
+  } finally {
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
   }
 });
 

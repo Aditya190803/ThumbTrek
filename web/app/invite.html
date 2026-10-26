@@ -5,13 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Trek invite — ThumbTrek</title>
   <meta name="description" content="Someone wants to see who treks further. Add their ThumbTrek friend code." />
+  <meta property="og:site_name" content="ThumbTrek" />
+  <meta property="og:type" content="website" />
   <meta property="og:title" content="A ThumbTrek invite" />
   <meta property="og:description" content="Strava for scrolling. Add this trekker and see who goes further this week." />
-  <meta name="theme-color" content="#0c0f0b" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="theme-color" content="#0c0f0b" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f3f1e8" media="(prefers-color-scheme: light)" />
   <link rel="icon" href="/assets/mark.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/app/app.css" />
 </head>
@@ -49,8 +53,8 @@
       </div>
 
       <p class="error" id="invalid" hidden>
-        That link does not carry a valid friend code. Codes are eight characters — ask for
-        it again, or type it into the dashboard by hand.
+        That link does not carry a valid friend code. Codes are eight characters, like
+        ABCD-1234 — ask for the link again, or type the code into the dashboard by hand.
       </p>
 
       <h2 class="marker">
