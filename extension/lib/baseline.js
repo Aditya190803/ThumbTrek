@@ -1,8 +1,8 @@
 /**
  * Turns a finished baseline week into a daily limit -- `BaselineLimit.kt`, for the browser.
  *
- * Called from the service worker's alarm, so the week ends on schedule with the popup
- * closed, and from the popup itself, so whoever opens it on day eight sees the result at
+ * Called from the service worker's alarm, so the week ends on schedule with the panel
+ * closed, and from the panel itself, so whoever opens it on day eight sees the result at
  * once. `applyAutoLimit` is a no-op after the first call, so the two can race.
  */
 

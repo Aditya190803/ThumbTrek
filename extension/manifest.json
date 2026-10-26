@@ -12,14 +12,16 @@
     "128": "icons/icon-128.png"
   },
   "action": {
-    "default_title": "ThumbTrek",
-    "default_popup": "popup/popup.html",
+    "default_title": "Open ThumbTrek",
     "default_icon": {
       "16": "icons/icon-16.png",
       "32": "icons/icon-32.png",
       "48": "icons/icon-48.png",
       "128": "icons/icon-128.png"
     }
+  },
+  "side_panel": {
+    "default_path": "popup/popup.html"
   },
   "options_ui": {
     "page": "options/options.html",
@@ -37,7 +39,7 @@
       "all_frames": false
     }
   ],
-  "permissions": ["storage", "alarms", "identity", "activeTab"],
+  "permissions": ["storage", "alarms", "identity", "sidePanel"],
   "host_permissions": [
     "https://identitytoolkit.googleapis.com/*",
     "https://securetoken.googleapis.com/*",

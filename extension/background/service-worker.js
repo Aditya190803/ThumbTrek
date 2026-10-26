@@ -46,7 +46,7 @@ api.runtime.onStartup.addListener(ensureAlarm);
 api.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name !== SYNC_ALARM) return;
   syncNow();
-  // Piggybacks on the half-hourly alarm: the week ends on day eight with the popup closed.
+  // Piggybacks on the half-hourly alarm: the week ends on day eight even with the panel shut.
   applyBaselineIfReady().catch(() => {});
 });
 
@@ -73,8 +73,28 @@ async function ingest(message, sender) {
   // day it landed, which is at most five seconds of scrolling on the wrong side of the
   // boundary and needs no clock reconciliation to get there.
   await accumulate(todayKey(), domain, um);
+  announceUpdate();
   return { counted: um };
 }
+
+/**
+ * Tells an open side panel that today's figures moved, so it can redraw without polling.
+ * Nobody listening is the normal case (the panel is usually closed), and Chrome reports
+ * that as a rejected promise, which is not an error here.
+ */
+function announceUpdate() {
+  try {
+    const sent = api.runtime.sendMessage({ type: 'trek/updated' });
+    if (sent?.catch) sent.catch(() => {});
+  } catch {
+    /* no receiver */
+  }
+}
+
+// The toolbar button opens the side panel rather than a popup. Set on every worker start:
+// the call is idempotent and cheap, and it means no install-time state can go missing.
+// Browsers without the API (Firefox uses sidebar_action instead) simply skip it.
+api.sidePanel?.setPanelBehavior?.({ openPanelOnActionClick: true })?.catch?.(() => {});
 
 /**
  * Message router. Returning `true` synchronously is what keeps the reply channel open for

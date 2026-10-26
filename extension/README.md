@@ -15,7 +15,7 @@ the browser loads.
 2. Turn on **Developer mode**.
 3. **Load unpacked** → pick this `extension/` directory.
 
-That is the whole install. Measurement, history, streaks, records, badges, the popup, the
+That is the whole install. Measurement, history, streaks, records, badges, the side panel, the
 site list and CSV export all work immediately, with no account and no network — permanently,
 not as a trial. Sync is the only thing that needs the configuration below.
 
@@ -177,6 +177,18 @@ You will also need `browser_specific_settings.gecko.id`, and Firefox's
 `identity.getRedirectURL()` returns a `*.extensions.allizom.org` URL rather than
 `*.chromiumapp.org` — so that redirect URI has to be added to the OAuth client too.
 
+The toolbar button opens a **side panel** on Chrome, Edge and Brave (`side_panel` in the
+manifest, plus `sidePanel.setPanelBehavior` in the service worker). Firefox has no
+`sidePanel` API; give it the same page as a sidebar instead:
+
+```json
+"sidebar_action": { "default_panel": "popup/popup.html", "default_title": "ThumbTrek" }
+```
+
+The page needs nothing else: it already redraws itself while open, and it asks the active
+tab's content script for its hostname rather than reading tab URLs, so no extra permission
+is involved on either browser.
+
 The `browser`/`chrome` namespace difference is already handled, in `lib/browser.js`.
 
 ---
@@ -222,7 +234,7 @@ from it.
 - The extension reads no page content. It reads one number per scroll event (a scroll
   offset) and the hostname of the tab. Untracked sites are discarded in the service worker
   and never stored or sent.
-- The font (Manrope) is bundled, so opening the popup does not tell a CDN that you did.
+- The font (Manrope) is bundled, so opening the side panel does not tell a CDN that you did.
 
 ## Known limits
 

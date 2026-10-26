@@ -179,5 +179,14 @@
   });
   window.addEventListener('pagehide', () => flush('pagehide'), { capture: true });
 
+  // The side panel stays open across tab switches, but `activeTab` only reveals the URL of
+  // the tab it was opened on. Asking the page itself keeps the "count this site" line right
+  // on every tab without the `tabs` permission and its browsing-history install warning.
+  api.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type !== 'trek/where') return false;
+    sendResponse({ hostname: location.hostname });
+    return false;
+  });
+
   schedule();
 })();

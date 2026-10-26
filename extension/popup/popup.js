@@ -1,5 +1,9 @@
 /**
- * The popup, rendered from IndexedDB alone.
+ * The side panel, rendered from IndexedDB alone.
+ *
+ * It used to be a popup, which closed the moment you clicked back into the page. As a side
+ * panel it stays beside the feed you are scrolling, so it redraws itself: when the service
+ * worker banks new distance, when settings change, when you switch tabs, and at midnight.
  *
  * Not one line of this touches the network or the account. Contract §5: "Tracking, history,
  * streaks, records and badges all work with no account. Local storage is the source of
@@ -31,11 +35,11 @@ const $ = (id) => document.getElementById(id);
 const metres = (um) => formatDistance(micrometresToMetres(um));
 
 /**
- * Chrome caps a popup at 600px and this one does not scroll, so the breakdown shows the
- * biggest few and summarises the tail. Under "track everything" a day can easily touch
- * twenty domains, and an unbounded list pushed the week and the footer off the bottom.
+ * The panel scrolls, but the breakdown still shows the biggest few and summarises the tail:
+ * under "track everything" a day can touch twenty domains, and a list that long buries the
+ * week and the records beneath it.
  */
-const MAX_SITE_ROWS = 4;
+const MAX_SITE_ROWS = 8;
 
 const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -200,27 +204,31 @@ function renderSites(rows, labels, settings, hasHistory) {
 }
 
 /**
+ * The active tab's hostname, asked of the content script running in it. The panel outlives
+ * any one tab, and `activeTab` would only reveal the URL of the tab it was opened on; the
+ * page knowing its own hostname needs no permission at all. Pages without the content
+ * script (chrome://, the Web Store, a tab still loading) simply don't answer.
+ */
+async function activeHostname() {
+  try {
+    const [tab] = await api.tabs.query({ active: true, currentWindow: true });
+    if (tab?.id === undefined) return '';
+    const reply = await api.tabs.sendMessage(tab.id, { type: 'trek/where' });
+    return typeof reply?.hostname === 'string' ? reply.hostname : '';
+  } catch {
+    return '';
+  }
+}
+
+/**
  * The active tab, and one click to start (or stop) counting it. Adding a site used to mean
- * opening Settings and typing the domain you were already looking at. `activeTab` makes the
- * URL readable only for the tab the user opened the popup on, only while it is open.
+ * opening Settings and typing the domain you were already looking at.
  */
 async function renderHere(settings) {
   const box = $('here');
-  box.hidden = true;
-  let tab;
-  try {
-    [tab] = await api.tabs.query({ active: true, currentWindow: true });
-  } catch {
-    return;
-  }
-  let hostname = '';
-  try {
-    const url = new URL(tab?.url ?? '');
-    if (url.protocol === 'http:' || url.protocol === 'https:') hostname = url.hostname;
-  } catch {
-    return;
-  }
+  const hostname = await activeHostname();
   const domain = registrableDomain(hostname);
+  box.hidden = !domain;
   if (!domain) return;
 
   const labels = customLabels(settings);
@@ -346,8 +354,11 @@ function renderFooter(totals, today, cleanStreak) {
   $('badge-count').textContent = `${plural(earned, 'badge')} earned`;
 }
 
+let drawnOnce = false;
+
 async function render() {
   const today = todayKey();
+  renderedDay = today;
   $('today-label').textContent = dayLabel(today);
 
   // Day eight may have arrived since the worker's last alarm; settle it before reading.
@@ -377,28 +388,27 @@ async function render() {
   if (totals.size > 0) renderSparkline(totals, today);
   renderFooter(totals, today, cleanStreak);
   $('sheet').setAttribute('aria-busy', 'false');
+  // The route traces itself in once; live redraws while the panel is open stay still.
+  if (drawnOnce) $('sheet').classList.add('settled');
+  drawnOnce = true;
   await renderHere(settings);
 }
 
-$('open-options').addEventListener('click', () => {
-  api.runtime.openOptionsPage();
-  window.close();
-});
+// The panel stays open, so neither handler closes it the way the popup used to.
+$('open-options').addEventListener('click', () => api.runtime.openOptionsPage());
 
 $('set-limit').addEventListener('click', async () => {
   // Baseline is the default way to a limit, so this starts one right here.
   await startBaseline();
-  render().catch(showError);
+  refresh();
 });
 
-const openLimitSettings = () => {
+const openLimitSettings = () =>
   api.tabs.create({ url: api.runtime.getURL('options/options.html#limit') });
-  window.close();
-};
 
 $('auto-keep').addEventListener('click', async () => {
   await dismissAutoLimitNotice();
-  render().catch(showError);
+  refresh();
 });
 $('auto-adjust').addEventListener('click', async () => {
   await dismissAutoLimitNotice();
@@ -406,11 +416,42 @@ $('auto-adjust').addEventListener('click', async () => {
 });
 $('auto-decline').addEventListener('click', async () => {
   await setDailyLimit(null);
-  render().catch(showError);
+  refresh();
 });
 
+// ———————————————————————————— Live updates ————————————————————————————
+
+let renderedDay = todayKey();
+let pending = null;
+
+/** Coalesces bursts (a flush every few seconds while scrolling) into one redraw. */
+function refresh() {
+  if (pending !== null) return;
+  pending = setTimeout(() => {
+    pending = null;
+    render().then(() => { $('error').hidden = true; }).catch(showError);
+  }, 400);
+}
+
+api.runtime.onMessage.addListener((message) => {
+  if (message?.type === 'trek/updated') refresh();
+  return false;
+});
+api.storage?.onChanged?.addListener(refresh);
+api.tabs?.onActivated?.addListener(refresh);
+api.tabs?.onUpdated?.addListener((_id, change) => {
+  if (change.status === 'complete') refresh();
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') refresh();
+});
+// Midnight: a panel left open overnight would otherwise keep calling yesterday "today".
+setInterval(() => {
+  if (todayKey() !== renderedDay) refresh();
+}, 60_000);
+
 function showError(error) {
-  // A popup that fails silently looks like an extension that stopped working. Say what
+  // A panel that fails silently looks like an extension that stopped working. Say what
   // happened, in the one place the user is already looking.
   const alert = $('error');
   alert.textContent = `Could not read local history: ${error.message}`;
@@ -418,4 +459,4 @@ function showError(error) {
   $('sheet').setAttribute('aria-busy', 'false');
 }
 
-render().catch(showError);
+render().then(() => { $('error').hidden = true; }).catch(showError);
