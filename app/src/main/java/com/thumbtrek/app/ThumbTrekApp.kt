@@ -10,6 +10,7 @@ import com.thumbtrek.app.work.DailySummaryWorker
 import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.widget.TrekWidgetProvider
 import com.thumbtrek.app.work.LimitNudgeWorker
+import com.thumbtrek.app.work.WeeklyReportWorker
 import com.thumbtrek.app.work.StreakReminderWorker
 import java.time.Duration
 import java.time.LocalDateTime
@@ -44,7 +45,7 @@ class ThumbTrekApp : Application() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(
             NotificationChannel(
                 SOCIAL_CHANNEL_ID,
-                "Social",
+                "Friends",
                 NotificationManager.IMPORTANCE_DEFAULT,
             ),
         )
@@ -58,6 +59,7 @@ class ThumbTrekApp : Application() {
         )
         if (Prefs.get(this).streakReminder.value) StreakReminderWorker.schedule(this)
         if (Prefs.get(this).limitNudge.value) LimitNudgeWorker.schedule(this)
+        if (Prefs.get(this).weeklyReport.value) WeeklyReportWorker.schedule(this)
         TrekWidgetProvider.updateAll(this)
     }
 

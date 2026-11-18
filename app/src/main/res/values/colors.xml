@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ic_launcher_background">#0C0F0B</color>
-    <color name="widget_surface">#FBFAF4</color>
-    <color name="widget_ink">#171A10</color>
-    <color name="widget_muted">#5A6151</color>
-    <color name="widget_accent">#1E6B3E</color>
-    <color name="widget_track">#E6E3D6</color>
-    <color name="widget_danger">#A32639</color>
+    <!-- The track carries its own ground (DESIGN.md), so the launcher tile and the widget
+         use the same colours in light and dark and there is no values-night override. -->
+    <color name="ic_launcher_background">#2340E0</color>
+    <color name="widget_surface">#2340E0</color>
+    <color name="widget_ink">#FFFFFF</color>
+    <color name="widget_muted">#D5DCFF</color>
+    <color name="widget_accent">#D7FF3A</color>
 </resources>

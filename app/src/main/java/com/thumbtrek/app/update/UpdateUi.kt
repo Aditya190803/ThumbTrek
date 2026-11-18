@@ -180,7 +180,7 @@ private fun UpdateStatusBlock(state: UpdateUiState, vm: UpdateViewModel) {
         }
 
         UpdateStatus.Checking -> {
-            Text("Checking GitHub…", style = MaterialTheme.typography.bodyMedium)
+            Text("Checking GitHub", style = MaterialTheme.typography.bodyMedium)
             LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
         }
 
@@ -197,7 +197,7 @@ private fun UpdateStatusBlock(state: UpdateUiState, vm: UpdateViewModel) {
 
         is UpdateStatus.Downloading -> {
             Text(
-                "Downloading ${status.manifest.versionName}…",
+                "Downloading ${status.manifest.versionName}",
                 style = MaterialTheme.typography.bodyMedium,
             )
             if (status.percent >= 0) {
@@ -222,7 +222,7 @@ private fun UpdateStatusBlock(state: UpdateUiState, vm: UpdateViewModel) {
             // look like something has gone wrong.
             Text(
                 "Tapping Install hands the file to Android, which will ask you to confirm. " +
-                    "Apps installed outside the Play Store can't skip that prompt — " +
+                    "Apps installed outside the Play Store can't skip that prompt. " +
                     "everything before it (finding, downloading, verifying) already happened " +
                     "in the background.",
                 style = MaterialTheme.typography.bodySmall,
@@ -238,7 +238,7 @@ private fun UpdateStatusBlock(state: UpdateUiState, vm: UpdateViewModel) {
 
         is UpdateStatus.Installing -> {
             Text(
-                "Handing ${status.manifest.versionName} to Android — confirm the install " +
+                "Handing ${status.manifest.versionName} to Android. Confirm the install " +
                     "when it asks.",
                 style = MaterialTheme.typography.bodyMedium,
             )

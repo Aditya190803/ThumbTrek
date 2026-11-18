@@ -23,10 +23,16 @@ import {
   allRows, clearPushed, dayTotals, getMeta, pushedTotals, recordPushed, setMeta,
 } from './db.js';
 import { anonymousHandle, friendCode } from './identity.js';
-import { commit, FirestoreError, getDocument, listDocumentIds } from './firestore.js';
+import {
+  commit, FirestoreError, getDocument, listDocumentIds, queryArrayContains,
+} from './firestore.js';
 import { currentAccount } from './auth.js';
 import { loadConfig } from './config.js';
-import { readSettings } from './settings.js';
+import { groupWindow, parseGroup, windowUm } from './groups.js';
+import { reconcileLimit, UM_PER_METRE } from './limits.js';
+import {
+  adoptSharedLimit, dailyLimit, readSettings, setOtherToday,
+} from './settings.js';
 import { monthKey, totalThisMonth, totalThisWeek, weekKey } from './stats.js';
 import { todayKey } from './dates.js';
 
@@ -350,12 +356,83 @@ export async function syncNow({ force = false } = {}) {
       updateMask: [...Object.keys(fields), 'weekUm', 'monthUm', 'totalUm'],
     }]);
 
+    // The extras ride along last and never fail the sync: a limit or a group that could
+    // not be reached is retried next time, and the board and the ledger are already safe.
+    await syncSharedLimit(uid, settings, totals, today).catch(() => {});
+    await publishGroupProgress(uid, account, totals, today).catch(() => {});
+
     return await recordSuccess();
   } catch (error) {
     const transient = error instanceof FirestoreError && error.transient;
     await recordFailure(error.message ?? String(error), transient);
     return syncStatus();
   }
+}
+
+/**
+ * Brings this browser's limit and the account's into agreement, newest edit winning, then
+ * reads what the phone measured today so it can count against the limit (contract §7).
+ * No-op unless the user turned the shared limit on.
+ */
+async function syncSharedLimit(uid, settings, totals, today) {
+  if (!settings.sharedLimit) return;
+  const path = `users/${uid}/settings/limits`;
+  const remote = await getDocument(path);
+  const local = {
+    limitUm: Math.round((dailyLimit(settings) ?? 0) * UM_PER_METRE),
+    setAt: settings.limitSetAt ?? 0,
+  };
+  const decision = reconcileLimit(
+    local,
+    remote ? { limitUm: Number(remote.limitUm ?? 0), setAt: Number(remote.setAt ?? 0) } : null,
+  );
+  if (decision.action === 'push') {
+    await commit([{
+      path,
+      data: { limitUm: local.limitUm, setAt: local.setAt, source: SOURCE, updatedAt: new Date() },
+    }]);
+  } else if (decision.action === 'adopt') {
+    const { limitUm, setAt } = decision.limit;
+    await adoptSharedLimit(limitUm > 0 ? limitUm / UM_PER_METRE : null, setAt, today);
+  }
+  // One document per other source per day. Android is the only other source today.
+  const phone = await getDocument(`users/${uid}/days/${today}__android`);
+  await setOtherToday(today, Number(phone?.um ?? 0));
+}
+
+/** Turning the shared limit off takes the account's copy away; each device keeps its own. */
+export async function withdrawSharedLimit() {
+  const account = await currentAccount();
+  if (!account) return;
+  await loadConfig();
+  await commit([{ path: `users/${account.uid}/settings/limits`, delete: true }]);
+}
+
+/**
+ * Publishes this browser's distance into every group the account is in (contract §8).
+ * Groups are created and joined on the phone or the dashboard; the extension only reports.
+ */
+async function publishGroupProgress(uid, account, totals, today) {
+  const groups = (await queryArrayContains('groups', 'members', uid))
+    .map(({ id, data }) => parseGroup(id, data))
+    .filter(Boolean);
+  if (groups.length === 0) return;
+  await commit(groups.map((group) => {
+    const window = groupWindow(group, today);
+    return {
+      path: `groups/${group.id}/progress/${uid}__${SOURCE}`,
+      data: {
+        uid,
+        source: SOURCE,
+        // The real name, as on a friend edge: a group is private to the people in it.
+        name: String(account.displayName || 'Trekker').slice(0, 64),
+        photo: String(account.photoUrl || '').slice(0, 512),
+        windowKey: window.key,
+        um: windowUm(totals, window),
+        updatedAt: new Date(),
+      },
+    };
+  }));
 }
 
 /**
@@ -415,6 +492,15 @@ export async function optOutRemote() {
       data: combinedTotals(after?.sources, weekKey(today), monthKey(today)),
       updateMask: ['weekUm', 'monthUm', 'totalUm'],
     }]);
+  }
+
+  // This browser's number comes out of every group too. Best effort: a group that cannot
+  // be reached still has a stale-window document, which reads as nothing within a week.
+  try {
+    const groups = await queryArrayContains('groups', 'members', uid);
+    await commit(groups.map(({ id }) => ({ path: `groups/${id}/progress/${uid}__${SOURCE}`, delete: true })));
+  } catch {
+    /* see above */
   }
 
   await clearPushed();

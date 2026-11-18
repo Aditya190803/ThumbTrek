@@ -13,11 +13,3 @@
  */
 export const api = globalThis.browser?.runtime ? globalThis.browser : globalThis.chrome;
 
-/** True inside an extension context that is still alive (a reloaded extension orphans it). */
-export function extensionAlive() {
-  try {
-    return Boolean(api?.runtime?.id);
-  } catch {
-    return false;
-  }
-}

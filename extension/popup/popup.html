@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="color-scheme" content="light dark" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
   <title>ThumbTrek</title>
   <link rel="stylesheet" href="../ui/trek.css" />
   <link rel="stylesheet" href="popup.css" />
@@ -12,128 +13,130 @@
        contract §5 makes local storage the source of truth and the network a mirror, so this
        surface has to be complete without either. -->
   <main class="sheet" id="sheet" aria-busy="true">
-    <header class="head">
-      <h1 class="brand">
-        <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-          <g class="arcs" stroke-width="2" stroke-linecap="round" fill="none">
-            <path d="M13 21 C13 17.5 19 17.5 19 21" />
-            <path d="M10 21 C10 14.5 22 14.5 22 21" />
-            <path d="M7 21 C7 11.5 25 11.5 25 21" />
-          </g>
-          <path class="trail" d="M5 25.5 L11 23 L17 25 L25.5 20" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" fill="none" />
-          <circle class="tip" cx="25.5" cy="20" r="2.2" />
-        </svg>
-        ThumbTrek
-      </h1>
-      <span class="caption" id="today-label"></span>
-    </header>
 
-    <!-- Failures land here, in the one place the user is already looking. -->
-    <p class="alert" id="error" role="alert" hidden></p>
+    <!-- The track: today's lap oval and its lane rows, on track blue in both themes. -->
+    <div class="band on-track">
+      <div class="inner">
+        <header class="head">
+          <h1 class="brand">
+            <svg class="mark" viewBox="0 0 40 24" fill="none" aria-hidden="true">
+              <rect width="40" height="24" rx="12" fill="#2340E0" />
+              <rect x="0.75" y="0.75" width="38.5" height="22.5" rx="11.25" stroke="#FFFFFF" stroke-opacity="0.5" stroke-width="1.5" />
+              <rect x="10" y="9" width="20" height="6" rx="3" fill="#1A2FB0" />
+              <rect x="5" y="5" width="30" height="14" rx="7" stroke="#D7FF3A" stroke-width="3.5" stroke-linecap="round" pathLength="100" stroke-dasharray="72 100" />
+            </svg>
+            ThumbTrek
+          </h1>
+          <span class="caption" id="today-label"></span>
+        </header>
 
-    <!-- The hero. Contour lines behind the figure, not a card around it. -->
-    <section class="hero" aria-labelledby="hero-title">
-      <svg class="contours" viewBox="0 0 320 120" preserveAspectRatio="none" aria-hidden="true">
-        <path d="M-10 104 C60 92 110 114 170 100 C230 86 280 106 330 92" />
-        <path d="M-10 82 C60 66 110 90 170 74 C230 58 280 80 330 64" />
-        <path d="M-10 60 C60 40 110 66 170 48 C230 30 280 54 330 36" />
-        <path d="M-10 38 C60 14 110 42 170 22 C230 2 280 28 330 8" />
-      </svg>
-      <h2 class="caption" id="hero-title">Today's trek</h2>
-      <!-- A dash, not a zero, until the database answers: "0 m" for a beat on every open
-           reads as "you scrolled nothing" to someone who just did. -->
-      <p class="hero-line">
-        <span class="hero-figure num" id="hero-figure">—</span><span class="hero-unit" id="hero-unit"></span>
-      </p>
-      <p class="comparison" id="comparison">&nbsp;</p>
-      <p class="hero-meta">
-        <span class="chip idle" id="streak"><span class="dot" aria-hidden="true"></span><span id="streak-text">No streak yet</span></span>
-        <span class="chip clean" id="clean-streak" hidden><span class="dot" aria-hidden="true"></span><span id="clean-streak-text"></span></span>
-        <span class="delta" id="delta"></span>
-      </p>
-    </section>
+        <!-- Failures land here, in the one place the user is already looking. -->
+        <p class="alert" id="error" role="alert" hidden></p>
 
-    <!-- Day eight: the baseline week has become a limit. Announced, never slipped in. -->
-    <section class="notice" id="auto-limit" aria-labelledby="auto-limit-title" hidden>
-      <h2 class="notice-title" id="auto-limit-title">Your daily limit is set</h2>
-      <p class="notice-text" id="auto-limit-text"></p>
-      <div class="notice-actions">
-        <button class="btn btn-primary" id="auto-keep" type="button">Sounds good</button>
-        <button class="btn btn-ghost" id="auto-adjust" type="button">Adjust</button>
+        <section aria-labelledby="today-title">
+          <h2 class="visually-hidden" id="today-title">Today</h2>
+
+          <!-- Lane 1 is the total, lanes 2 to 5 the day's biggest sites. Drawn by popup.js
+               from lib/oval.js. The label on the SVG carries every figure in words. -->
+          <div class="oval" id="oval">
+            <svg id="oval-svg" viewBox="0 0 1000 740" role="img" aria-label="Today drawn as a running track."></svg>
+            <div class="oval-infield-text" aria-hidden="true">
+              <!-- Empty, not "0 m", until the database answers: a zero for a beat on every
+                   open reads as "you scrolled nothing" to someone who just did. -->
+              <p class="oval-figure num"><span id="hero-figure"></span><span class="unit" id="hero-unit"></span></p>
+              <p class="oval-caption" id="oval-caption">&nbsp;</p>
+            </div>
+          </div>
+
+          <ol class="lanes" id="lanes" aria-label="Today, lane by lane"></ol>
+
+          <!-- What the "Other" lane is made of, so no site's distance is hidden in a sum. -->
+          <div class="others" id="others" hidden>
+            <h3 class="caption" id="others-title">In lane 5, Other</h3>
+            <ul id="others-list" aria-labelledby="others-title"></ul>
+          </div>
+
+          <div class="empty" id="empty" hidden>
+            <h3 id="empty-title"></h3>
+            <p id="empty-text"></p>
+          </div>
+
+          <p class="comparison" id="comparison" hidden></p>
+        </section>
       </div>
-      <button class="link-btn" id="auto-decline" type="button">I’d rather not have a limit</button>
-    </section>
-
-    <!-- Daily limit, or baseline mode. Second only to the distance itself (PRODUCT.md:
-         "lead with today's distance and daily limit"). With no limit set there is no rail,
-         no colour and no verdict — just an invitation. -->
-    <section class="limit" id="limit" aria-labelledby="limit-title">
-      <div class="section">
-        <h2 class="overline" id="limit-title">Daily limit</h2>
-        <span class="rule"></span>
-        <span class="trailing num" id="limit-value"></span>
-      </div>
-      <div id="limit-gauge" hidden>
-        <div class="rail" id="limit-rail" role="progressbar" aria-labelledby="limit-title"
-             aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="limit-fill"></i></div>
-        <p class="limit-text" id="limit-text"></p>
-      </div>
-      <!-- The baseline week: progress in tracked days, and no verdicts until it is done. -->
-      <div id="learning" hidden>
-        <div class="rail learning" id="learning-rail" role="progressbar" aria-labelledby="limit-title"
-             aria-valuemin="0" aria-valuemax="7" aria-valuenow="0"><i id="learning-fill"></i></div>
-        <p class="limit-text muted" id="learning-text"></p>
-      </div>
-      <p class="limit-text muted" id="baseline" hidden>
-        No daily limit and no clean-day scores.
-        <button class="link-btn" id="set-limit" type="button">Learn my baseline</button>
-      </p>
-    </section>
-
-    <section aria-labelledby="sites-title">
-      <div class="section">
-        <h2 class="overline" id="sites-title">Today's sites</h2>
-        <span class="rule"></span>
-        <span class="trailing" id="site-count"></span>
-      </div>
-      <div id="sites"></div>
-    </section>
-
-    <!-- The page you were on when you opened this, and one click to count it (or stop). -->
-    <div class="here" id="here" hidden>
-      <span class="here-text" id="here-text"></span>
-      <button class="link-btn" id="here-action" type="button"></button>
     </div>
 
-    <section id="week" aria-labelledby="week-title">
-      <div class="section">
-        <h2 class="overline" id="week-title">Last 7 days</h2>
-        <span class="rule"></span>
-        <span class="trailing num" id="week-total"></span>
-      </div>
-      <!-- A route across the week rather than a bar chart: same survey language as the
-           landing page's hero, and a line reads a trend faster than seven columns do. -->
-      <figure class="spark" id="spark-figure">
-        <svg viewBox="0 0 300 60" id="spark" role="img" aria-labelledby="spark-caption"></svg>
-        <figcaption class="axis" id="spark-axis" aria-hidden="true"></figcaption>
-        <span id="spark-caption" class="visually-hidden"></span>
-      </figure>
-    </section>
+    <div class="inner ground">
+      <!-- Day eight: the baseline week has become a limit. Announced, never slipped in. -->
+      <section class="panel notice" id="auto-limit" aria-labelledby="auto-limit-title" hidden>
+        <h2 class="heading" id="auto-limit-title">Your daily limit is set</h2>
+        <p class="dim" id="auto-limit-text"></p>
+        <div class="notice-actions">
+          <button class="btn btn-primary" id="auto-keep" type="button">Keep this limit</button>
+          <button class="btn btn-ghost" id="auto-adjust" type="button">Change it</button>
+        </div>
+        <button class="link-btn" id="auto-decline" type="button">Track without a limit</button>
+      </section>
 
-    <footer class="foot">
-      <div class="stat">
-        <span class="caption">Best day</span>
-        <span class="figure num" id="best-day">—</span>
-        <span class="faint" id="best-day-when"></span>
+      <!-- The page you were on when you opened this, and one click to count it (or stop). -->
+      <div class="here" id="here" hidden>
+        <span id="here-text"></span>
+        <button class="link-btn" id="here-action" type="button"></button>
       </div>
-      <div class="stat">
-        <span class="caption">All time</span>
-        <span class="figure num" id="all-time">—</span>
-        <span class="faint" id="badge-count"></span>
-      </div>
-      <button class="btn btn-ghost" id="open-options" type="button">Settings</button>
-    </footer>
+
+      <section aria-labelledby="facts-title">
+        <h2 class="heading" id="facts-title">Limit and streaks</h2>
+        <dl class="facts">
+          <div class="fact" id="limit">
+            <dt id="limit-title">Daily limit</dt>
+            <dd class="fact-value">
+              <span class="num" id="limit-value"></span>
+              <span class="chip" id="limit-status" hidden></span>
+            </dd>
+            <dd class="fact-note" id="limit-text" hidden></dd>
+            <dd class="fact-note" id="baseline" hidden>
+              <button class="btn btn-ghost" id="set-limit" type="button">Learn my baseline</button>
+            </dd>
+          </div>
+          <div class="fact">
+            <dt>Streak</dt>
+            <dd class="fact-value num" id="streak-text"></dd>
+          </div>
+          <div class="fact" id="clean-streak" hidden>
+            <dt>Days within limit</dt>
+            <dd class="fact-value num" id="clean-streak-text"></dd>
+          </div>
+          <div class="fact" id="delta-row" hidden>
+            <dt>Compared with yesterday</dt>
+            <dd class="fact-value num" id="delta"></dd>
+          </div>
+          <div class="fact">
+            <dt>This week</dt>
+            <dd class="fact-value num" id="week-total"></dd>
+          </div>
+          <div class="fact">
+            <dt>Best day</dt>
+            <dd class="fact-value num" id="best-day"></dd>
+            <dd class="fact-note" id="best-day-when"></dd>
+          </div>
+          <div class="fact">
+            <dt>All time</dt>
+            <dd class="fact-value num" id="all-time"></dd>
+            <dd class="fact-note" id="badge-count"></dd>
+          </div>
+        </dl>
+      </section>
+
+      <!-- A Premium feature shown as its normal row. Nothing here is locked or sold yet. -->
+      <button class="premium-row" id="open-premium" type="button">
+        <span>One limit across your phone and your browser</span>
+        <span class="chip">Premium</span>
+      </button>
+
+      <footer class="foot">
+        <button class="link-btn" id="open-options" type="button">Settings, history and badges</button>
+      </footer>
+    </div>
   </main>
 
   <script type="module" src="popup.js"></script>

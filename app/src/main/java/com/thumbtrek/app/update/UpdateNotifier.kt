@@ -54,7 +54,7 @@ object UpdateNotifier {
         )
 
         val summary = "ThumbTrek ${manifest.versionName} is downloaded and verified. " +
-            "Tap to install — Android will ask you to confirm."
+            "Tap to install. Android will ask you to confirm."
 
         val notification = NotificationCompat.Builder(context, UpdateConfig.CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)

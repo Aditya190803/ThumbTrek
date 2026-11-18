@@ -75,5 +75,5 @@ fun inviteLink(code: String): String = "https://thumbtrek.adityamer.dev/i/$code"
 
 fun inviteMessage(code: String): String =
     "I'm tracking how far my thumb scrolls with ThumbTrek. Add me with code " +
-        "${formatFriendCode(code)} and let's see who treks further this week.\n\n" +
+        "${formatFriendCode(code)} and let's see who scrolls further this week.\n\n" +
         inviteLink(code)

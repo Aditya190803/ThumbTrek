@@ -1,116 +1,112 @@
-/* ThumbTrek — the survey-sheet system, ported from ui/Theme.kt and web/styles.css.
-   Shared by the popup and the options page.
+/* ThumbTrek design system for the extension (DESIGN.md), shared by the side panel and the
+   options page. An athletics track: track blue, chalk lane lines, a volt runner. Dark is
+   the night meet, light is the day meet, and both follow the system.
 
-   This is the same instrument the app is. Each accent owns exactly one job:
+   The tokens and patterns are ported from web/styles.css, which is the reference. Extension
+   pages cannot load that file, so a change there has to be carried over here by hand.
+   Every colour a page uses is a token below. */
 
-     moss   today, you, anything live, and days within a limit
-     amber  streak heat and records — never decoration
-     red    an exceeded daily limit — and nothing else
-     slate  the past, and other people — context, not competition
-
-   And the structural rule from ui/Surfaces.kt, which is the easiest one to lose in a
-   browser: a bordered panel is used ONLY where the content genuinely is a discrete object.
-   Sections are separated by a heading, a hairline rule and whitespace. Boxing every group
-   is what made an earlier pass of the app "read as a stock dashboard", and a popup is
-   exactly the surface where that temptation is strongest.
-
-   Light and dark, following the system, exactly like the app: bone ground with moss in
-   light, green-black ground with mint in dark. The hex values are Theme.kt's two palettes
-   transcribed, so the extension and the phone look like one product side by side. Every
-   colour is a token; nothing below the token blocks names a hex value. */
-
-/* Bundled, not fetched. An extension that pulls a font from a CDN tells that CDN every time
-   the user opens their own scroll statistics, which is precisely the thing this extension
-   exists not to do — and it would break offline, where everything else still works.
-   The variable original from app/src/main/res/font/, so one file covers 400–700 the same
-   way FontVariation does on Android. Manrope only: the app's type scale uses one family
-   for headings, figures and body alike (Type.kt). */
+/* Bundled, not fetched. A font pulled from a CDN would tell that CDN every time someone
+   opens their own scroll statistics, and it would break offline, where everything else
+   still works. One variable file carries both axes: weight, and the width that separates
+   the wide scoreboard cut (125) from the normal reading cut (100). */
 @font-face {
-  font-family: "Manrope";
-  src: url("../fonts/manrope.ttf") format("truetype-variations");
-  font-weight: 400 700;
+  font-family: "Archivo";
+  src: url("../fonts/archivo.ttf") format("truetype");
+  font-weight: 100 900;
+  font-stretch: 62% 125%;
   font-display: block;
 }
 
 :root {
-  color-scheme: light dark;
+  color-scheme: dark light;
 
-  /* Light — Theme.kt's light palette. */
-  --ground: #f3f1e8;
-  --ground-raised: #fbfaf4;
-  --ground-sunken: #e6e3d6;
-  --hairline: #dcd8c8;
-  --hairline-soft: #eae7da;
-  --ink: #171a10;
-  --ink-muted: #5a6151;
-  --ink-faint: #646a59; /* a step darker than the app's #6B7160 so 11px captions clear 4.5:1 */
-  --moss: #1e6b3e;
-  --on-moss: #fbfaf4;
-  --moss-wash: #dfeee2;
-  --moss-hover: #185832;
-  --moss-line: rgba(30, 107, 62, 0.4);
-  --amber: #8a5806;
-  --amber-dot: #c98a1e;
-  --amber-wash: #f6e9ce;
-  --amber-line: rgba(138, 88, 6, 0.3);
-  --slate: #1d5f80;
-  --slate-wash: #ddeaf1;
-  --danger: #a32639;
-  --on-danger: #fff7f7;
-  --danger-wash: #f7dfe2;
-  --danger-line: rgba(163, 38, 57, 0.35);
-  --hover-wash: rgba(23, 26, 16, 0.04);
+  --bg: #0a0f2e;
+  --surface: #121a4a;
+  --surface-2: #1a2460;
+  --sunken: #070b22;
+  --line: #26317a;
+  --line-soft: #1b2459;
+  --text: #f5f7ff;
+  --text-dim: #aeb6e0;
+  --text-faint: #8891c4;
+  --accent: #d7ff3a;
+  --accent-hover: #e6ff7a;
+  --on-accent: #0a0f2e;
+  --accent-wash: #323f47;
+  --good: #5be3a0;
+  --good-wash: #12303f;
+  --warn: #ffc83d;
+  --warn-wash: #2e2a33;
+  --danger: #ff5c7a;
+  --danger-wash: #33173f;
+  --info: #7fd4ff;
+  --info-wash: #14294f;
+  --panel-border: transparent;
+  --scrim: rgba(4, 6, 20, 0.72);
 
-  /* The mark: arcs in the action colour, the trail in ink, the tip always amber. */
-  --mark-arc: var(--moss);
-  --mark-trail: var(--ink);
+  /* The track carries its own ground, so these do not change with the theme. */
+  --track: #2340e0;
+  --track-deep: #1a2fb0;
+  --chalk: #ffffff;
+  --volt: #d7ff3a;
+  --on-volt: #0a0f2e;
 
-  --display: "Manrope", "Segoe UI", sans-serif;
-  --body: "Manrope", "Segoe UI", sans-serif;
+  /* The oval is always drawn on track blue, so its lanes use the dark series colours and
+     the dark warning and danger colours in both themes. */
+  --lane-2: #7fd4ff;
+  --lane-3: #ff8fb3;
+  --lane-4: #5be3a0;
+  --lane-5: #c4a8ff;
+  --lane-warn: #ffc83d;
+  --lane-danger: #ff5c7a;
 
-  --s-1: 0.35rem;
-  --s-2: 0.65rem;
-  --s-3: 1rem;
-  --s-4: 1.5rem;
-  --s-5: 2.25rem;
+  --font: "Archivo", "Segoe UI", system-ui, sans-serif;
 
-  /* Tighter than Material's defaults, on purpose. This is an instrument; 28dp pills on
-     data panels read as a consumer toy. */
-  --r-sm: 0.55rem;
-  --r-md: 0.75rem;
-  --r-lg: 1rem;
+  --t-xs: 0.8125rem;
+  --t-sm: 0.9375rem;
+  --t-base: 1rem;
+  --t-md: 1.0625rem;
+  --t-lg: 1.375rem;
+  --t-xl: 1.625rem;
 
-  /* Exponential ease-out: fast commit, long settle, no overshoot. TrekEase, in CSS. */
-  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --s-1: 0.25rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1.25rem;
+  --s-5: 2rem;
+  --s-6: 3.25rem;
+
+  --gutter: 1.25rem;
+  --radius: 1.25rem;
+  --radius-input: 0.75rem;
 }
 
-/* Dark — Theme.kt's dark palette, the one the landing page is built on. */
-@media (prefers-color-scheme: dark) {
+@media (prefers-color-scheme: light) {
   :root {
-    --ground: #0c0f0b;
-    --ground-raised: #13170f;
-    --ground-sunken: #080a07;
-    --hairline: #262c1d;
-    --hairline-soft: #1a1f15;
-    --ink: #edf1e6;
-    --ink-muted: #a9b39c;
-    --ink-faint: #858f78; /* lifted from #79836D so 11px captions clear 4.5:1 */
-    --moss: #8be6a0;
-    --on-moss: #05210f;
-    --moss-wash: #17281b;
-    --moss-hover: #a4efb5;
-    --moss-line: rgba(139, 230, 160, 0.45);
-    --amber: #f2b455;
-    --amber-dot: #f2b455;
-    --amber-wash: #2a2113;
-    --amber-line: rgba(242, 180, 85, 0.35);
-    --slate: #8fb6cc;
-    --slate-wash: #16212a;
-    --danger: #f08497;
-    --on-danger: #2b0810;
-    --danger-wash: #2b1319;
-    --danger-line: rgba(240, 132, 151, 0.4);
-    --hover-wash: rgba(237, 241, 230, 0.04);
+    --bg: #f3f5fb;
+    --surface: #ffffff;
+    --surface-2: #e9edf8;
+    --sunken: #e3e8f5;
+    --line: #d3daee;
+    --line-soft: #e4e9f6;
+    --text: #0b1030;
+    --text-dim: #454e7a;
+    --text-faint: #626b96;
+    --accent: #2340e0;
+    --accent-hover: #1a30b0;
+    --on-accent: #ffffff;
+    --accent-wash: #e3e8fd;
+    --good: #12754a;
+    --good-wash: #e0f3ea;
+    --warn: #8a5800;
+    --warn-wash: #fbefd6;
+    --danger: #b4233a;
+    --danger-wash: #fbe6e9;
+    --info: #0e6e94;
+    --info-wash: #e0f1f8;
+    --panel-border: #d3daee;
+    --scrim: rgba(11, 16, 48, 0.45);
   }
 }
 
@@ -120,465 +116,574 @@
   box-sizing: border-box;
 }
 
-/* `hidden` has to win over any class that sets `display` (chips, flex rows). Without this a
-   hidden chip still renders, because author CSS beats the UA's [hidden] rule. */
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--t-base);
+  font-stretch: 100%;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--bg);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+h1,
+h2,
+h3,
+p,
+dl,
+dd,
+ol,
+ul {
+  margin: 0;
+}
+
+button,
+input {
+  font: inherit;
+  color: inherit;
+}
+
 [hidden] {
   display: none !important;
 }
 
-body {
-  margin: 0;
-  font-family: var(--body);
-  font-size: 0.875rem;
-  line-height: 1.55;
-  color: var(--ink);
-  background: var(--ground);
-  -webkit-font-smoothing: antialiased;
-}
-
-a {
-  color: var(--moss);
-  text-decoration: none;
-}
-
-a:hover {
-  text-decoration: underline;
-}
-
 :focus-visible {
-  outline: 2px solid var(--moss);
-  outline-offset: 2px;
-  border-radius: 3px;
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+  border-radius: 4px;
 }
 
-/* Figures line up in columns everywhere in this UI. */
-.num {
-  font-variant-numeric: tabular-nums lining-nums;
-}
-
-.mark .arcs { stroke: var(--mark-arc); }
-.mark .trail { stroke: var(--mark-trail); }
-.mark .tip { fill: var(--amber-dot); }
-
-/* ————————————————————— Section furniture, not cards ————————————————————— */
-
-/* SectionHead: a sentence-case heading, a hairline rule running to the edge of the content
-   column, and an optional trailing value. */
-.section {
-  display: flex;
-  align-items: center;
-  gap: var(--s-2);
-  margin: 0 0 var(--s-2);
-}
-
-/* Sentence case at normal tracking (DESIGN.md: no dense uppercase labels). The hierarchy
-   comes from weight and the rule beside it, not from shouting. Used on <h2> as well as
-   <span>, so it resets heading margins itself. */
-.overline {
-  margin: 0;
-  font-family: var(--body);
-  font-weight: 700;
-  font-size: 0.8125rem;
-  line-height: 1.3;
-  color: var(--ink);
-  white-space: nowrap;
-}
-
-/* The quieter variant: a caption above a figure rather than a section heading. */
-.caption {
-  margin: 0;
-  font-weight: 600;
-  font-size: 0.75rem;
-  color: var(--ink-muted);
-}
-
-.section .rule {
-  flex: 1;
+.visually-hidden {
+  position: absolute;
+  width: 1px;
   height: 1px;
-  background: var(--hairline);
-}
-
-.section .trailing {
-  font-family: var(--body);
-  font-weight: 600;
-  font-size: 0.75rem;
-  color: var(--ink-muted);
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
   white-space: nowrap;
-}
-
-.hairline {
-  height: 1px;
-  background: var(--hairline-soft);
   border: 0;
-  margin: var(--s-3) 0;
 }
 
-/* A bordered panel. Discrete objects only: a banner you can act on, one achievement,
-   one destructive action. Never a section wrapper. */
-.panel {
-  padding: var(--s-3);
-  border: 1px solid var(--hairline);
-  border-radius: var(--r-md);
-  background: var(--ground-raised);
+/* Figures line up in columns all over these pages. */
+.num {
+  font-variant-numeric: tabular-nums;
 }
 
-.panel.warn {
-  border-color: var(--amber-line);
-  background: var(--amber-wash);
+.caption {
+  font-size: var(--t-xs);
+  font-weight: 500;
+  color: var(--text-faint);
 }
 
-.panel.danger {
-  border-color: var(--danger-line);
-  background: var(--danger-wash);
+.dim {
+  color: var(--text-dim);
 }
 
-/* ————————————————————————————— Numbers ————————————————————————————— */
+/* ———————————————————————————— Brand ———————————————————————————— */
 
-/* The hero readout. Set far larger than anything near it because on this surface the
-   distance is not "a stat", it is the entire reason the surface exists. */
-.hero-figure {
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: 3.75rem;
-  line-height: 1;
-  letter-spacing: -0.04em;
-  font-variant-numeric: tabular-nums lining-nums;
-  color: var(--ink);
-}
-
-/* Long figures step down a size, so a five-digit kilometre count never wraps or clips. */
-.hero-figure.long {
-  font-size: 2.85rem;
-  letter-spacing: -0.035em;
-}
-
-.hero-unit {
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 1.15rem;
-  letter-spacing: -0.01em;
-  color: var(--ink-muted);
-  margin-left: 0.3rem;
-}
-
-.figure {
-  font-family: var(--display);
-  font-weight: 700;
-  font-variant-numeric: tabular-nums lining-nums;
-  letter-spacing: -0.01em;
-  color: var(--ink);
-}
-
-/* ———————————————————————— Rails, chips, rows ———————————————————————— */
-
-/* The one bar primitive: a sunken track with a filled portion. Site splits, day history,
-   the daily limit and badge progress all use it, so proportion looks the same wherever it
-   appears and a reader learns it once. */
-.rail {
-  height: 5px;
-  border-radius: 999px;
-  background: var(--ground-sunken);
-  overflow: hidden;
-}
-
-.rail > i {
-  display: block;
-  height: 100%;
-  border-radius: 999px;
-  background: var(--moss);
-  /* Never narrower than the cap radius: a tiny value would otherwise render as a sliver
-     that reads like a rendering bug. */
-  min-width: 5px;
-  transition: width 520ms var(--ease);
-}
-
-/* An empty rail: nothing filled, rather than a 5px stub claiming a little progress. */
-.rail > i.zero {
-  min-width: 0;
-}
-
-/* Over the daily limit: red, and always paired with words that say so — colour is never
-   the only signal. */
-.rail.over > i {
-  background: var(--danger);
-}
-
-.measure-row {
-  display: grid;
-  gap: 0.45rem;
-  padding: 0.5rem 0;
-}
-
-.measure-row .line {
-  display: flex;
-  align-items: baseline;
-  gap: var(--s-2);
-}
-
-.measure-row .label {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  color: var(--ink);
-}
-
-.measure-row .value {
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: 0.875rem;
-  font-variant-numeric: tabular-nums lining-nums;
-  color: var(--ink-muted);
-}
-
-.chip {
+.brand {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.3rem 0.7rem;
-  border-radius: 999px;
-  border: 1px solid var(--hairline);
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: var(--ink-muted);
-  white-space: nowrap;
+  gap: 0.55rem;
+  font-size: var(--t-md);
+  font-weight: 800;
+  font-stretch: 125%;
+  letter-spacing: -0.02em;
+  line-height: 1;
 }
 
-/* Streak marker. Amber is reserved for this and for records, so it always means heat rather
-   than "look here". At zero it becomes a quiet invitation instead of vanishing — an element
-   that disappears teaches a new user nothing. */
-.chip.streak {
-  border-color: var(--amber-line);
-  background: var(--amber-wash);
-  color: var(--amber);
+.brand .mark {
+  width: 2.5rem;
+  height: 1.5rem;
+  flex: none;
 }
 
-.chip .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--ink-faint);
-}
+/* ———————————————————————————— Buttons ———————————————————————————— */
 
-.chip.streak .dot {
-  background: var(--amber-dot);
-  animation: pulse 1800ms ease-in-out infinite alternate;
-}
-
-.chip.idle {
-  color: var(--ink-faint);
-}
-
-/* Clean days under a limit: moss, the streak that rewards scrolling less. */
-.chip.clean {
-  border-color: var(--moss-line);
-  background: var(--moss-wash);
-  color: var(--moss);
-}
-
-.chip.clean .dot {
-  background: var(--moss);
-}
-
-@keyframes pulse {
-  from { opacity: 0.5; }
-  to { opacity: 1; }
-}
-
-/* A percentage delta. Neutral in both directions: amber belongs to streaks, red to an
-   exceeded limit, and "more than yesterday" is neither — the arrow carries the direction. */
-.delta {
-  color: var(--ink-muted);
-}
-
-/* ————————————————————————————— Controls ————————————————————————————— */
-
+/* Stadiums: the house shape. */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 0.4rem;
-  min-height: 2.25rem;
-  padding: 0.45rem 1rem;
-  border-radius: var(--r-sm);
-  border: 1px solid transparent;
-  font-family: var(--body);
-  font-weight: 600;
-  font-size: 0.8125rem;
+  min-height: 2.75rem;
+  padding: 0.55rem 1.3rem;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  font-weight: 650;
+  font-size: var(--t-sm);
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
   cursor: pointer;
-  transition: background 160ms var(--ease), border-color 160ms var(--ease), color 160ms var(--ease);
+  transition: background 160ms ease-out, border-color 160ms ease-out, color 160ms ease-out;
 }
 
 .btn:disabled {
-  cursor: default;
-  opacity: 0.5;
+  cursor: not-allowed;
+  opacity: 0.6;
 }
 
 .btn-primary {
-  background: var(--moss);
-  color: var(--on-moss);
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: var(--moss-hover);
+  background: var(--accent-hover);
 }
 
 .btn-ghost {
   background: transparent;
-  color: var(--ink);
-  border-color: var(--hairline);
+  color: var(--text);
+  border-color: var(--line);
 }
 
 .btn-ghost:hover:not(:disabled) {
-  border-color: var(--ink-faint);
-  background: var(--hover-wash);
+  border-color: var(--text-faint);
+  background: var(--surface-2);
 }
 
 .btn-danger {
   background: transparent;
   color: var(--danger);
-  border-color: var(--danger-line);
+  border-color: var(--line);
 }
 
-.btn-danger:hover:not(:disabled) {
+.btn-danger:hover:not(:disabled),
+.btn-danger[data-armed="true"] {
+  border-color: var(--danger);
   background: var(--danger-wash);
 }
 
-/* A text-only action inside a sentence or a row: "Set a limit", "Forget". */
+/* A text button: for the quiet second choice beside a real button, and for footers. */
 .link-btn {
-  border: 0;
+  min-height: 2.75rem;
   padding: 0;
+  border: 0;
   background: none;
-  color: var(--moss);
-  font: inherit;
+  font-size: var(--t-sm);
   font-weight: 600;
+  color: var(--text);
+  text-decoration: underline;
+  text-decoration-color: var(--text-faint);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 0.22em;
   cursor: pointer;
 }
 
 .link-btn:hover {
-  text-decoration: underline;
+  text-decoration-color: currentColor;
 }
 
-/* A switch, not a checkbox: the state has to be readable at a glance in a list of ten. */
-.toggle {
-  position: relative;
-  flex: 0 0 auto;
-  width: 2.4rem;
-  height: 1.35rem;
+/* ———————————————————————————— Chips ———————————————————————————— */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.7rem;
   border-radius: 999px;
-  border: 1px solid var(--hairline);
-  background: var(--ground-sunken);
-  cursor: pointer;
-  padding: 0;
-  transition: background 200ms var(--ease), border-color 200ms var(--ease);
+  background: var(--accent-wash);
+  color: var(--text);
+  font-size: var(--t-xs);
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
 }
 
-.toggle::after {
-  content: "";
+/* A state chip always says its state in words; the wash only backs the words up. */
+.chip-good {
+  background: var(--good-wash);
+  color: var(--good);
+}
+
+.chip-warn {
+  background: var(--warn-wash);
+  color: var(--warn);
+}
+
+.chip-danger {
+  background: var(--danger-wash);
+  color: var(--danger);
+}
+
+/* ———————————————————————————— On the track ———————————————————————————— */
+
+/* Track-blue regions keep their own palette in both themes: chalk text, volt action. */
+.on-track {
+  --text: var(--chalk);
+  --text-dim: #d5dcff;
+  --text-faint: #b9c3ff;
+  --line: rgba(255, 255, 255, 0.4);
+  --line-soft: rgba(255, 255, 255, 0.22);
+  --accent: var(--volt);
+  --accent-hover: #e6ff7a;
+  --on-accent: var(--on-volt);
+  --accent-wash: rgba(255, 255, 255, 0.16);
+  --surface-2: rgba(255, 255, 255, 0.12);
+  background: var(--track);
+  color: var(--chalk);
+}
+
+.on-track :focus-visible {
+  outline-color: var(--chalk);
+}
+
+/* ———————————————————————————— The lap oval ———————————————————————————— */
+
+/* A stadium of concentric lanes. lib/oval.js works out the geometry and the percentages;
+   the page builds the SVG from it. `--lanes` is the number of lanes drawn, which is what
+   positions the text inside the infield. */
+.oval {
+  position: relative;
+  container-type: inline-size;
+}
+
+.oval svg {
+  width: 100%;
+  height: auto;
+}
+
+.oval-ground {
+  fill: var(--track);
+}
+
+.oval-infield {
+  fill: var(--track-deep);
+}
+
+.oval-line {
+  fill: none;
+  stroke: var(--chalk);
+  stroke-opacity: 0.45;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.oval-finish {
+  stroke: var(--chalk);
+  stroke-width: 3;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Each lane is a stroked rounded rect with pathLength 100, so the dash length is the
+   percentage of a lap. The run-in plays once; later changes ease to their new length. */
+.lane {
+  fill: none;
+  stroke-linecap: round;
+  animation: run 700ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.settled .lane {
+  animation: none;
+  transition: stroke-dasharray 200ms ease-out, stroke 200ms ease-out;
+}
+
+@keyframes run {
+  from { stroke-dasharray: 0 100; }
+}
+
+.tone-volt { stroke: var(--volt); }
+.tone-warn { stroke: var(--lane-warn); }
+.tone-danger { stroke: var(--lane-danger); }
+.tone-lane-2 { stroke: var(--lane-2); }
+.tone-lane-3 { stroke: var(--lane-3); }
+.tone-lane-4 { stroke: var(--lane-4); }
+.tone-lane-5 { stroke: var(--lane-5); }
+
+/* The band is 4% of the oval's width and 5.405% of its height (40 of 1000 by 740). */
+.oval-infield-text {
   position: absolute;
-  top: 50%;
-  left: 0.18rem;
-  width: 0.9rem;
-  height: 0.9rem;
-  border-radius: 50%;
-  background: var(--ink-faint);
-  transform: translateY(-50%);
-  transition: transform 200ms var(--ease), background 200ms var(--ease);
+  inset: calc(var(--lanes, 1) * 5.405%) calc(var(--lanes, 1) * 4% + 5%);
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  text-align: center;
+  color: var(--chalk);
+  pointer-events: none;
 }
 
-.toggle[aria-checked="true"] {
-  background: var(--moss-wash);
-  border-color: var(--moss-line);
+.oval-figure {
+  font-size: clamp(1.75rem, 12cqw, 3.75rem);
+  font-weight: 800;
+  font-stretch: 125%;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
 }
 
-.toggle[aria-checked="true"]::after {
-  background: var(--moss);
-  transform: translateY(-50%) translateX(1.03rem);
+.oval-figure.long {
+  font-size: clamp(1.5rem, 9.5cqw, 3rem);
 }
 
-.toggle:disabled {
-  cursor: default;
-  opacity: 0.5;
+.oval-figure .unit {
+  font-size: 0.42em;
+  margin-left: 0.18em;
+  letter-spacing: -0.01em;
 }
+
+.oval-caption {
+  margin-top: 0.3rem;
+  font-size: clamp(0.75rem, 4.1cqw, 1rem);
+  font-weight: 500;
+  line-height: 1.25;
+  color: #d5dcff;
+  text-wrap: balance;
+}
+
+/* ———————————————————————————— Lane rows ———————————————————————————— */
+
+/* The text twin of the oval: lane number, name, distance. Lists that rank or sequence
+   things are the only ones that carry numbers. */
+.lanes {
+  list-style: none;
+  padding: 0;
+}
+
+.lanes > li {
+  display: grid;
+  grid-template-columns: 1.75rem 1fr auto;
+  gap: var(--s-3);
+  align-items: baseline;
+  padding: 0.6rem 0;
+  border-top: 1.5px solid var(--line);
+}
+
+.lanes > li:last-child {
+  border-bottom: 1.5px solid var(--line);
+}
+
+.lane-no {
+  font-weight: 800;
+  font-stretch: 125%;
+  font-size: var(--t-lg);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.lane-name {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+  font-weight: 500;
+}
+
+.lane-name::before {
+  content: "";
+  flex: none;
+  width: 1.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--swatch, var(--volt));
+}
+
+.lane-name > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lane-dist {
+  font-weight: 700;
+  font-stretch: 125%;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ———————————————————————————— Rows ———————————————————————————— */
+
+/* A setting, a fact or an action: text on the left, its control or value on the right.
+   Rows in a list are divided by soft lane lines, never boxed. */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-4);
+  padding: var(--s-3) 0;
+  border-top: 1.5px solid var(--line-soft);
+}
+
+.row:first-child {
+  border-top: 0;
+}
+
+.row-text {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.row-text strong {
+  font-weight: 650;
+  letter-spacing: -0.005em;
+}
+
+.row-text span {
+  font-size: var(--t-sm);
+  color: var(--text-dim);
+}
+
+/* ———————————————————————————— Panels ———————————————————————————— */
+
+/* Only where the content is one object. */
+.panel {
+  padding: var(--s-4);
+  border: 1px solid var(--panel-border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+
+.panel.on-track {
+  background: var(--track);
+  border-color: transparent;
+}
+
+/* ———————————————————————————— Inputs ———————————————————————————— */
 
 input[type="text"],
 input[type="number"] {
-  flex: 1;
-  min-width: 0;
-  min-height: 2.25rem;
-  padding: 0.4rem 0.7rem;
-  border-radius: var(--r-sm);
-  border: 1px solid var(--hairline);
-  background: var(--ground-raised);
-  color: var(--ink);
-  font-family: var(--body);
-  font-size: 0.8125rem;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.85rem;
+  border: 1.5px solid var(--line);
+  border-radius: var(--radius-input);
+  background: var(--sunken);
+  color: var(--text);
+  transition: border-color 160ms ease-out;
 }
 
-input[type="text"]::placeholder,
-input[type="number"]::placeholder {
-  color: var(--ink-faint);
+input::placeholder {
+  color: var(--text-faint);
+  opacity: 1;
+}
+
+input[type="text"]:focus,
+input[type="number"]:focus {
+  border-color: var(--accent);
 }
 
 input[aria-invalid="true"] {
   border-color: var(--danger);
 }
 
-/* Windows high contrast flattens backgrounds, which would leave every switch reading "off"
-   and every rail empty. System colours keep both legible. */
-@media (forced-colors: active) {
-  .toggle[aria-checked="true"]::after,
-  .rail > i {
-    background: Highlight;
-  }
+/* A switch. The knob's position says on or off; the colour only repeats it. The button is
+   44 tall for touch, the visible track is shorter. */
+.toggle {
+  position: relative;
+  flex: none;
+  width: 3.25rem;
+  height: 2.75rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  cursor: pointer;
 }
 
-/* ————————————————————————————— States ————————————————————————————— */
-
-/* Zero state. Always names what will appear here and what the single next move is: a blank
-   screen with a shrug is how a new user decides the thing is broken. */
-.empty {
-  padding: var(--s-2) 0 var(--s-3);
-}
-
-.empty h3 {
-  margin: 0 0 0.2rem;
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: 0.9375rem;
-  color: var(--ink);
-}
-
-.empty p {
-  margin: 0;
-  color: var(--ink-muted);
-  font-size: 0.8125rem;
-}
-
-.muted { color: var(--ink-muted); }
-.faint { color: var(--ink-faint); }
-.moss { color: var(--moss); }
-.amber { color: var(--amber); }
-.slate { color: var(--slate); }
-.danger { color: var(--danger); }
-
-/* Read by screen readers, invisible on screen: chart captions, live announcements. */
-.visually-hidden {
+.toggle::before {
+  content: "";
   position: absolute;
-  width: 1px;
-  height: 1px;
+  inset: 0.5rem 0;
+  border: 1.5px solid var(--line);
+  border-radius: 999px;
+  background: var(--sunken);
+  transition: background 180ms ease-out, border-color 180ms ease-out;
+}
+
+.toggle::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0.3rem;
+  width: 1.15rem;
+  height: 1.15rem;
+  margin-top: -0.575rem;
+  border-radius: 50%;
+  background: var(--text-faint);
+  transition: transform 180ms ease-out, background 180ms ease-out;
+}
+
+.toggle[aria-checked="true"]::before {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.toggle[aria-checked="true"]::after {
+  transform: translateX(1.5rem);
+  background: var(--on-accent);
+}
+
+.toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* ———————————————————————————— Progress ———————————————————————————— */
+
+/* A straight progress track, for the few places that are not the oval. */
+.rail {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--sunken);
   overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+}
+
+.rail > i {
+  display: block;
+  height: 100%;
+  min-width: 0.5rem;
+  border-radius: 999px;
+  background: var(--accent);
+  transition: width 200ms ease-out;
+}
+
+.rail > i.zero {
+  min-width: 0;
+  width: 0;
+}
+
+/* ———————————————————————————— Messages ———————————————————————————— */
+
+/* The result of something the user just did. Announced politely; coloured and worded. */
+.note {
+  min-height: 1.4em;
+  font-size: var(--t-sm);
+  color: var(--text-dim);
+}
+
+.note.good {
+  color: var(--good);
+}
+
+.note.error {
+  color: var(--danger);
+}
+
+.alert {
+  padding: var(--s-3) var(--s-4);
+  border-radius: var(--radius-input);
+  background: var(--danger-wash);
+  color: var(--danger);
+  font-size: var(--t-sm);
+  font-weight: 500;
 }
 
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
+    animation: none !important;
+    transition: none !important;
   }
 }

@@ -19,83 +19,135 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 
-/** Production green neutrals, moss actions, and separate colors for status and chart data. */
+// The track carries its own ground, so these five are the same in both themes (DESIGN.md).
+/** The lap oval's lanes. */
+val TrackBlue = Color(0xFF2340E0)
+/** The oval's infield and pressed track surfaces. */
+val TrackDeep = Color(0xFF1A2FB0)
+/** Lane lines, lane numbers and text on the track. */
+val Chalk = Color(0xFFFFFFFF)
+/** The total lane, the runner. Only ever a fill on blue or on the dark ground. */
+val Volt = Color(0xFFD7FF3A)
+/** Text on volt. */
+val OnVolt = Color(0xFF0A0F2E)
+/** Secondary text on the track: the oval's caption line. */
+val ChalkDim = Color(0xFFD5DCFF)
+
+// State colours as they appear on the track. The oval always uses the night set, because
+// its ground is track blue in both themes.
+val TrackWarn = Color(0xFFFFC83D)
+val TrackDanger = Color(0xFFFF5C7A)
+
+/** App lanes on the track, lane 2 first. Volt is the total and is never an app's colour. */
+val TrackSeries = listOf(
+    Color(0xFF7FD4FF),
+    Color(0xFFFF8FB3),
+    Color(0xFF5BE3A0),
+    Color(0xFFC4A8FF),
+    Color(0xFFFFC83D),
+    Color(0xFFFFFFFF),
+)
+
+/** Series colours for charts drawn on the light page ground. */
+val LightSeries = listOf(
+    Color(0xFF2340E0),
+    Color(0xFF0E8FB8),
+    Color(0xFFC4326B),
+    Color(0xFF12805A),
+    Color(0xFF6B3FC2),
+    Color(0xFF8A5C00),
+)
+
+/** The DESIGN.md tokens: night meet in dark, day meet in light. */
 @Immutable
 data class TrekPalette(
     val isDark: Boolean,
     /** Page ground. */
-    val ground: Color,
-    /** Panels that genuinely are objects: banners, rows, tiles. */
-    val groundRaised: Color,
-    /** Progress tracks and input fields. */
-    val groundSunken: Color,
-    val hairline: Color,
-    val hairlineSoft: Color,
-    val ink: Color,
-    val inkMuted: Color,
-    val inkFaint: Color,
+    val bg: Color,
+    /** Panels, sheets, rows. */
+    val surface: Color,
+    /** Pressed states and nested chips. */
+    val surface2: Color,
+    /** Progress tracks and inputs. */
+    val sunken: Color,
+    /** Borders and lane dividers. */
+    val line: Color,
+    /** Row separators inside a panel. */
+    val lineSoft: Color,
+    val text: Color,
+    val textDim: Color,
+    val textFaint: Color,
+    /** Primary action and selection. Volt at night, track blue by day. */
     val accent: Color,
     val onAccent: Color,
+    /** Selected chip, own leaderboard row. */
     val accentWash: Color,
-    val amber: Color,
-    val amberWash: Color,
-    val slate: Color,
-    val slateWash: Color,
-    val success: Color,
-    val successWash: Color,
+    /** Under the limit, clean day. */
+    val good: Color,
+    val goodWash: Color,
+    /** Streaks, 80% of the limit. */
+    val warn: Color,
+    val warnWash: Color,
+    /** Over the limit, destructive. */
     val danger: Color,
     val dangerWash: Color,
-    /** Gold, silver, bronze for the top three, tuned per theme. */
+    /** Browser source, neutral highlights. */
+    val info: Color,
+    val infoWash: Color,
+    /** Gold, silver, bronze for the podium. */
     val medals: List<Color>,
-)
+) {
+    val track: Color get() = TrackBlue
+}
 
 private val DarkPalette = TrekPalette(
     isDark = true,
-    ground = Color(0xFF0C0F0B),
-    groundRaised = Color(0xFF13170F),
-    groundSunken = Color(0xFF080A07),
-    hairline = Color(0xFF262C1D),
-    hairlineSoft = Color(0xFF1A1F15),
-    ink = Color(0xFFEDF1E6),
-    inkMuted = Color(0xFFA9B39C),
-    inkFaint = Color(0xFF79836D),
-    accent = Color(0xFF8BE6A0),
-    onAccent = Color(0xFF05210F),
-    accentWash = Color(0xFF17281B),
-    amber = Color(0xFFF2B455),
-    amberWash = Color(0xFF2A2113),
-    slate = Color(0xFF8FB6CC),
-    slateWash = Color(0xFF16212A),
-    success = Color(0xFF8BE6A0),
-    successWash = Color(0xFF17281B),
-    danger = Color(0xFFF08497),
-    dangerWash = Color(0xFF2B1319),
-    medals = listOf(Color(0xFFF2C55C), Color(0xFFC9D2C2), Color(0xFFD09A66)),
+    bg = Color(0xFF0A0F2E),
+    surface = Color(0xFF121A4A),
+    surface2 = Color(0xFF1A2460),
+    sunken = Color(0xFF070B22),
+    line = Color(0xFF26317A),
+    lineSoft = Color(0xFF1B2459),
+    text = Color(0xFFF5F7FF),
+    textDim = Color(0xFFAEB6E0),
+    textFaint = Color(0xFF8891C4),
+    accent = Color(0xFFD7FF3A),
+    onAccent = Color(0xFF0A0F2E),
+    accentWash = Color(0xFF323F47),
+    good = Color(0xFF5BE3A0),
+    goodWash = Color(0xFF12303F),
+    warn = Color(0xFFFFC83D),
+    warnWash = Color(0xFF2E2A33),
+    danger = Color(0xFFFF5C7A),
+    dangerWash = Color(0xFF33173F),
+    info = Color(0xFF7FD4FF),
+    infoWash = Color(0xFF14294F),
+    medals = listOf(Color(0xFFFFD34D), Color(0xFFC9D1EE), Color(0xFFE0A070)),
 )
 
 private val LightPalette = TrekPalette(
     isDark = false,
-    // Bone paper, not white: warm enough to read in direct sun without glare.
-    ground = Color(0xFFF3F1E8),
-    groundRaised = Color(0xFFFBFAF4),
-    groundSunken = Color(0xFFE6E3D6),
-    hairline = Color(0xFFDCD8C8),
-    hairlineSoft = Color(0xFFEAE7DA),
-    ink = Color(0xFF171A10),
-    inkMuted = Color(0xFF5A6151),
-    inkFaint = Color(0xFF6B7160),
-    accent = Color(0xFF1E6B3E),
-    onAccent = Color(0xFFFBFAF4),
-    accentWash = Color(0xFFDFEEE2),
-    amber = Color(0xFF8A5806),
-    amberWash = Color(0xFFF6E9CE),
-    slate = Color(0xFF1D5F80),
-    slateWash = Color(0xFFDDEAF1),
-    success = Color(0xFF1E6B3E),
-    successWash = Color(0xFFDFEEE2),
-    danger = Color(0xFFA32639),
-    dangerWash = Color(0xFFF7DFE2),
-    medals = listOf(Color(0xFF9A6E12), Color(0xFF6E7668), Color(0xFF8A5230)),
+    bg = Color(0xFFF3F5FB),
+    surface = Color(0xFFFFFFFF),
+    surface2 = Color(0xFFE9EDF8),
+    sunken = Color(0xFFE3E8F5),
+    line = Color(0xFFD3DAEE),
+    lineSoft = Color(0xFFE4E9F6),
+    text = Color(0xFF0B1030),
+    textDim = Color(0xFF454E7A),
+    textFaint = Color(0xFF626B96),
+    accent = Color(0xFF2340E0),
+    onAccent = Color(0xFFFFFFFF),
+    accentWash = Color(0xFFE3E8FD),
+    good = Color(0xFF12754A),
+    goodWash = Color(0xFFE0F3EA),
+    warn = Color(0xFF8A5800),
+    warnWash = Color(0xFFFBEFD6),
+    danger = Color(0xFFB4233A),
+    dangerWash = Color(0xFFFBE6E9),
+    info = Color(0xFF0E6E94),
+    infoWash = Color(0xFFE0F1F8),
+    medals = listOf(Color(0xFF8A6200), Color(0xFF5B648C), Color(0xFF8A5230)),
 )
 
 val LocalTrekPalette = staticCompositionLocalOf { DarkPalette }
@@ -111,20 +163,17 @@ val Trek: TrekPalette
  */
 val LocalTrekMotion = staticCompositionLocalOf { true }
 
-/** Exponential ease-out. Fast commit, long settle, no overshoot. */
-val TrekEase: Easing = CubicBezierEasing(0.16f, 1f, 0.3f, 1f)
-
-/** Shorter ease for micro feedback, where the long tail would read as lag. */
-val TrekEaseShort: Easing = CubicBezierEasing(0.25f, 1f, 0.5f, 1f)
+/** Ease-out for state changes. Fast commit, long settle, no overshoot. */
+val TrekEase: Easing = CubicBezierEasing(0.22f, 1f, 0.36f, 1f)
 
 object TrekDur {
-    const val MICRO = 110
-    const val SMALL = 220
-    const val MEDIUM = 220
-    const val LARGE = 280
+    /** Ordinary state changes: 160 to 240 ms. */
+    const val SMALL = 160
+    const val MEDIUM = 200
+    const val LARGE = 240
 
-    /** Initial data reveal, also disabled by the system animation preference. */
-    const val REVEAL = 350
+    /** The oval's one-time run-in, per lane. */
+    const val LAP = 700
 }
 
 /** Collapses a duration to zero when the user has asked for no animation. */
@@ -136,94 +185,91 @@ private fun schemeFor(p: TrekPalette) = if (p.isDark) {
         primary = p.accent,
         onPrimary = p.onAccent,
         primaryContainer = p.accentWash,
-        onPrimaryContainer = p.accent,
-        secondary = p.slate,
-        onSecondary = Color(0xFF08131A),
-        secondaryContainer = p.slateWash,
-        onSecondaryContainer = p.slate,
-        tertiary = p.amber,
-        onTertiary = Color(0xFF231704),
-        tertiaryContainer = p.amberWash,
-        onTertiaryContainer = p.amber,
-        background = p.ground,
-        onBackground = p.ink,
-        surface = p.groundRaised,
-        onSurface = p.ink,
-        surfaceVariant = p.groundSunken,
-        onSurfaceVariant = p.inkMuted,
-        surfaceTint = p.accent,
-        inverseSurface = p.ink,
-        inverseOnSurface = p.ground,
-        inversePrimary = Color(0xFF1E6B3E),
+        onPrimaryContainer = p.text,
+        secondary = p.info,
+        onSecondary = p.bg,
+        secondaryContainer = p.infoWash,
+        onSecondaryContainer = p.text,
+        tertiary = p.warn,
+        onTertiary = p.bg,
+        tertiaryContainer = p.warnWash,
+        onTertiaryContainer = p.text,
+        background = p.bg,
+        onBackground = p.text,
+        surface = p.surface,
+        onSurface = p.text,
+        surfaceVariant = p.sunken,
+        onSurfaceVariant = p.textDim,
+        // No tonal elevation anywhere: a transparent tint keeps every surface flat.
+        surfaceTint = Color.Transparent,
+        inverseSurface = p.text,
+        inverseOnSurface = p.bg,
+        inversePrimary = TrackBlue,
         error = p.danger,
-        onError = Color(0xFF2B0810),
+        onError = p.bg,
         errorContainer = p.dangerWash,
-        onErrorContainer = p.danger,
-        outline = Color(0xFF3B4331),
-        outlineVariant = p.hairline,
+        onErrorContainer = p.text,
+        outline = p.line,
+        outlineVariant = p.lineSoft,
         scrim = Color(0xFF000000),
-        // M3 1.3 routes dialogs, sheets, switches and the nav bar through these. Left at
-        // their defaults they fall back to Material's baseline purple-grey neutrals, which
-        // is why the old dialogs never quite matched the app.
-        surfaceBright = Color(0xFF2A3024),
-        surfaceDim = p.groundSunken,
-        surfaceContainerLowest = p.groundSunken,
-        surfaceContainerLow = p.ground,
-        surfaceContainer = p.groundRaised,
-        surfaceContainerHigh = Color(0xFF1A1F15),
-        surfaceContainerHighest = Color(0xFF222819),
+        // Dialogs, sheets, switches and menus read these. Left at their defaults they
+        // fall back to Material's baseline neutrals instead of the track palette.
+        surfaceBright = p.surface2,
+        surfaceDim = p.sunken,
+        surfaceContainerLowest = p.sunken,
+        surfaceContainerLow = p.surface,
+        surfaceContainer = p.surface,
+        surfaceContainerHigh = p.surface,
+        surfaceContainerHighest = p.surface2,
     )
 } else {
     lightColorScheme(
         primary = p.accent,
         onPrimary = p.onAccent,
         primaryContainer = p.accentWash,
-        onPrimaryContainer = Color(0xFF0C3A1F),
-        secondary = p.slate,
-        onSecondary = Color(0xFFF6FAFC),
-        secondaryContainer = p.slateWash,
-        onSecondaryContainer = Color(0xFF0D3549),
-        tertiary = p.amber,
-        onTertiary = Color(0xFFFDF8EC),
-        tertiaryContainer = p.amberWash,
-        onTertiaryContainer = Color(0xFF4A2F02),
-        background = p.ground,
-        onBackground = p.ink,
-        surface = p.groundRaised,
-        onSurface = p.ink,
-        surfaceVariant = p.groundSunken,
-        onSurfaceVariant = p.inkMuted,
-        surfaceTint = p.accent,
-        inverseSurface = Color(0xFF1C2016),
-        inverseOnSurface = p.ground,
-        inversePrimary = Color(0xFF8BE6A0),
+        onPrimaryContainer = p.text,
+        secondary = p.info,
+        onSecondary = Color(0xFFFFFFFF),
+        secondaryContainer = p.infoWash,
+        onSecondaryContainer = p.text,
+        tertiary = p.warn,
+        onTertiary = Color(0xFFFFFFFF),
+        tertiaryContainer = p.warnWash,
+        onTertiaryContainer = p.text,
+        background = p.bg,
+        onBackground = p.text,
+        surface = p.surface,
+        onSurface = p.text,
+        surfaceVariant = p.sunken,
+        onSurfaceVariant = p.textDim,
+        surfaceTint = Color.Transparent,
+        inverseSurface = p.text,
+        inverseOnSurface = p.bg,
+        inversePrimary = Color(0xFFAEB6E0),
         error = p.danger,
-        onError = Color(0xFFFFF7F7),
+        onError = Color(0xFFFFFFFF),
         errorContainer = p.dangerWash,
-        onErrorContainer = Color(0xFF54121E),
-        outline = Color(0xFFA9A594),
-        outlineVariant = p.hairline,
+        onErrorContainer = p.text,
+        outline = p.line,
+        outlineVariant = p.lineSoft,
         scrim = Color(0xFF000000),
-        surfaceBright = Color(0xFFFDFCF7),
-        surfaceDim = Color(0xFFDEDBCD),
-        surfaceContainerLowest = Color(0xFFFFFFFE),
-        surfaceContainerLow = Color(0xFFF8F6ED),
-        surfaceContainer = p.groundRaised,
-        surfaceContainerHigh = Color(0xFFF0EDE1),
-        surfaceContainerHighest = p.groundSunken,
+        surfaceBright = p.surface,
+        surfaceDim = p.sunken,
+        surfaceContainerLowest = p.surface,
+        surfaceContainerLow = p.surface,
+        surfaceContainer = p.surface,
+        surfaceContainerHigh = p.surface,
+        surfaceContainerHighest = p.surface2,
     )
 }
 
-/**
- * Corners are deliberately tighter than Material's defaults. This is an instrument, and
- * 28dp pills on data panels read as a consumer toy.
- */
+/** Panels and sheets take 20dp, inputs 12dp. Buttons and chips are stadiums, set per component. */
 private val TrekShapes = Shapes(
-    extraSmall = RoundedCornerShape(10.dp),
-    small = RoundedCornerShape(16.dp),
-    medium = RoundedCornerShape(20.dp),
-    large = RoundedCornerShape(24.dp),
-    extraLarge = RoundedCornerShape(32.dp),
+    extraSmall = RoundedCornerShape(8.dp),
+    small = RoundedCornerShape(12.dp),
+    medium = RoundedCornerShape(16.dp),
+    large = RoundedCornerShape(20.dp),
+    extraLarge = RoundedCornerShape(20.dp),
 )
 
 @Composable

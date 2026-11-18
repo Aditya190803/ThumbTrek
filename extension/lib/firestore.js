@@ -165,6 +165,31 @@ export async function commit(writes) {
 }
 
 /**
+ * Top-level documents in `collection` whose array field `field` contains `value`, as
+ * `{ id, data }`. Used to find the groups a uid belongs to (contract §8): the rules only
+ * allow reading a group you are in, and this query proves membership by construction.
+ */
+export async function queryArrayContains(collection, field, value) {
+  const root = await documentsRoot();
+  const body = await request(`${root}:runQuery`, {
+    method: 'POST',
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: collection }],
+        where: {
+          fieldFilter: { field: { fieldPath: field }, op: 'ARRAY_CONTAINS', value: toValue(value) },
+        },
+        limit: 100,
+      },
+    }),
+  });
+  // runQuery answers with one entry per match, plus a bare entry when there are none.
+  return (Array.isArray(body) ? body : [])
+    .filter((entry) => entry.document)
+    .map((entry) => ({ id: entry.document.name.split('/').pop(), data: fromFields(entry.document.fields) }));
+}
+
+/**
  * Document ids in a collection, paginated.
  *
  * `mask.fieldPaths=source` asks for one short field instead of the whole document, so

@@ -197,3 +197,114 @@ The extension deliberately uses the REST APIs rather than the Firebase JS SDK: t
 popup sign-in cannot run in an MV3 service worker, and REST keeps the extension dependency-
 free and buildless. Refresh the ID token with the `securetoken.googleapis.com` endpoint; it
 expires after an hour and a background sync will outlive it.
+
+---
+
+## 7. The shared limit
+
+A daily limit normally lives on the device that set it. A user can instead keep **one limit
+across the phone and the browser**. That is opt-in per client, and it needs sync to be on.
+
+```
+users/{uid}/settings/limits = {
+  limitUm,       // integer µm; 0 means "no limit"
+  setAt,         // integer, wall-clock milliseconds of the edit
+  source,        // who wrote it last, for the record
+  updatedAt,
+}
+```
+
+Private to its owner. The rule on every client:
+
+1. Stamp `setAt` locally whenever the user changes the limit, including clearing it.
+2. On sync, compare with the document. **The newest `setAt` wins.** Newer locally: write.
+   Newer remotely: adopt. A tie with different values keeps the server's copy, so two
+   clients that both think they are current never write back and forth.
+3. Adopting is not an edit by this user on this device. It spends no weekly change.
+
+With sharing on, **today's distance from the other sources counts against the limit.** A
+client reads the other sources' `days/{today}__{source}` documents at sync time and adds
+their `um` to its own figure for the limit, the oval's total lane, and the limit nudge.
+That number is only as fresh as the other client's last sync, and the UI says so.
+
+Only today is combined. Days in the past are judged on each client's own history: the
+streak a phone shows was earned on the phone. This is deliberate. Recomputing old days
+from another device's data would let a streak change after the fact.
+
+Per-app and per-site limits are **not** shared. A package name and a domain are different
+keys for different things, so each client keeps its own and they travel in its backup file.
+
+Turning sharing off deletes the document. Each client keeps the limit it had.
+
+---
+
+## 8. Groups and challenges
+
+A group is a private board for up to 50 people who were handed its code.
+
+```
+groups/{groupId} = {
+  name,                      // ≤40
+  owner,                     // uid
+  code,                      // 8 Crockford characters, like a friend code, but random
+  members: [uid, ...],       // ≤50, owner included
+  createdAt,
+  challenge?: { title, kind: "least" | "most", startsOn, endsOn },   // yyyy-MM-dd
+}
+groupCodes/{code} = { groupId }
+groups/{groupId}/progress/{uid}__{source} = {
+  uid, source, name, photo,  // the member's real identity, as on a friend edge
+  windowKey, um, updatedAt,
+}
+```
+
+**Joining.** Resolve `groupCodes/{code}` to an id, then `arrayUnion` your own uid into
+`members`. The rules accept exactly "members grew by me". Leaving is `arrayRemove` of
+yourself, after deleting your own progress documents. The owner cannot leave; they delete
+the group, removing every progress document first so no names are left behind.
+
+**The window.** A group always counts one stretch of days:
+
+- with a challenge, `startsOn` to `endsOn` inclusive, and `windowKey` is
+  `"<startsOn>..<endsOn>"`;
+- otherwise the current ISO week, and `windowKey` is the week key (`2026-W46`).
+
+Each source publishes its own distance inside the window, computed from its own local
+history, into its own progress document. Readers sum a member's documents, **counting only
+those whose `windowKey` equals the current window's**. That is the same stale-key rule as
+`weekKey` on the board row: a document from last week reads as nothing, not as this week's
+score. A member with no current document ranks last whichever way the challenge runs, so
+nobody wins a "scroll the least" challenge by never syncing.
+
+`kind` is `"least"` (lowest distance first, the point of a limit) or `"most"`. A group
+with no challenge ranks most first.
+
+The web dashboard creates, joins and leaves groups, and reads their boards. It never writes
+a progress document, for the same reason it never writes a day: it measures nothing.
+
+Opting out of sync deletes this client's progress documents along with its day ledger.
+
+---
+
+## 9. Premium and entitlements
+
+Tracking is free and needs no account. The shared limit, per-app limits, reports, groups,
+and backup and restore are the Premium set.
+
+```
+entitlements/{uid} = { premium: true, until }
+```
+
+Readable by its owner, writable by nobody: only the billing backend writes it, through the
+Admin SDK. There is no billing backend yet, so **nothing is enforced**:
+
+- every client has a constant (`BILLING_ENFORCED` in `stats/Stats.kt`, and the same name in
+  `web/app/premium.js` and `extension/lib/premium.js`) that is `false`, and treats every
+  account as entitled while it is;
+- `firestore.rules` has the matching `billingEnforced()` returning `false`.
+
+Shipping billing means: a backend that verifies a Play or web purchase and writes the
+entitlement, then flipping those constants to `true` together. The three local features
+(per-app limits, reports, backup) can only ever be gated in the client. The two that touch
+the server (shared limit, groups) are gated by the rules as well.
+

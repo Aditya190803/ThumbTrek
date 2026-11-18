@@ -52,7 +52,7 @@ class DailySummaryWorker(
         val dayBefore = days[yesterday.minusDays(1)]
         val trend = if (dayBefore != null && dayBefore > 0) {
             val pct = ((px - dayBefore).toDouble() / dayBefore * 100).roundToInt()
-            if (pct >= 0) " — $pct% more than the day before" else " — ${-pct}% less than the day before"
+            if (pct >= 0) ", $pct% more than the day before" else ", ${-pct}% less than the day before"
         } else {
             ""
         }
@@ -73,7 +73,7 @@ class DailySummaryWorker(
             "Your baseline week is done: a usual day is about ${formatDistance(baselineM)}, " +
                 "so your daily limit is now ${formatDistance(limitM)}."
         } else if (limitM == null || !judged) "" else if (isCleanDay(meters, limitM)) {
-            "Clean — under your ${formatDistance(limitM)} limit."
+            "Within your ${formatDistance(limitM)} limit."
         } else {
             "Over your ${formatDistance(limitM)} limit by " +
                 formatDistance(meters - limitM) + "."

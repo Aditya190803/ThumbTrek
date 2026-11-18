@@ -83,6 +83,7 @@ class Prefs private constructor(context: Context) {
             .remove(KEY_DAILY_LIMIT_M).remove(KEY_LIMIT_SINCE).remove("limit_draft")
             .remove(KEY_BASELINE_SINCE).remove(KEY_AUTO_LIMIT_NOTICE)
             .putBoolean(KEY_NO_LIMIT_CHOSEN, true)
+            .putLong(KEY_LIMIT_SET_AT, System.currentTimeMillis())
             .apply()
         _dailyLimitM.value = null
         _limitSince.value = null
@@ -121,6 +122,7 @@ class Prefs private constructor(context: Context) {
             .remove(KEY_DAILY_LIMIT_M).remove(KEY_LIMIT_SINCE).remove("limit_draft")
             .remove(KEY_AUTO_LIMIT_NOTICE).remove(KEY_NO_LIMIT_CHOSEN)
             .putString(KEY_BASELINE_SINCE, today.toString())
+            .putLong(KEY_LIMIT_SET_AT, System.currentTimeMillis())
             .apply()
         _dailyLimitM.value = null
         _limitSince.value = null
@@ -139,6 +141,7 @@ class Prefs private constructor(context: Context) {
             .putFloat(KEY_DAILY_LIMIT_M, limitM)
             .putString(KEY_LIMIT_SINCE, today.toString())
             .putFloat(KEY_AUTO_LIMIT_NOTICE, baselineM.toFloat())
+            .putLong(KEY_LIMIT_SET_AT, System.currentTimeMillis())
             .remove(KEY_BASELINE_SINCE)
             .apply()
         _dailyLimitM.value = limitM
@@ -269,6 +272,7 @@ class Prefs private constructor(context: Context) {
             remove(KEY_BASELINE_SINCE)
             remove(KEY_AUTO_LIMIT_NOTICE)
             remove(KEY_NO_LIMIT_CHOSEN)
+            putLong(KEY_LIMIT_SET_AT, System.currentTimeMillis())
         }.apply()
         _dailyLimitM.value = clamped
         _limitSince.value = since
@@ -284,6 +288,114 @@ class Prefs private constructor(context: Context) {
             else (FREE_LIMIT_EDITS_PER_WEEK - limitEditCount).coerceAtLeast(0)
         return LimitEditResult.Applied(freeLeft)
     }
+
+    // --- one limit across the phone and the browser (sync-protocol §7) ---
+
+    private val _sharedLimit = MutableStateFlow(sp.getBoolean(KEY_SHARED_LIMIT, false))
+    /**
+     * On: the daily limit is kept in the account, and today's browser scrolling counts
+     * against it. Off by default, and it needs sync to be on to do anything.
+     */
+    val sharedLimit: StateFlow<Boolean> = _sharedLimit.asStateFlow()
+
+    fun setSharedLimit(enabled: Boolean) {
+        sp.edit().putBoolean(KEY_SHARED_LIMIT, enabled).apply()
+        _sharedLimit.value = enabled
+        if (!enabled) setOtherSourcesToday(null, 0L)
+    }
+
+    /** Epoch millis of the last limit change on this device; 0 for limits older than this. */
+    val limitSetAt: Long get() = sp.getLong(KEY_LIMIT_SET_AT, 0L)
+
+    /**
+     * Takes a limit another device set. Not an edit by this user on this device, so it
+     * spends no weekly change and keeps the other device's timestamp.
+     */
+    fun adoptSharedLimit(limitM: Float?, setAt: Long, today: LocalDate = LocalDate.now()) {
+        val since = _limitSince.value ?: today
+        sp.edit().apply {
+            if (limitM == null) {
+                remove(KEY_DAILY_LIMIT_M)
+                remove(KEY_LIMIT_SINCE)
+                putBoolean(KEY_NO_LIMIT_CHOSEN, true)
+            } else {
+                putFloat(KEY_DAILY_LIMIT_M, limitM)
+                putString(KEY_LIMIT_SINCE, since.toString())
+                remove(KEY_NO_LIMIT_CHOSEN)
+            }
+            remove("limit_draft")
+            remove(KEY_BASELINE_SINCE)
+            remove(KEY_AUTO_LIMIT_NOTICE)
+            putLong(KEY_LIMIT_SET_AT, setAt)
+        }.apply()
+        _dailyLimitM.value = limitM
+        _limitSince.value = if (limitM == null) null else since
+        _baselineSince.value = null
+        _autoLimitNotice.value = null
+    }
+
+    /** What other sources measured on [date], as of the last sync. */
+    data class OtherSources(val date: String, val um: Long)
+
+    private val _otherSourcesToday = MutableStateFlow(
+        sp.getString(KEY_OTHER_DATE, null)?.let { OtherSources(it, sp.getLong(KEY_OTHER_UM, 0L)) },
+    )
+    val otherSourcesToday: StateFlow<OtherSources?> = _otherSourcesToday.asStateFlow()
+
+    fun setOtherSourcesToday(date: String?, um: Long) {
+        sp.edit().apply {
+            if (date == null) remove(KEY_OTHER_DATE).remove(KEY_OTHER_UM)
+            else putString(KEY_OTHER_DATE, date).putLong(KEY_OTHER_UM, um)
+        }.apply()
+        _otherSourcesToday.value = date?.let { OtherSources(it, um) }
+    }
+
+    // --- a separate limit for each app ---
+
+    private val _appLimits = MutableStateFlow(decodeAppLimits(sp.getString(KEY_APP_LIMITS, null)))
+    /** Package name to its own daily limit in metres. Apps without an entry have none. */
+    val appLimits: StateFlow<Map<String, Float>> = _appLimits.asStateFlow()
+
+    /** Sets one app's limit, or removes it when [meters] is null. */
+    fun setAppLimit(pkg: String, meters: Float?) {
+        val next = if (meters == null) _appLimits.value - pkg
+            else _appLimits.value + (pkg to meters.coerceIn(MIN_APP_LIMIT_M, MAX_DAILY_LIMIT_M.toFloat()))
+        replaceAppLimits(next)
+    }
+
+    fun replaceAppLimits(limits: Map<String, Float>) {
+        sp.edit().putString(KEY_APP_LIMITS, encodeAppLimits(limits)).apply()
+        _appLimits.value = limits
+    }
+
+    /** The highest nudge level already sent per app on [day]; empty on any other day. */
+    fun appNudgesFired(day: String): Map<String, Int> =
+        if (sp.getString(KEY_APP_NUDGE_DAY, null) != day) emptyMap()
+        else decodeAppLimits(sp.getString(KEY_APP_NUDGES, null)).mapValues { it.value.toInt() }
+
+    fun recordAppNudge(day: String, pkg: String, level: Int) {
+        val next = appNudgesFired(day) + (pkg to level)
+        sp.edit()
+            .putString(KEY_APP_NUDGE_DAY, day)
+            .putString(KEY_APP_NUDGES, encodeAppLimits(next.mapValues { it.value.toFloat() }))
+            .apply()
+    }
+
+    // --- weekly report ---
+
+    private val _weeklyReport = MutableStateFlow(sp.getBoolean(KEY_WEEKLY_REPORT, false))
+    /** One notification on Monday with last week's figures. Off by default, like every nag. */
+    val weeklyReport: StateFlow<Boolean> = _weeklyReport.asStateFlow()
+
+    fun setWeeklyReport(enabled: Boolean) {
+        sp.edit().putBoolean(KEY_WEEKLY_REPORT, enabled).apply()
+        _weeklyReport.value = enabled
+    }
+
+    /** ISO week whose report has already been sent, so a retried job never repeats it. */
+    var reportedWeek: String?
+        get() = sp.getString(KEY_REPORTED_WEEK, null)
+        set(value) = sp.edit().putString(KEY_REPORTED_WEEK, value).apply()
 
     // --- social notification bookkeeping (so each event nags exactly once) ---
 
@@ -412,6 +524,32 @@ class Prefs private constructor(context: Context) {
         private const val KEY_LIMIT_NUDGE = "limit_nudge"
         private const val KEY_LAST_NUDGE_DAY = "last_nudge_day"
         private const val KEY_LAST_NUDGE_LEVEL = "last_nudge_level"
+        private const val KEY_SHARED_LIMIT = "shared_limit"
+        private const val KEY_LIMIT_SET_AT = "limit_set_at"
+        private const val KEY_OTHER_DATE = "other_sources_date"
+        private const val KEY_OTHER_UM = "other_sources_um"
+        private const val KEY_APP_LIMITS = "app_limits"
+        private const val KEY_APP_NUDGE_DAY = "app_nudge_day"
+        private const val KEY_APP_NUDGES = "app_nudges"
+        private const val KEY_WEEKLY_REPORT = "weekly_report"
+        private const val KEY_REPORTED_WEEK = "reported_week"
+
+        /** A per-app limit can be smaller than the daily one: 5 m is a few screens. */
+        const val MIN_APP_LIMIT_M = 5f
+
+        /** `key=metres` lines. Package names never contain `=` or a newline. */
+        fun encodeAppLimits(limits: Map<String, Float>): String =
+            limits.entries.sortedBy { it.key }.joinToString("\n") { "${it.key}=${it.value}" }
+
+        fun decodeAppLimits(raw: String?): Map<String, Float> =
+            raw.orEmpty().lineSequence()
+                .mapNotNull { line ->
+                    val sep = line.lastIndexOf('=')
+                    if (sep <= 0) return@mapNotNull null
+                    val value = line.drop(sep + 1).toFloatOrNull() ?: return@mapNotNull null
+                    line.take(sep) to value
+                }
+                .toMap()
 
         /** `pkg|label` lines; labels never contain newlines and `|` is stripped on save. */
         fun encodeCustomApps(apps: Map<String, String>): String =

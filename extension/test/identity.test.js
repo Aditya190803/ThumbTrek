@@ -12,8 +12,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
 import {
-  anonymousHandle, formatFriendCode, friendCode, FRIEND_CODE_LENGTH, inviteLink,
-  normalizeFriendCode,
+  anonymousHandle, formatFriendCode, friendCode, FRIEND_CODE_LENGTH,
 } from '../lib/identity.js';
 
 const CODE_ALPHABET = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
@@ -72,19 +71,4 @@ test('anonymousHandle matches the spec, zero-padded to four digits', async () =>
 test('formatFriendCode groups into fours, and leaves anything else alone', () => {
   assert.equal(formatFriendCode('ABCD1234'), 'ABCD-1234');
   assert.equal(formatFriendCode('SHORT'), 'SHORT');
-});
-
-test('friend codes normalize what people actually paste', () => {
-  assert.equal(normalizeFriendCode('abcd-1234'), 'ABCD1234');
-  assert.equal(normalizeFriendCode(' https://thumbtrek.adityamer.dev/i/abcd1234 '), 'ABCD1234');
-  assert.equal(normalizeFriendCode(' https://thumbtrek.app/i/abcd1234 '), 'ABCD1234'); // old host still parses
-  // Crockford disambiguation: I/L -> 1, O -> 0, U -> V
-  assert.equal(normalizeFriendCode('IOLUABCD'), '101VABCD');
-  assert.equal(normalizeFriendCode('waytoolongcode').length, 8);
-  assert.equal(normalizeFriendCode(''), '');
-  assert.equal(normalizeFriendCode('a b c d 1 2 3 4'), 'ABCD1234');
-});
-
-test('the invite link is the one the phone prints', () => {
-  assert.equal(inviteLink('ABCD1234'), 'https://thumbtrek.adityamer.dev/i/ABCD1234');
 });

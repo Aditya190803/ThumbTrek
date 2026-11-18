@@ -7,8 +7,6 @@
 
 const SDK = 'https://www.gstatic.com/firebasejs/12.9.0';
 
-export const SDK_VERSION = '12.9.0';
-
 /** Thrown when firebase-config.js is missing or still holds the example placeholders. */
 export class NotConfiguredError extends Error {
   constructor(reason) {
@@ -143,7 +141,7 @@ export function explainError(error) {
   if (code === 'auth/unauthorized-domain') {
     return (
       'This domain is not on the Firebase project\'s authorised list, so Google sign-in ' +
-      'refuses to run. Add it under Authentication → Settings → Authorized domains.'
+      'refuses to run. Add it under Authentication, Settings, Authorized domains.'
     );
   }
   if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {

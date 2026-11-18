@@ -9,6 +9,7 @@
  */
 
 import { api } from '../lib/browser.js';
+import { renderExtras } from './extras.js';
 import { allRows, dayTotals, wipeLocalData } from '../lib/db.js';
 import { anonymousHandle, formatFriendCode, friendCode } from '../lib/identity.js';
 import { CSV_FILENAME, toCsv } from '../lib/csv.js';
@@ -77,7 +78,7 @@ async function renderLimit() {
     : 0;
   $('limit-current').textContent = limit !== null
     ? `${formatDistance(limit)} / day`
-    : learning ? `Learning · day ${days} of ${BASELINE_DAYS}` : 'Not set';
+    : learning ? `Learning, day ${days} of ${BASELINE_DAYS}` : 'Not set';
   $('limit-lede').textContent = limit !== null
     ? 'Stay within your limit to earn a clean day. It covers scrolling measured in this '
       + 'browser; your phone keeps its own.'
@@ -226,11 +227,11 @@ async function renderSites() {
 
   for (const site of sites) {
     const row = document.createElement('div');
-    row.className = 'site';
+    row.className = 'row site';
 
     const name = document.createElement('div');
-    name.className = 'site-name';
-    const label = document.createElement('b');
+    name.className = 'row-text';
+    const label = document.createElement('strong');
     label.textContent = site.label;
     const domain = document.createElement('span');
     domain.textContent = site.domain;
@@ -254,10 +255,10 @@ async function renderSites() {
       // not removed -- mirroring Prefs, where TRACKED_APPS is a constant and customApps is
       // the mutable half.
       const remove = document.createElement('button');
-      remove.className = 'remove';
+      remove.className = 'link-btn';
       remove.type = 'button';
-      remove.textContent = 'Forget';
-      remove.setAttribute('aria-label', `Forget ${site.domain}`);
+      remove.textContent = 'Remove';
+      remove.setAttribute('aria-label', `Remove ${site.domain}`);
       remove.title = `Remove ${site.domain} from the list. Measured history is kept.`;
       remove.addEventListener('click', async () => {
         await removeCustomSite(site.domain);
@@ -343,7 +344,7 @@ async function renderTrek() {
   $('rec-week').textContent = metres(totalThisWeek(totals, today));
   $('rec-month').textContent = metres(totalThisMonth(totals, today));
   $('rec-all').textContent = metres(allTime);
-  $('rec-best').textContent = record ? metres(record[1]) : '—';
+  $('rec-best').textContent = record ? metres(record[1]) : 'None yet';
   $('rec-best-when').textContent = record ? dayLabel(record[0]) : 'No days yet';
   $('rec-streak').textContent = plural(streak, 'day');
   // Clean days only exist with a limit; baseline mode says nothing here at all.
@@ -352,7 +353,7 @@ async function renderTrek() {
   const delta = weekOverWeekDelta(totals, today);
   $('history-delta').textContent = delta === null
     ? ''
-    : `${delta >= 0 ? '↑' : '↓'} ${Math.abs(delta)}% vs last week`;
+    : delta === 0 ? 'The same as last week' : `${Math.abs(delta)}% ${delta > 0 ? 'more' : 'less'} than last week`;
 
   // Eight weeks on the shared rail primitive, newest first: the question is usually "how
   // was this week", so it goes where the eye lands.
@@ -362,22 +363,22 @@ async function renderTrek() {
   host.replaceChildren();
   if (totals.size === 0) {
     const empty = document.createElement('p');
-    empty.className = 'faint';
+    empty.className = 'hint';
     empty.textContent = 'Nothing measured yet. Weeks appear here as you scroll tracked sites.';
     host.append(empty);
   } else {
     const list = document.createElement('ul');
-    list.className = 'week-rows';
+    list.className = 'rows';
     weeks.forEach((week, index) => {
       const item = document.createElement('li');
-      item.className = 'measure-row';
+      item.className = 'bar-row';
       const line = document.createElement('div');
-      line.className = 'line';
+      line.className = 'bar-head';
       const label = document.createElement('span');
-      label.className = 'label';
+      label.className = 'bar-label';
       label.textContent = index === 0 ? 'This week' : `Week of ${week.label}`;
       const value = document.createElement('span');
-      value.className = 'value num';
+      value.className = 'bar-value num';
       value.textContent = metres(week.value);
       line.append(label, value);
       const rail = document.createElement('div');
@@ -410,21 +411,18 @@ async function renderTrek() {
   for (const badge of shown) {
     const item = document.createElement('li');
     item.className = `badge${badge.earned ? ' earned' : ''}`;
-    const emoji = document.createElement('span');
-    emoji.className = 'badge-emoji';
-    emoji.setAttribute('aria-hidden', 'true');
-    emoji.textContent = badge.emoji;
     const text = document.createElement('div');
-    text.className = 'badge-text';
-    const title = document.createElement('b');
+    text.className = 'row-text';
+    const title = document.createElement('strong');
     title.textContent = badge.label;
     const detail = document.createElement('span');
-    // State in words, not just opacity: "Earned" or how far along.
-    detail.textContent = badge.earned
-      ? `Earned · ${badge.detail}`
-      : `${Math.floor(badge.progress * 100)}% · ${badge.detail}`;
-    text.append(title, detail);
-    item.append(emoji, text);
+    detail.textContent = badge.detail;
+    // State in words, not just colour: "Earned" or how far along.
+    const state = document.createElement('span');
+    state.className = 'badge-state';
+    state.textContent = badge.earned ? 'Earned' : `${Math.floor(badge.progress * 100)}% of the way`;
+    text.append(title, detail, state);
+    item.append(text);
     if (!badge.earned) {
       const rail = document.createElement('div');
       rail.className = 'rail';
@@ -475,15 +473,15 @@ async function renderAccount() {
     $('copy-code').hidden = false;
     $('copy-code').dataset.code = formatFriendCode(code);
     $('handle-preview').textContent = settings.anonymous
-      ? `Off — publishing anonymously as "${await anonymousHandle(status.account.uid)}".`
-      : `On — publishing as "${status.account.displayName || 'your Google name'}" with photo.`;
+      ? `Off. Publishing anonymously as "${await anonymousHandle(status.account.uid)}".`
+      : `On. Publishing as "${status.account.displayName || 'your Google name'}" with your photo.`;
   } else {
     $('account-name').textContent = 'Not signed in';
     $('account-detail').textContent = 'Sign in with Google to sync across devices.';
     $('auth-button').textContent = 'Sign in';
     $('friend-code').textContent = 'Sign in to get yours.';
     $('copy-code').hidden = true;
-    $('handle-preview').textContent = 'Anonymous by default — your handle appears after sign-in.';
+    $('handle-preview').textContent = 'Anonymous by default. Your handle appears after you sign in.';
   }
 
   $('sync-detail').textContent = !signedIn
@@ -530,7 +528,7 @@ $('auth-button').addEventListener('click', async () => {
     } else {
       // Must run here, in a page, from a click: Chrome refuses an interactive
       // launchWebAuthFlow started anywhere else.
-      actionNote('Opening Google sign-in…');
+      actionNote('Opening Google sign-in.');
       await signIn();
       actionNote('Signed in. Turn on the leaderboard below to publish.', 'good');
     }
@@ -553,14 +551,14 @@ $('opt-in').addEventListener('click', async () => {
   try {
     if (next) {
       await setLeaderboardOptIn(true);
-      actionNote('Publishing your whole history — this may take a moment.');
+      actionNote('Publishing your whole history. This may take a moment.');
       const result = await ask('trek/opted-in');
       if (!result?.lastError) actionNote('Published. This browser now syncs every 30 minutes.', 'good');
     } else {
       // Withdraw first, then flip the flag: doing it the other way round leaves a window
       // in which the flag says "opted out" while the documents are still published, and a
       // browser closed inside that window never withdraws them.
-      actionNote('Removing what this browser published…');
+      actionNote('Removing what this browser published.');
       await ask('trek/opted-out');
       await setLeaderboardOptIn(false);
       actionNote('This browser no longer publishes anything.', 'good');
@@ -601,7 +599,7 @@ $('copy-code').addEventListener('click', async () => {
 $('sync-button').addEventListener('click', async () => {
   const button = $('sync-button');
   button.disabled = true;
-  actionNote('Syncing…');
+  actionNote('Syncing.');
   try {
     const result = await ask('trek/sync-now');
     if (!result?.lastError) actionNote('Synced.', 'good');
@@ -618,7 +616,7 @@ $('sync-button').addEventListener('click', async () => {
 async function renderData() {
   const rows = await allRows();
   const days = new Set(rows.map((row) => row.date)).size;
-  $('row-count').textContent = `${plural(rows.length, 'row')} · ${plural(days, 'day')}`;
+  $('row-count').textContent = `${plural(rows.length, 'row')} over ${plural(days, 'day')}`;
   $('export-button').disabled = rows.length === 0;
 }
 
@@ -683,10 +681,13 @@ api.storage.onChanged.addListener((changes, area) => {
 });
 
 async function render() {
-  await Promise.all([renderLimit(), renderSites(), renderTrek(), renderData()]);
+  await Promise.all([renderLimit(), renderSites(), renderTrek(), renderData(), renderExtras()]);
   // Arriving from the popup's "Set a daily limit": land in the field, ready to type.
   if (location.hash === '#limit') $('limit-input').focus();
   await renderAccount();
 }
+
+// A restored backup changes every figure on the page.
+document.addEventListener('trek:restored', () => render().catch(() => {}));
 
 render().catch((error) => actionNote(error.message, 'error'));

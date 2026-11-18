@@ -4,7 +4,6 @@ import com.thumbtrek.app.data.DailyScroll
 import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.social.normalizeFriendCode
 import com.thumbtrek.app.stats.AppSeries
-import com.thumbtrek.app.stats.Badge
 import com.thumbtrek.app.stats.badges
 import com.thumbtrek.app.stats.Bucket
 import com.thumbtrek.app.stats.appTrends
@@ -115,7 +114,7 @@ class StatsTest {
 
     @Test
     fun `comparisons scale with distance`() {
-        assertEquals("No trek yet — go scroll something.", comparison(0.0))
+        assertEquals("Nothing scrolled yet.", comparison(0.0))
         assertTrue(comparison(0.25).contains("banana"))
         assertTrue(comparison(12.4).contains("school bus"))
         assertTrue(comparison(1000.0).contains("Burj Khalifa"))

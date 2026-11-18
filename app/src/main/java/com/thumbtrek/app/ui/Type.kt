@@ -9,134 +9,132 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontVariation
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.thumbtrek.app.R
 
-// One friendly family keeps numbers, labels and controls visually related.
-private fun body(weight: Int) = Font(
-    R.font.manrope,
+// Archivo, one variable family, two widths. Wide (125) for numbers and headings, the way a
+// scoreboard and a painted lane number are wide. Normal (100) for everything read as a
+// sentence.
+private const val WIDTH_WIDE = 125f
+private const val WIDTH_NORMAL = 100f
+
+private fun archivo(weight: Int, width: Float) = Font(
+    R.font.archivo,
     weight = FontWeight(weight),
-    variationSettings = FontVariation.Settings(FontVariation.weight(weight)),
+    variationSettings = FontVariation.Settings(
+        FontVariation.weight(weight),
+        FontVariation.width(width),
+    ),
 )
 
-private val Body = FontFamily(
-    body(400), body(500), body(600), body(700),
+/** Display, Title and lane numbers. */
+val ArchivoWide = FontFamily(archivo(700, WIDTH_WIDE), archivo(800, WIDTH_WIDE))
+
+/** Headings, body and captions. */
+val Archivo = FontFamily(
+    archivo(400, WIDTH_NORMAL),
+    archivo(500, WIDTH_NORMAL),
+    archivo(600, WIDTH_NORMAL),
+    archivo(650, WIDTH_NORMAL),
 )
+
+private val Heading = FontWeight(650)
 
 /** Tabular lining figures, so stacked distances never jitter as they tick. */
 private const val TabularNums = "tnum"
 
-/** Large, tabular distance figures, fitted to available width by HeroDistance. */
-val TrekHero = TextStyle(
-    fontFamily = Body,
-    fontWeight = FontWeight.Bold,
-    fontSize = 76.sp,
-    lineHeight = 82.sp,
-    letterSpacing = (-2.6).sp,
+/** Display: the oval's number and other headline figures. */
+val TrekDisplay = TextStyle(
+    fontFamily = ArchivoWide,
+    fontWeight = FontWeight.ExtraBold,
+    fontSize = 44.sp,
+    lineHeight = 46.sp,
+    letterSpacing = (-0.03).em,
     fontFeatureSettings = TabularNums,
 )
 
-/** Same face, stepped down for long numbers so the hero never wraps or clips. */
-val TrekHeroTight = TrekHero.copy(
-    fontSize = 48.sp,
-    lineHeight = 54.sp,
-    letterSpacing = (-2.2).sp,
-)
-
-/** The unit ("km", "m") set as a separate, quieter mark beside the figure. */
-val TrekUnit = TextStyle(
-    fontFamily = Body,
+/** Quiet captions, axis labels and the text beside a figure. */
+val TrekCaption = TextStyle(
+    fontFamily = Archivo,
     fontWeight = FontWeight.Medium,
-    fontSize = 22.sp,
-    lineHeight = 24.sp,
-    letterSpacing = (-0.2).sp,
+    fontSize = 13.sp,
+    lineHeight = 18.sp,
 )
 
-/** Quiet captions and chart labels. */
-val TrekOverline = TextStyle(
-    fontFamily = Body,
-    fontWeight = FontWeight.SemiBold,
-    fontSize = 12.sp,
-    lineHeight = 17.sp,
-    letterSpacing = 0.2.sp,
-)
-
-/** Figures in a column: ranks, day totals, leaderboard scores. */
+/** Distances in a column: lane rows, day totals, leaderboard scores. */
 val TrekFigure = TextStyle(
-    fontFamily = Body,
-    fontWeight = FontWeight.Medium,
-    fontSize = 16.sp,
+    fontFamily = ArchivoWide,
+    fontWeight = FontWeight.Bold,
+    fontSize = 15.sp,
     lineHeight = 20.sp,
-    letterSpacing = (-0.1).sp,
+    fontFeatureSettings = TabularNums,
+)
+
+/** The painted number at the left edge of a lane row. */
+val TrekLaneNumber = TextStyle(
+    fontFamily = ArchivoWide,
+    fontWeight = FontWeight.ExtraBold,
+    fontSize = 20.sp,
+    lineHeight = 22.sp,
     fontFeatureSettings = TabularNums,
 )
 
 val ThumbTrekTypography = Typography(
-    displayLarge = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.Bold,
-        fontSize = 46.sp, lineHeight = 48.sp, letterSpacing = (-1.6).sp,
-        fontFeatureSettings = TabularNums,
-    ),
-    displayMedium = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.SemiBold,
-        fontSize = 36.sp, lineHeight = 40.sp, letterSpacing = (-1.1).sp,
-        fontFeatureSettings = TabularNums,
-    ),
-    displaySmall = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp, lineHeight = 32.sp, letterSpacing = (-0.7).sp,
-        fontFeatureSettings = TabularNums,
-    ),
+    // Display 44 to 72, weight 800, wide.
+    displayLarge = TrekDisplay.copy(fontSize = 52.sp, lineHeight = 54.sp),
+    displayMedium = TrekDisplay,
+    displaySmall = TrekDisplay.copy(fontSize = 34.sp, lineHeight = 38.sp),
+    // Title 24 to 30, weight 700, wide: screen and section headings.
     headlineLarge = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.SemiBold,
-        fontSize = 30.sp, lineHeight = 36.sp, letterSpacing = (-0.7).sp,
+        fontFamily = ArchivoWide, fontWeight = FontWeight.Bold,
+        fontSize = 28.sp, lineHeight = 34.sp, letterSpacing = (-0.02).em,
         fontFeatureSettings = TabularNums,
     ),
     headlineMedium = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.Medium,
-        fontSize = 21.sp, lineHeight = 26.sp, letterSpacing = (-0.3).sp,
+        fontFamily = ArchivoWide, fontWeight = FontWeight.Bold,
+        fontSize = 24.sp, lineHeight = 30.sp, letterSpacing = (-0.02).em,
         fontFeatureSettings = TabularNums,
     ),
     headlineSmall = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.Medium,
-        fontSize = 18.sp, lineHeight = 23.sp, letterSpacing = (-0.2).sp,
+        fontFamily = ArchivoWide, fontWeight = FontWeight.Bold,
+        fontSize = 19.sp, lineHeight = 24.sp, letterSpacing = (-0.02).em,
         fontFeatureSettings = TabularNums,
     ),
+    // Heading 16 to 17, weight 650, normal width: panel titles.
     titleLarge = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.Medium,
-        fontSize = 20.sp, lineHeight = 26.sp,
+        fontFamily = Archivo, fontWeight = Heading,
+        fontSize = 17.sp, lineHeight = 23.sp, letterSpacing = (-0.005).em,
     ),
     titleMedium = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp, lineHeight = 22.sp,
+        fontFamily = Archivo, fontWeight = Heading,
+        fontSize = 16.sp, lineHeight = 22.sp, letterSpacing = (-0.005).em,
     ),
     titleSmall = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.SemiBold,
-        fontSize = 13.sp, lineHeight = 18.sp,
+        fontFamily = Archivo, fontWeight = Heading,
+        fontSize = 14.sp, lineHeight = 19.sp,
     ),
-    // 16/25 at ~62 characters per line on a phone keeps body inside the readable band.
+    // Body 15 to 16, weight 400.
     bodyLarge = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.Normal,
-        fontSize = 16.sp, lineHeight = 25.sp, letterSpacing = 0.1.sp,
+        fontFamily = Archivo, fontWeight = FontWeight.Normal,
+        fontSize = 16.sp, lineHeight = 24.sp,
     ),
     bodyMedium = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.Normal,
-        fontSize = 14.sp, lineHeight = 22.sp, letterSpacing = 0.1.sp,
+        fontFamily = Archivo, fontWeight = FontWeight.Normal,
+        fontSize = 15.sp, lineHeight = 22.sp,
     ),
-    bodySmall = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.Normal,
-        fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.15.sp,
-    ),
+    // Caption 12 to 13, weight 500.
+    bodySmall = TrekCaption,
     labelLarge = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.SemiBold,
-        fontSize = 14.sp, lineHeight = 18.sp, letterSpacing = 0.2.sp,
+        fontFamily = Archivo, fontWeight = FontWeight.SemiBold,
+        fontSize = 15.sp, lineHeight = 20.sp,
     ),
     labelMedium = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.SemiBold,
-        fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.3.sp,
+        fontFamily = Archivo, fontWeight = FontWeight.SemiBold,
+        fontSize = 13.sp, lineHeight = 18.sp,
     ),
     labelSmall = TextStyle(
-        fontFamily = Body, fontWeight = FontWeight.Medium,
-        fontSize = 11.sp, lineHeight = 15.sp, letterSpacing = 0.3.sp,
+        fontFamily = Archivo, fontWeight = FontWeight.Medium,
+        fontSize = 12.sp, lineHeight = 16.sp,
     ),
 )

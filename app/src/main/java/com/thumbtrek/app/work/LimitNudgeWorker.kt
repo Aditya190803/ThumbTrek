@@ -1,6 +1,7 @@
 package com.thumbtrek.app.work
 
 import android.Manifest
+import android.annotation.SuppressLint
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -18,7 +19,12 @@ import com.thumbtrek.app.MainActivity
 import com.thumbtrek.app.R
 import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.data.ScrollDatabase
+import com.thumbtrek.app.data.appName
+import com.thumbtrek.app.social.micrometresToMeters
+import com.thumbtrek.app.stats.appLimitStatuses
+import com.thumbtrek.app.stats.appNudgesDue
 import com.thumbtrek.app.stats.formatDistance
+import kotlinx.coroutines.flow.first
 import com.thumbtrek.app.stats.limitNudgeLevel
 import com.thumbtrek.app.stats.pixelsToMeters
 import java.time.LocalDate
@@ -39,7 +45,8 @@ class LimitNudgeWorker(
 
     override suspend fun doWork(): Result {
         val prefs = Prefs.get(applicationContext)
-        if (!prefs.limitNudge.value || prefs.dailyLimitM.value == null) {
+        val appLimits = prefs.appLimits.value
+        if (!prefs.limitNudge.value || (prefs.dailyLimitM.value == null && appLimits.isEmpty())) {
             cancel(applicationContext)
             return Result.success()
         }
@@ -52,10 +59,17 @@ class LimitNudgeWorker(
         }
 
         val today = LocalDate.now()
-        val px = ScrollDatabase.get(applicationContext).dao().allDays()
-            .firstOrNull { it.date == today.toString() }?.pixels ?: 0L
+        val dao = ScrollDatabase.get(applicationContext).dao()
         val dpi = applicationContext.resources.displayMetrics.densityDpi
-        val todayM = pixelsToMeters(px, dpi)
+        val perApp = dao.observeDay(today.toString()).first()
+            .associate { it.packageName to pixelsToMeters(it.pixels, dpi) }
+        notifyAppLimits(prefs, today.toString(), perApp, appLimits)
+
+        // With a shared limit the browser's distance counts too, as of its last sync.
+        val other = prefs.otherSourcesToday.value
+            ?.takeIf { prefs.sharedLimit.value && it.date == today.toString() }
+            ?.let { micrometresToMeters(it.um) } ?: 0.0
+        val todayM = perApp.values.sum() + other
         val limitM = prefs.dailyLimitM.value?.toDouble() ?: return Result.success()
 
         val level = limitNudgeLevel(todayM, limitM)
@@ -72,7 +86,7 @@ class LimitNudgeWorker(
                 "${formatDistance(limitM)} limit."
         } else {
             "Limit passed" to
-                "Over by ${formatDistance(todayM - limitM)} — tomorrow under " +
+                "Over by ${formatDistance(todayM - limitM)}. Tomorrow under " +
                 "${formatDistance(limitM)} starts a new run."
         }
 
@@ -97,8 +111,54 @@ class LimitNudgeWorker(
         return Result.success()
     }
 
+    /** One line per app per level per day, the same economy as the daily limit's nudge. */
+    // doWork has already returned if the notification permission is missing.
+    @SuppressLint("MissingPermission")
+    private fun notifyAppLimits(
+        prefs: Prefs,
+        day: String,
+        perApp: Map<String, Double>,
+        limits: Map<String, Float>,
+    ) {
+        if (limits.isEmpty()) return
+        val due = appNudgesDue(appLimitStatuses(perApp, limits), prefs.appNudgesFired(day))
+        val labels = prefs.customApps.value
+        due.forEach { status ->
+            val name = appName(status.key, labels)
+            val limit = formatDistance(status.limitMeters)
+            val (title, text) = if (status.level == 1) {
+                "$name is close to its limit" to
+                    "${formatDistance(status.limitMeters - status.meters)} to go before its $limit limit."
+            } else {
+                "$name passed its limit" to
+                    "Over by ${formatDistance(status.meters - status.limitMeters)} on a $limit limit."
+            }
+            val notification = NotificationCompat.Builder(applicationContext, LIMIT_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(title)
+                .setContentText(text)
+                .setContentIntent(
+                    PendingIntent.getActivity(
+                        applicationContext, 0,
+                        Intent(applicationContext, MainActivity::class.java),
+                        PendingIntent.FLAG_IMMUTABLE,
+                    ),
+                )
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .setAutoCancel(true)
+                .build()
+            // The tag keeps one notification per app instead of each replacing the last.
+            runCatching {
+                NotificationManagerCompat.from(applicationContext)
+                    .notify(status.key, APP_LIMIT_NOTIFICATION_ID, notification)
+            }
+            prefs.recordAppNudge(day, status.key, status.level)
+        }
+    }
+
     companion object {
         const val LIMIT_CHANNEL_ID = "limit_nudge"
+        private const val APP_LIMIT_NOTIFICATION_ID = 8
 
         private const val UNIQUE_WORK = "limit_nudge"
         private const val LIMIT_NOTIFICATION_ID = 3

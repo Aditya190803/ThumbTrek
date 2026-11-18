@@ -26,6 +26,20 @@ service cloud.firestore {
       return value is int && value >= 0;
     }
 
+    // Premium (docs/sync-protocol.md §9). The shared limit and groups are Premium
+    // features. While billing is not enforced every signed-in account passes, because
+    // there is nothing to buy yet. The day billing ships, change billingEnforced() to
+    // return true and redeploy: the entitlement record then decides, and it is written
+    // by the billing backend only (see /entitlements below).
+    function billingEnforced() {
+      return false;
+    }
+
+    function premium() {
+      let record = /databases/$(database)/documents/entitlements/$(request.auth.uid);
+      return !billingEnforced() || (exists(record) && get(record).data.premium == true);
+    }
+
     // users/{uid}: { displayName, photoUrl, friendCode, weekKey, weekPixels,
     //                monthKey, monthPixels, totalPixels,
     //                weekUm, monthUm, totalUm, sources }
@@ -95,6 +109,26 @@ service cloud.firestore {
         allow delete: if isSelf(uid);
       }
 
+      // users/{uid}/settings/limits = { limitUm, setAt, source, updatedAt }
+      // The daily limit shared between this account's clients (§7). limitUm 0 means "no
+      // limit"; setAt is the wall-clock millisecond of the edit, and the newest wins on
+      // every client. Private to its owner. The document existing is what "shared" means.
+      match /settings/{settingId} {
+        function validLimits() {
+          let data = request.resource.data;
+          return settingId == 'limits'
+                 && data.keys().hasOnly(['limitUm', 'setAt', 'source', 'updatedAt'])
+                 && nonNegInt(data.limitUm)
+                 && nonNegInt(data.setAt)
+                 && data.source is string
+                 && data.source.size() <= 16;
+        }
+
+        allow read: if isSelf(uid);
+        allow create, update: if isSelf(uid) && validLimits() && premium();
+        allow delete: if isSelf(uid);
+      }
+
       // Friendship edges carry { since, status } plus the writer's real identity in
       // { name, photo }: "pending" until the other side accepts, "accepted" after.
       // Old edges with no status read as accepted. The edge on YOUR list carries the
@@ -135,6 +169,140 @@ service cloud.firestore {
                     && request.resource.data.keys().hasOnly(['uid'])
                     && request.resource.data.uid == request.auth.uid;
       allow delete: if signedIn() && resource.data.uid == request.auth.uid;
+    }
+
+    // entitlements/{uid} = { premium, until }: who has paid (§9).
+    // Readable by its owner and writable by nobody: only the billing backend, through the
+    // Admin SDK, which bypasses these rules. A client can never grant itself Premium.
+    match /entitlements/{uid} {
+      allow get: if isSelf(uid);
+      allow write: if false;
+    }
+
+    // groups/{groupId} = { name, owner, code, members[], createdAt, challenge? } (§8).
+    // A private board for up to 50 people. Readable only by its members. You become a
+    // member by adding exactly yourself, which you can only do if you were handed the
+    // group's id, and the only way to learn an id is to resolve its code below.
+    match /groups/{groupId} {
+      function isMember() {
+        return signedIn() && request.auth.uid in resource.data.members;
+      }
+
+      function validChallenge(c) {
+        return c is map
+               && c.keys().hasOnly(['title', 'kind', 'startsOn', 'endsOn'])
+               && c.title is string && c.title.size() > 0 && c.title.size() <= 60
+               && c.kind in ['least', 'most']
+               && c.startsOn is string && c.startsOn.size() == 10
+               && c.endsOn is string && c.endsOn.size() == 10;
+      }
+
+      function validGroup() {
+        let data = request.resource.data;
+        return data.keys().hasOnly(['name', 'owner', 'code', 'members', 'createdAt', 'challenge'])
+               && data.name is string && data.name.size() > 0 && data.name.size() <= 40
+               && data.owner is string
+               && data.code is string && data.code.size() == 8
+               && data.members is list
+               && data.members.size() >= 1 && data.members.size() <= 50
+               && (!('challenge' in data) || validChallenge(data.challenge));
+      }
+
+      function onlyMembersChanged() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members']);
+      }
+
+      // "members grew by exactly me". arrayUnion on an existing member changes nothing,
+      // and that no-op is allowed too so joining twice is not an error.
+      function joining() {
+        return onlyMembersChanged()
+               && request.resource.data.members.hasAll(resource.data.members)
+               && request.auth.uid in request.resource.data.members
+               && request.resource.data.members.size() <= 50
+               && (request.resource.data.members.size() == resource.data.members.size() + 1
+                   || request.resource.data.members == resource.data.members);
+      }
+
+      // "members shrank by exactly me". The owner cannot leave; they delete the group.
+      function leaving() {
+        return onlyMembersChanged()
+               && resource.data.members.hasAll(request.resource.data.members)
+               && request.resource.data.members.size() == resource.data.members.size() - 1
+               && !(request.auth.uid in request.resource.data.members)
+               && request.auth.uid != resource.data.owner;
+      }
+
+      // The owner renames, sets or clears the challenge, and can remove members. They
+      // cannot hand the group away, change its code, or remove themselves.
+      function ownerEditing() {
+        return resource.data.owner == request.auth.uid
+               && validGroup()
+               && request.resource.data.owner == resource.data.owner
+               && request.resource.data.code == resource.data.code
+               && request.auth.uid in request.resource.data.members;
+      }
+
+      allow read: if isMember();
+      allow create: if signedIn()
+                    && premium()
+                    && validGroup()
+                    && request.resource.data.owner == request.auth.uid
+                    && request.resource.data.members == [request.auth.uid];
+      allow update: if signedIn() && (ownerEditing() || joining() || leaving());
+      allow delete: if signedIn() && resource.data.owner == request.auth.uid;
+
+      // groups/{groupId}/progress/{uid}__{source}
+      //   = { uid, source, name, photo, windowKey, um, updatedAt }
+      // One member's distance from one source inside the group's current window. The doc
+      // id embeds the writer and the source, the same single-writer trick as the day
+      // ledger. `name` and `photo` are the member's real identity: a group is private to
+      // the people holding its code, like a friends list.
+      match /progress/{progressId} {
+        function group() {
+          return get(/databases/$(database)/documents/groups/$(groupId)).data;
+        }
+
+        function validProgress() {
+          let data = request.resource.data;
+          return data.keys().hasOnly(['uid', 'source', 'name', 'photo', 'windowKey', 'um', 'updatedAt'])
+                 && data.uid == request.auth.uid
+                 && data.source is string && data.source.size() <= 16
+                 && progressId == data.uid + '__' + data.source
+                 && data.name is string && data.name.size() <= 64
+                 && data.photo is string && data.photo.size() <= 512
+                 && data.windowKey is string && data.windowKey.size() <= 32
+                 && nonNegInt(data.um);
+        }
+
+        allow read: if signedIn() && request.auth.uid in group().members;
+        allow create, update: if signedIn()
+                              && request.auth.uid in group().members
+                              && validProgress();
+        // Your own, always (so leaving cleans up after itself); anyone's, for the owner,
+        // so deleting a group does not leave names behind.
+        allow delete: if signedIn()
+                      && (resource.data.uid == request.auth.uid
+                          || group().owner == request.auth.uid);
+      }
+    }
+
+    // groupCodes/{code} = { groupId }: the join lookup. `get` only, never `list`, so the
+    // collection cannot be swept for groups. Created in the same batch as its group, and
+    // only by that group's owner, for that group's own code.
+    match /groupCodes/{code} {
+      function target() {
+        return /databases/$(database)/documents/groups/$(request.resource.data.groupId);
+      }
+
+      allow get: if signedIn();
+      allow create: if signedIn()
+                    && request.resource.data.keys().hasOnly(['groupId'])
+                    && request.resource.data.groupId is string
+                    && getAfter(target()).data.owner == request.auth.uid
+                    && getAfter(target()).data.code == code;
+      allow delete: if signedIn()
+                    && get(/databases/$(database)/documents/groups/$(resource.data.groupId)).data.owner
+                       == request.auth.uid;
     }
 
     // archive/{weekKey}/scores/{uid} = { displayName, photoUrl, pixels, um }:

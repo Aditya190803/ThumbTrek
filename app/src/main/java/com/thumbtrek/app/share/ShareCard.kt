@@ -6,10 +6,11 @@ import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
+import android.graphics.Path
+import android.graphics.PathMeasure
 import android.graphics.RectF
 import android.graphics.Typeface
 import android.net.Uri
-import android.os.Build
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.text.TextUtils
@@ -19,6 +20,14 @@ import androidx.core.graphics.withTranslation
 import androidx.compose.ui.graphics.toArgb
 import com.thumbtrek.app.R
 import com.thumbtrek.app.stats.formatDistance
+import com.thumbtrek.app.stats.lapsText
+import com.thumbtrek.app.stats.OvalModel
+import com.thumbtrek.app.stats.ovalModel
+import com.thumbtrek.app.ui.Chalk
+import com.thumbtrek.app.ui.ChalkDim
+import com.thumbtrek.app.ui.TrackBlue
+import com.thumbtrek.app.ui.TrackDeep
+import com.thumbtrek.app.ui.laneColor
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -32,15 +41,13 @@ private const val CARD_HEIGHT = 1350
 private const val MARGIN = 64f
 private const val CARD_DIR = "share"
 private const val CARD_FILE = "thumbtrek-card.png"
-private const val MAX_APP_ROWS = 3
 
-private val GROUND = 0xFFF3F1E8.toInt()
-private val SURFACE = 0xFFFBFAF4.toInt()
-private val MOSS = 0xFF1E6B3E.toInt()
-private val MOSS_WASH = 0xFFDFEEE2.toInt()
-private val INK = 0xFF171A10.toInt()
-private val MUTED = 0xFF5A6151.toInt()
-private val TRACK = 0xFFE6E3D6.toInt()
+// The card is the track itself (DESIGN.md): track blue ground, chalk text, the lap oval.
+private val TRACK = TrackBlue.toArgb()
+private val TRACK_DEEP = TrackDeep.toArgb()
+private val CHALK = Chalk.toArgb()
+private val CHALK_DIM = ChalkDim.toArgb()
+private val LANE_LINE = Chalk.copy(alpha = 0.45f).toArgb()
 
 /** Rendering the share bitmap is too heavy for a click handler, so it hops off the main thread. */
 private val cardScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -59,7 +66,7 @@ fun shareTrekCard(
     streak: Int,
     perApp: List<Pair<String, Double>>,
     weekMeters: Double = 0.0,
-    periodLabel: String = "Today's trek",
+    periodLabel: String = "Today",
 ) {
     val appContext = context.applicationContext
     cardScope.launch {
@@ -77,17 +84,74 @@ fun shareTrekCard(
                 putExtra(Intent.EXTRA_STREAM, uri)
                 putExtra(
                     Intent.EXTRA_TEXT,
-                    "My thumb trekked ${formatDistance(distanceMeters)}. $comparisonLine",
+                    "My thumb scrolled ${formatDistance(distanceMeters)}. $comparisonLine",
                 )
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
-            val chooser = Intent.createChooser(send, "Share your trek").apply {
+            val chooser = Intent.createChooser(send, "Share your distance").apply {
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 if (context !is Activity) addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
             context.startActivity(chooser)
         }
     }
+}
+
+/** A stadium outline, from the left end of the top straight, clockwise. */
+private fun stadiumPath(box: RectF): Path {
+    val radius = box.height() / 2f
+    val left = box.left + radius
+    val right = box.right - radius
+    return Path().apply {
+        moveTo(left, box.top)
+        lineTo(right, box.top)
+        arcTo(RectF(right - radius, box.top, right + radius, box.bottom), -90f, 180f, false)
+        lineTo(left, box.bottom)
+        arcTo(RectF(left - radius, box.top, left + radius, box.bottom), 90f, 180f, false)
+    }
+}
+
+internal fun RectF.inset(by: Float) = RectF(left + by, top + by, right - by, bottom - by)
+
+/**
+ * Draws the lap oval into [oval]: infield, lane lines, each lane's progress, and the finish
+ * line. Shared by the share card and the home-screen widget, so the two cannot drift.
+ * Returns the lane band, which callers need to find the infield.
+ */
+internal fun drawLapOval(canvas: Canvas, oval: RectF, model: OvalModel): Float {
+    val band = oval.height() * 0.065f
+    val hairline = (oval.height() / 220f).coerceAtLeast(1f)
+    val lanes = model.lanes.size
+    canvas.drawRoundRect(oval.inset(band * lanes), oval.height(), oval.height(), fill(TRACK_DEEP))
+    val line = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = hairline
+        color = LANE_LINE
+    }
+    for (i in 0..lanes) {
+        val box = oval.inset(if (i == 0) hairline / 2f else band * i)
+        canvas.drawRoundRect(box, box.height() / 2f, box.height() / 2f, line)
+    }
+    val progress = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        style = Paint.Style.STROKE
+        strokeWidth = band * 0.56f
+        strokeCap = Paint.Cap.ROUND
+    }
+    val measure = PathMeasure()
+    model.lanes.forEachIndexed { index, lane ->
+        if (lane.fraction <= 0f) return@forEachIndexed
+        measure.setPath(stadiumPath(oval.inset(band * (index + 0.5f))), false)
+        val segment = Path()
+        measure.getSegment(0f, measure.length * lane.fraction, segment, true)
+        progress.color = laneColor(lane, model.state).toArgb()
+        canvas.drawPath(segment, progress)
+    }
+    val finishX = oval.left + oval.height() / 2f
+    canvas.drawLine(finishX, oval.top, finishX, oval.top + band * lanes, Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = CHALK
+        strokeWidth = hairline * 2f
+    })
+    return band
 }
 
 private fun renderCard(
@@ -103,49 +167,67 @@ private fun renderCard(
     val canvas = Canvas(bitmap)
     val content = CARD_WIDTH - 2 * MARGIN
     val fonts = CardFonts(context)
-    canvas.drawColor(GROUND)
+    canvas.drawColor(TRACK)
+
     context.getDrawable(R.drawable.trek_mark)?.apply {
-        setBounds(64, 64, 148, 148)
+        setBounds(64, 70, 164, 130)
         draw(canvas)
     }
-    canvas.drawText("ThumbTrek", 172f, 122f, fonts.text(44f, INK, fonts.body, weight = 700))
+    canvas.drawText("ThumbTrek", 188f, 117f, fonts.wide(46f, CHALK, weight = 800))
+    canvas.drawText(
+        periodLabel, CARD_WIDTH - MARGIN, 114f,
+        fonts.text(32f, CHALK_DIM, weight = 500).apply { textAlign = Paint.Align.RIGHT },
+    )
 
-    canvas.drawRoundRect(RectF(MARGIN, 210f, CARD_WIDTH - MARGIN, 640f), 52f, 52f, fill(MOSS_WASH))
-    canvas.drawText(periodLabel, MARGIN + 48f, 288f, fonts.text(32f, MOSS, fonts.body, weight = 600))
+    // The lap oval. The share sheet has no limit to hand over, so a lap is the no-limit scale.
+    val model = ovalModel(distanceMeters, perApp)
+    val oval = RectF(MARGIN, 200f, CARD_WIDTH - MARGIN, 200f + content / 1.5f)
+    val band = drawLapOval(canvas, oval, model)
+    val lanes = model.lanes.size
+
+    // The infield: the distance, in the wide cut, sized to fit between the lanes.
+    val infield = oval.inset(band * lanes)
+    val room = infield.width() - infield.height() * 0.5f
     val distance = formatDistance(distanceMeters)
-    val figure = fonts.text(150f, INK, fonts.body, weight = 700, spacing = -0.04f)
-    while (figure.measureText(distance) > content - 96f && figure.textSize > 36f) figure.textSize -= 4f
-    canvas.drawText(distance, MARGIN + 48f, 450f, figure)
-    val comparisonPaint = fonts.text(34f, MUTED, fonts.body, weight = 500)
-    val comparisonLayout = StaticLayout.Builder
-        .obtain(comparisonLine, 0, comparisonLine.length, comparisonPaint, (content - 96f).toInt())
-        .setMaxLines(2).setEllipsize(TextUtils.TruncateAt.END).setLineSpacing(6f, 1f).build()
-    canvas.withTranslation(MARGIN + 48f, 504f) { comparisonLayout.draw(this) }
+    val figure = fonts.wide(150f, CHALK, weight = 800, spacing = -0.03f).apply { textAlign = Paint.Align.CENTER }
+    while (figure.measureText(distance) > room && figure.textSize > 36f) figure.textSize -= 4f
+    canvas.drawText(distance, oval.centerX(), oval.centerY() + figure.textSize * 0.22f, figure)
+    canvas.drawText(
+        lapsText(distanceMeters), oval.centerX(), oval.centerY() + figure.textSize * 0.22f + 58f,
+        fonts.text(34f, CHALK_DIM, weight = 500).apply { textAlign = Paint.Align.CENTER },
+    )
 
-    canvas.drawRoundRect(RectF(MARGIN, 672f, CARD_WIDTH - MARGIN, 824f), 36f, 36f, fill(SURFACE))
-    canvas.drawText("This week", MARGIN + 36f, 724f, fonts.text(27f, MUTED, fonts.body))
-    canvas.drawText(formatDistance(weekMeters), MARGIN + 36f, 786f, fonts.text(45f, INK, fonts.body, weight = 700))
-    canvas.drawText("Your streak", 590f, 724f, fonts.text(27f, MUTED, fonts.body))
-    canvas.drawText(if (streak > 0) "$streak days" else "A fresh start", 590f, 786f, fonts.text(42f, MOSS, fonts.body, weight = 700))
-
-    val rows = perApp.filter { it.second > 0.0 }.sortedByDescending { it.second }.take(MAX_APP_ROWS)
-    canvas.drawText("Your apps", MARGIN, 900f, fonts.text(32f, INK, fonts.body, weight = 700))
-    val busiest = rows.firstOrNull()?.second ?: 1.0
-    rows.forEachIndexed { index, (label, meters) ->
-        val y = 962f + index * 94f
-        val key = com.thumbtrek.app.data.TRACKED_APPS.entries.firstOrNull { it.value == label }?.key ?: label
-        val color = com.thumbtrek.app.ui.chartColorFor(key, false).toArgb()
-        val namePaint = fonts.text(30f, INK, fonts.body, weight = 500)
-        val valuePaint = fonts.text(30f, MUTED, fonts.body, weight = 600).apply { textAlign = Paint.Align.RIGHT }
-        val value = formatDistance(meters)
-        val clipped = TextUtils.ellipsize(label, namePaint, content - valuePaint.measureText(value) - 36f, TextUtils.TruncateAt.END)
-        canvas.drawText(clipped, 0, clipped.length, MARGIN, y, namePaint)
-        canvas.drawText(value, CARD_WIDTH - MARGIN, y, valuePaint)
-        canvas.drawRoundRect(RectF(MARGIN, y + 20f, CARD_WIDTH - MARGIN, y + 32f), 6f, 6f, fill(TRACK))
-        canvas.drawRoundRect(RectF(MARGIN, y + 20f, MARGIN + (content * meters / busiest).toFloat().coerceAtLeast(12f), y + 32f), 6f, 6f, fill(color))
+    // Lane rows for the apps: painted number, colour key, name, distance.
+    var y = oval.bottom + 84f
+    val rule = Paint().apply {
+        color = LANE_LINE
+        strokeWidth = 3f
     }
-    if (rows.isEmpty()) canvas.drawText("A fresh start. A little perspective.", MARGIN, 974f, fonts.text(30f, MUTED, fonts.body))
-    canvas.drawText("A little perspective on your screen time.", MARGIN, 1280f, fonts.text(28f, MUTED, fonts.body))
+    model.lanes.drop(1).forEach { lane ->
+        canvas.drawLine(MARGIN, y - 52f, CARD_WIDTH - MARGIN, y - 52f, rule)
+        canvas.drawText(lane.lane.toString(), MARGIN, y, fonts.wide(40f, CHALK, weight = 800))
+        canvas.drawRoundRect(RectF(MARGIN + 64f, y - 28f, MARGIN + 116f, y - 6f), 11f, 11f, fill(laneColor(lane, model.state).toArgb()))
+        val namePaint = fonts.text(32f, CHALK, weight = 500)
+        val valuePaint = fonts.wide(30f, CHALK, weight = 700).apply { textAlign = Paint.Align.RIGHT }
+        val value = formatDistance(lane.meters)
+        val clipped = TextUtils.ellipsize(lane.name, namePaint, content - 140f - valuePaint.measureText(value) - 36f, TextUtils.TruncateAt.END)
+        canvas.drawText(clipped, 0, clipped.length, MARGIN + 140f, y, namePaint)
+        canvas.drawText(value, CARD_WIDTH - MARGIN, y, valuePaint)
+        y += 78f
+    }
+    canvas.drawLine(MARGIN, y - 52f, CARD_WIDTH - MARGIN, y - 52f, rule)
+
+    val comparisonPaint = fonts.text(34f, CHALK, weight = 500)
+    val comparisonLayout = StaticLayout.Builder
+        .obtain(comparisonLine, 0, comparisonLine.length, comparisonPaint, content.toInt())
+        .setMaxLines(2).setEllipsize(TextUtils.TruncateAt.END).setLineSpacing(6f, 1f).build()
+    canvas.withTranslation(MARGIN, y - 20f) { comparisonLayout.draw(this) }
+
+    val footer = buildString {
+        append("This week ${formatDistance(weekMeters)}")
+        if (streak > 0) append(", $streak day streak")
+    }
+    canvas.drawText(footer, MARGIN, CARD_HEIGHT - 70f, fonts.text(30f, CHALK_DIM, weight = 500))
     return bitmap
 }
 
@@ -157,27 +239,29 @@ private fun writeCard(context: Context, bitmap: Bitmap): Uri {
     return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 }
 
-/** The same Manrope family as the app, with native variable-weight support. */
-private class CardFonts(context: Context) {
-    val body: Typeface = ResourcesCompat.getFont(context, R.font.manrope)
+/**
+ * Archivo from the same variable file the app uses: the wide cut (width 125) for figures
+ * and the brand, the normal cut for sentences. Weight and width are set on the paint, which
+ * is how a variable font takes its axes below API 29.
+ */
+internal class CardFonts(context: Context) {
+    private val archivo: Typeface = ResourcesCompat.getFont(context, R.font.archivo)
         ?: Typeface.SANS_SERIF
 
-    fun text(
-        size: Float,
-        color: Int,
-        family: Typeface,
-        weight: Int = 400,
-        spacing: Float = 0f,
-    ): TextPaint = TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
-        textSize = size
-        this.color = color
-        letterSpacing = spacing
-        typeface = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-            Typeface.create(family, weight, false)
-        } else {
-            family
+    private fun paint(size: Float, color: Int, weight: Int, width: Int, spacing: Float) =
+        TextPaint(Paint.ANTI_ALIAS_FLAG).apply {
+            textSize = size
+            this.color = color
+            letterSpacing = spacing
+            typeface = archivo
+            fontVariationSettings = "'wght' $weight, 'wdth' $width"
         }
-    }
+
+    fun text(size: Float, color: Int, weight: Int = 400, spacing: Float = 0f): TextPaint =
+        paint(size, color, weight, 100, spacing)
+
+    fun wide(size: Float, color: Int, weight: Int = 700, spacing: Float = 0f): TextPaint =
+        paint(size, color, weight, 125, spacing)
 }
 
 private fun fill(color: Int): Paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { this.color = color }

@@ -3,39 +3,47 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard — ThumbTrek</title>
-  <meta name="description" content="Your ThumbTrek trek in the browser: totals, history, the split between phone and browser, streaks, records and the leaderboard." />
+  <title>ThumbTrek dashboard</title>
+  <meta name="description" content="Your ThumbTrek distance in the browser: today's laps, history, the split between phone and browser, records and the leaderboard." />
   <!-- A signed-in page has nothing to offer a crawler, and the URL is not a share target. -->
   <meta name="robots" content="noindex" />
-  <meta name="theme-color" content="#0c0f0b" media="(prefers-color-scheme: dark)" />
-  <meta name="theme-color" content="#f3f1e8" media="(prefers-color-scheme: light)" />
-  <link rel="icon" href="/assets/mark.svg" type="image/svg+xml" />
+  <meta name="theme-color" content="#0a0f2e" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f3f5fb" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="/assets/track-mark.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <!-- The Firebase SDK is fetched from here on first paint; the handshake is worth pre-empting. -->
   <link rel="preconnect" href="https://www.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
   <link rel="stylesheet" href="/app/app.css" />
 </head>
 <body data-auth="out">
   <a class="skip-link" href="#main">Skip to the dashboard</a>
 
-  <!-- App chrome, not site nav: the dashboard is a signed-in tool, and marketing links
-       here are how it ended up reading as a second landing page. Which half of this bar
-       is visible is decided twice — the body[data-auth] rules in app.css hide the wrong
-       half even before JS runs, and onAuthChanged toggles `hidden` after — so a stale
-       script or a slow auth resolve can never show Sign out to a signed-out visitor. -->
+  <!-- App chrome, not site nav. Which parts of this bar are visible is decided twice: the
+       body[data-auth] rules in app.css hide the wrong ones even before JS runs, and
+       onAuthChanged toggles `hidden` after, so a stale script or a slow auth resolve can
+       never show Sign out, or the section tabs, to a signed-out visitor. -->
   <header class="wrap appbar">
     <a class="brand" href="/">
-      <img src="/assets/mark.svg" width="32" height="32" alt="" />
+      <img src="/assets/track-mark.svg" width="40" height="24" alt="" />
       ThumbTrek
-      <span class="appbar-tag">Dashboard</span>
     </a>
+
+    <!-- The dashboard's sections (DESIGN.md, Navigation). Each tab is a link to a hash, so
+         a section can be bookmarked and the back button moves between them. -->
+    <nav class="tabs" id="tabs" aria-label="Dashboard sections">
+      <a class="tab" href="#today" data-tab="today" aria-current="page">Today</a>
+      <a class="tab" href="#history" data-tab="history">History</a>
+      <a class="tab" href="#friends" data-tab="friends">Friends</a>
+      <a class="tab" href="#premium" data-tab="premium">Premium</a>
+    </nav>
+
     <div class="appbar-side">
       <button class="btn btn-primary btn-small" type="button" data-signin id="signin-head">Continue with Google</button>
       <span class="account" id="account" hidden>
-        <img class="avatar" id="account-avatar" alt="" width="28" height="28" referrerpolicy="no-referrer" hidden />
+        <img class="avatar" id="account-avatar" alt="" width="32" height="32" referrerpolicy="no-referrer" hidden />
         <span class="account-name" id="account-name"></span>
         <button class="btn btn-ghost btn-small" type="button" id="signout">Sign out</button>
       </span>
@@ -47,272 +55,395 @@
 
   <main id="main">
 
-    <!-- ————————————————————— Not configured yet ————————————————————— -->
-    <section class="wrap" id="setup" hidden aria-labelledby="setup-h">
-      <div class="section-head">
-        <p class="overline">Setup</p>
-        <h2 id="setup-h">This deployment has no Firebase config</h2>
-        <p>The dashboard reads your account from Firebase, and this copy of the site has not
-          been pointed at a project yet. Nothing is broken — the file just is not there.</p>
-      </div>
+    <!-- Not configured yet -->
+    <section class="wrap block" id="setup" hidden aria-labelledby="setup-h">
       <div class="panel">
-        <p class="mono" id="setup-detail"></p>
+        <h2 id="setup-h">This copy of the site is not connected to Firebase</h2>
+        <p>The dashboard reads your account from Firebase, and this deployment has not been
+          pointed at a project yet. Nothing is broken. The config file is missing.</p>
+        <p class="detail" id="setup-detail"></p>
         <p>Copy <code>web/app/firebase-config.example.js</code> to
           <code>web/app/firebase-config.js</code>, fill in the six values from the Firebase
-          console, and redeploy. <a href="https://github.com/Aditya190803/ThumbTrek/blob/main/web/README.md">web/README.md</a>
+          console, and redeploy. <a class="text-link" href="https://github.com/Aditya190803/ThumbTrek/blob/main/web/README.md">web/README.md</a>
           says which console screen produces each one, and why that file is safe to commit.</p>
       </div>
     </section>
 
-    <!-- ————————————————————— Signed out ————————————————————— -->
-    <!--
-      A sign-in gateway, not a second hero: the landing page already made the case, so
-      this is one bordered panel with the single action, the read-only promise as a
-      checklist, and the contour motif as a banner underneath. Visible by default and
-      hidden once auth resolves, so a visitor with no account, no session, or no
-      JavaScript still gets a page that explains itself instead of a spinner over a
-      blank column.
-    -->
-    <section class="wrap gateway-wrap" id="welcome" aria-labelledby="welcome-h">
-      <div class="gateway">
-        <p class="overline">Dashboard · sign in required</p>
-        <h1 id="welcome-h">The same trek,<br />on a <span>bigger screen</span>.</h1>
-        <p class="hero-lead">
-          Sign in with the Google account you use on the phone and this page shows the trek
-          your thumb has already taken: totals, the history the app keeps day by day, which
-          device did the scrolling, your streak and records, and the boards.
-        </p>
-        <ul class="promise gateway-list">
-          <li>Day-by-day history, charted</li>
-          <li>Phone and browser, side by side</li>
-          <li>Friend codes and the weekly board</li>
-        </ul>
-        <div class="cta-row">
-          <button class="btn btn-primary" type="button" data-signin>Continue with Google</button>
-          <a class="btn btn-ghost" href="/">Back to the site</a>
+    <!-- Signed out. Visible by default and hidden once auth resolves, so a visitor with no
+         account, no session, or no JavaScript still gets a page that explains itself. -->
+    <section class="wrap block" id="welcome" aria-labelledby="welcome-h">
+      <div class="gateway on-track">
+        <div class="gateway-copy">
+          <h1 id="welcome-h">Your laps, on a bigger screen</h1>
+          <p class="hero-lead">
+            Sign in with the Google account you use on your phone. This page then shows the
+            distance your thumb has already covered: today's laps, your history day by day,
+            which device did the scrolling, and your friends' totals.
+          </p>
+          <div class="cta-row">
+            <button class="btn btn-primary" type="button" data-signin>Continue with Google</button>
+            <a class="btn btn-ghost" href="/">Back to the site</a>
+          </div>
+          <p class="cta-note">
+            Signing in only reads. This page never publishes a score and never measures
+            anything. Turning the leaderboard on stays a choice you make in the app.
+          </p>
+          <p class="error" id="welcome-error" hidden></p>
         </div>
-        <p class="cta-note">
-          Read-only. This page never publishes a score, and never starts measuring — turning
-          the leaderboard on stays a decision you make in the app.
-        </p>
-        <p class="error" id="welcome-error" hidden></p>
+
+        <!-- An empty track, drawn the way the signed-in oval is before any distance. -->
+        <svg class="gateway-oval" viewBox="0 0 1000 571" aria-hidden="true" focusable="false">
+          <rect class="oval-infield" x="102" y="102" width="796" height="367" rx="183.5" />
+          <rect class="oval-line" x="0.75" y="0.75" width="998.5" height="569.5" rx="284.75" />
+          <rect class="oval-line" x="34" y="34" width="932" height="503" rx="251.5" />
+          <rect class="oval-line" x="68" y="68" width="864" height="435" rx="217.5" />
+          <rect class="oval-line" x="102" y="102" width="796" height="367" rx="183.5" />
+          <line class="oval-finish" x1="285.5" y1="0" x2="285.5" y2="102" />
+        </svg>
       </div>
 
-      <div class="map gateway-map">
-        <svg viewBox="0 0 400 300" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A route climbing across contour lines toward a marked summit.">
-          <g aria-hidden="true">
-            <path class="contour" d="M-10 240 C70 220 130 254 200 236 C270 218 330 244 410 224" />
-            <path class="contour" d="M-10 205 C70 183 130 219 200 199 C270 179 330 209 410 187" />
-            <path class="contour" d="M-10 170 C70 146 130 183 200 161 C270 139 330 171 410 148" />
-            <path class="contour" d="M-10 135 C70 109 130 147 200 123 C270 99 330 133 410 109" />
-            <path class="contour" d="M-10 100 C70 72 130 111 200 85 C270 59 330 95 410 70" />
-            <path class="contour" d="M-10 65 C70 35 130 75 200 47 C270 19 330 57 410 31" />
-          </g>
-          <path class="route" d="M40 218 L100 190 L148 200 L208 156 L260 136 L302 94 L350 72" />
-          <circle class="waypoint" cx="40" cy="218" r="5" fill="#f2b455" />
-          <circle class="waypoint" cx="208" cy="156" r="5" fill="#8be6a0" />
-          <circle class="waypoint" cx="350" cy="72" r="5" fill="#8fb6cc" />
-        </svg>
+      <div class="facts">
+        <article>
+          <h3>History, charted</h3>
+          <p>Seven days, eight weeks or six months of distance, with a table behind every chart.</p>
+        </article>
+        <article>
+          <h3>Phone and browser together</h3>
+          <p>See how much of the distance came from each device, and from each app or site.</p>
+        </article>
+        <article>
+          <h3>Friends and the weekly board</h3>
+          <p>Share your friend code, accept requests, and see where you stand this week.</p>
+        </article>
       </div>
     </section>
 
-    <!-- ————————————————————— Signed in ————————————————————— -->
+    <!-- Signed in -->
     <div id="dashboard" hidden>
 
-      <p class="connection" id="connection" hidden></p>
+      <div class="wrap notices">
+        <p class="connection" id="connection" hidden></p>
+        <p class="error" id="history-error" hidden></p>
+      </div>
 
-      <section class="wrap" id="totals" aria-labelledby="totals-h">
-        <div class="section-head">
-          <p class="overline">Today</p>
-          <h2 id="totals-h" class="visually-hidden">Your totals</h2>
+      <!-- ————————————————————— Today ————————————————————— -->
+      <section class="wrap view" id="view-today" data-view="today" aria-labelledby="today-h">
+        <h1 class="view-title" id="today-h">Today</h1>
+
+        <div class="today">
+          <div class="oval" id="oval" aria-busy="true">
+            <div id="oval-art"></div>
+            <div class="oval-infield-text" aria-hidden="true">
+              <p class="oval-figure num"><span id="today-figure"></span><span class="unit" id="today-unit"></span></p>
+              <p class="oval-caption" id="today-caption"></p>
+            </div>
+          </div>
+
+          <div class="today-side">
+            <ol class="lanes" id="today-lanes" aria-label="Today, lane by lane"></ol>
+            <p class="today-compare" id="today-compare"></p>
+            <p class="delta" id="today-delta" hidden></p>
+            <div id="today-goal" hidden></div>
+            <p class="fine" id="today-scale" hidden></p>
+            <div class="locked" id="today-limit">
+              <p id="limit-shared" hidden>
+                <strong>Daily limit <span class="num" id="limit-shared-value"></span>.</strong>
+                Shared by your phone and your browser, so this track judges the day on
+                both of them together.
+              </p>
+              <p id="limit-none" hidden>
+                <strong>No daily limit.</strong>
+                Your devices share their limit setting, and it is set to none, so this
+                track counts laps instead.
+              </p>
+              <div id="limit-local">
+                <p>
+                  <strong>No daily limit here.</strong>
+                  Each device keeps its own limit, so this track counts laps instead of
+                  judging the day.
+                </p>
+                <a class="locked-row" href="#premium">
+                  <span>Share one limit across your phone and your browser</span>
+                  <span class="chip">Premium</span>
+                </a>
+              </div>
+            </div>
+          </div>
         </div>
-        <div class="today" aria-busy="true">
-          <p class="today-figure num">
-            <span id="today-figure">—</span><span class="unit" id="today-unit"></span>
-          </p>
-          <p class="delta" id="today-delta" hidden></p>
-          <p class="today-compare" id="today-compare"></p>
-          <div id="today-goal" hidden></div>
-        </div>
-        <div class="totals-grid" id="totals-grid" aria-busy="true"></div>
+
+        <div class="figures" id="totals-grid" aria-busy="true"></div>
+        <p class="streak" id="streak" hidden></p>
       </section>
 
-      <section class="wrap" id="history" aria-labelledby="history-h">
-        <div class="section-head">
-          <p class="overline">History</p>
-          <h2 id="history-h">Where the trek has been</h2>
-          <p>One record per device per day, so this is the trek itself rather than a running
-            total. Pick a range — the device split and the breakdown below follow it.</p>
+      <!-- ————————————————————— History ————————————————————— -->
+      <section class="wrap view" id="view-history" data-view="history" aria-labelledby="history-h" hidden>
+        <div class="view-head">
+          <h1 class="view-title" id="history-h">History</h1>
+          <div class="chips" id="range-control" role="group" aria-label="History range"></div>
         </div>
 
-        <div class="control-row">
-          <div class="segmented" id="range-control" role="group" aria-label="History range"></div>
-        </div>
-
-        <p class="error" id="history-error" hidden></p>
         <div class="empty-note" id="history-empty" hidden></div>
 
         <div id="history-body">
           <div id="history-chart"></div>
 
-          <h3 class="marker">
-            <span class="marker-text">Phone vs browser</span>
-            <span class="marker-rule" aria-hidden="true"></span>
-          </h3>
-          <div id="sources-rows"></div>
-          <p class="fine" id="sources-note" hidden></p>
-          <ul class="fine sync-list" id="sources-sync" hidden></ul>
+          <div class="columns">
+            <section aria-labelledby="sources-h">
+              <h2 class="sub" id="sources-h">Phone and browser</h2>
+              <ul class="rows" id="sources-rows"></ul>
+              <p class="fine" id="sources-note" hidden></p>
+              <ul class="fine sync-list" id="sources-sync" hidden></ul>
+            </section>
 
-          <h3 class="marker">
-            <span class="marker-text">Where it went</span>
-            <span class="marker-rule" aria-hidden="true"></span>
-            <span class="marker-trailing" id="breakdown-count"></span>
-          </h3>
-          <div id="breakdown-rows"></div>
+            <section aria-labelledby="breakdown-h">
+              <h2 class="sub" id="breakdown-h">
+                Apps and sites
+                <span class="sub-count" id="breakdown-count"></span>
+              </h2>
+              <ol class="lanes" id="breakdown-rows"></ol>
+            </section>
+          </div>
 
           <details class="daylog">
             <summary>
-              <span class="marker-text">Day log</span>
-              <span class="marker-trailing" id="daylog-count"></span>
+              <span>Every day</span>
+              <span class="sub-count" id="daylog-count"></span>
+              <span class="daylog-hint" aria-hidden="true"></span>
             </summary>
             <div id="daylog-rows"></div>
           </details>
         </div>
+
+        <section aria-labelledby="report-h">
+          <div class="sub-head">
+            <h2 class="sub" id="report-h">Report</h2>
+            <span class="sub-count" id="report-title"></span>
+          </div>
+          <div class="chips" id="report-choice" role="group" aria-label="Report period"></div>
+          <ul class="rows" id="report-rows" aria-live="polite"></ul>
+        </section>
+
+        <section aria-labelledby="records-h">
+          <h2 class="sub" id="records-h">Records</h2>
+          <ul class="rows" id="records-rows"></ul>
+        </section>
+
+        <section aria-labelledby="badges-h">
+          <h2 class="sub" id="badges-h">
+            Milestones
+            <span class="sub-count num" id="badge-count"></span>
+          </h2>
+          <p class="fine" id="badge-next" hidden></p>
+          <ul class="rows rows-two" id="badges"></ul>
+          <p class="fine">
+            Milestones for staying under your limit are counted on your phone and in your
+            browser, each against the limit it had on the day.
+          </p>
+        </section>
       </section>
 
-      <section class="wrap" id="records" aria-labelledby="records-h">
-        <div class="section-head">
-          <p class="overline">Records</p>
-          <h2 id="records-h">What you have already done</h2>
+      <!-- ————————————————————— Friends ————————————————————— -->
+      <section class="wrap view" id="view-friends" data-view="friends" aria-labelledby="board-h" hidden>
+        <div class="view-head">
+          <h1 class="view-title" id="board-h">Leaderboard</h1>
+          <div class="chips-row">
+            <div class="chips" id="board-kind" role="group" aria-label="Which board"></div>
+            <div class="chips" id="board-period" role="group" aria-label="Board period"></div>
+          </div>
         </div>
-        <p class="streak" id="streak">No streak yet</p>
-        <div id="records-rows"></div>
-
-        <h3 class="marker">
-          <span class="marker-text">Checkpoints</span>
-          <span class="marker-rule" aria-hidden="true"></span>
-          <span class="marker-trailing num" id="badge-count"></span>
-        </h3>
-        <ul class="badges" id="badges"></ul>
-        <p class="fine" id="badge-next" hidden></p>
-        <p class="fine">
-          Clean-day checkpoints follow your daily limit, and that limit lives on each device
-          rather than in your account, so they are counted in the app, not here.
-        </p>
-      </section>
-
-      <section class="wrap" id="board-section" aria-labelledby="board-h">
-        <div class="section-head">
-          <p class="overline">Leaderboard</p>
-          <h2 id="board-h">See how your week stacks up</h2>
-          <p>Everyone is measured in the same metres, whatever their screen. Only trekkers who
-            turned leaderboards on in the app appear here.</p>
-        </div>
-
-        <div class="control-row">
-          <div class="segmented" id="board-kind" role="group" aria-label="Which board"></div>
-          <div class="segmented" id="board-period" role="group" aria-label="Board period"></div>
-        </div>
+        <p class="lead">Everyone is measured in the same metres, whatever their screen. Only
+          people who turned leaderboards on in the app appear here.</p>
 
         <p class="standing" id="board-standing" hidden></p>
         <p class="error" id="board-error" hidden></p>
-        <ul class="board" id="board-rows"></ul>
+        <ol class="lanes board" id="board-rows"></ol>
         <p class="fine" id="board-hidden" hidden>
           Friends who have not turned leaderboards on stay hidden here.
         </p>
-        <div class="control-row">
+        <div class="cta-row">
           <button class="btn btn-ghost" type="button" id="board-more" hidden>Load more</button>
           <button class="btn btn-ghost" type="button" id="board-refresh">Refresh</button>
         </div>
 
-        <div id="podium" hidden>
-          <h3 class="marker">
-            <span class="marker-text">Last week's podium</span>
-            <span class="marker-rule" aria-hidden="true"></span>
-          </h3>
-          <ul class="podium" id="podium-row"></ul>
-        </div>
+        <section id="podium" hidden aria-labelledby="podium-h">
+          <h2 class="sub" id="podium-h">Last week's top three</h2>
+          <ol class="lanes board podium" id="podium-row"></ol>
+        </section>
+
+        <section id="friends" aria-labelledby="friends-h">
+          <h2 class="view-title" id="friends-h">Friends</h2>
+          <p class="lead">Anyone who enters your code sends you a request. Accept it and you
+            appear on each other's boards. Nothing is shared until both of you agree.</p>
+
+          <div class="columns">
+            <div class="panel code-panel">
+              <h3>Your friend code</h3>
+              <p class="my-code num" id="my-code"></p>
+              <div class="cta-row">
+                <button class="btn btn-primary btn-small" type="button" id="copy-code">Copy code</button>
+                <button class="btn btn-ghost btn-small" type="button" id="share-invite">Share invite</button>
+              </div>
+              <p class="fine">
+                Invite link:
+                <a class="text-link" id="invite-link" href="/i/">https://thumbtrek.adityamer.dev/i/</a>
+              </p>
+              <p class="fine" id="code-unpublished" hidden>
+                Nobody can find you by this code yet. It starts working once leaderboards
+                are turned on in the phone app. You can still add other people's codes.
+              </p>
+            </div>
+
+            <form class="add-form" id="add-form">
+              <label for="add-code">Add a friend by code</label>
+              <div class="add-row">
+                <input
+                  id="add-code"
+                  name="code"
+                  type="text"
+                  inputmode="latin"
+                  autocomplete="off"
+                  autocapitalize="characters"
+                  spellcheck="false"
+                  maxlength="40"
+                  placeholder="ABCD-1234"
+                  aria-describedby="add-help"
+                />
+                <button class="btn btn-primary" type="submit">Send request</button>
+              </div>
+              <p class="fine" id="add-help">
+                Paste a code or a whole <code>thumbtrek.adityamer.dev/i/</code> link. Both work.
+              </p>
+              <p class="error" id="friends-error" hidden></p>
+            </form>
+          </div>
+
+          <section id="requests" hidden aria-labelledby="requests-h">
+            <h3 class="sub" id="requests-h">
+              Requests
+              <span class="sub-count num" id="requests-count"></span>
+            </h3>
+            <ul class="rows people" id="requests-rows"></ul>
+          </section>
+
+          <section aria-labelledby="friend-list-h">
+            <h3 class="sub" id="friend-list-h">Your friends</h3>
+            <ul class="rows people" id="friend-list"></ul>
+          </section>
+        </section>
+
+        <section id="groups" aria-labelledby="groups-h">
+          <h2 class="view-title" id="groups-h">Groups</h2>
+          <p class="lead">A private board for up to 50 people, seen only by those holding its
+            code. Set a challenge, such as who scrolls the least for a week.</p>
+          <p class="fine">Part of Premium, and free for everyone until Premium goes on sale.</p>
+
+          <p class="fine" id="groups-off" hidden>
+            Groups open once leaderboards are on in the phone app or the extension. A group
+            ranks distance, and only a device that measures can publish it.
+          </p>
+
+          <div class="columns" id="groups-forms" hidden>
+            <form class="add-form" id="group-create">
+              <label for="group-name">Start a group</label>
+              <div class="add-row">
+                <input id="group-name" type="text" autocomplete="off" placeholder="Group name" required />
+                <button class="btn btn-primary" type="submit">Start</button>
+              </div>
+            </form>
+            <form class="add-form" id="group-join">
+              <label for="group-code-input">Join a group by code</label>
+              <div class="add-row">
+                <input id="group-code-input" type="text" autocomplete="off" autocapitalize="characters"
+                       spellcheck="false" maxlength="40" placeholder="ABCD-1234" required />
+                <button class="btn btn-primary" type="submit">Join</button>
+              </div>
+            </form>
+          </div>
+          <p class="error" id="groups-error" hidden></p>
+
+          <ul class="rows people" id="group-list" aria-label="Your groups"></ul>
+
+          <section class="group-board" id="group-board" hidden aria-labelledby="group-board-h">
+            <h3 class="sub" id="group-board-h"></h3>
+            <p class="fine" id="group-board-status"></p>
+            <ol class="lanes board" id="group-rows"></ol>
+            <div class="cta-row">
+              <span class="fine">Code <strong class="num" id="group-code"></strong></span>
+              <button class="btn btn-ghost btn-small" type="button" id="group-copy">Copy code</button>
+              <button class="btn btn-ghost btn-small" type="button" id="group-leave">Leave group</button>
+            </div>
+
+            <div id="group-owner" hidden>
+              <form class="challenge-form" id="challenge-form">
+                <h4 class="sub">Challenge</h4>
+                <div class="field-grid">
+                  <label>Name
+                    <input id="challenge-title" type="text" autocomplete="off" placeholder="No phone week" />
+                  </label>
+                  <label>Who wins
+                    <select id="challenge-kind"></select>
+                  </label>
+                  <label>First day
+                    <input id="challenge-start" type="date" />
+                  </label>
+                  <label>Length
+                    <select id="challenge-length"></select>
+                  </label>
+                </div>
+                <div class="cta-row">
+                  <button class="btn btn-primary btn-small" type="submit">Set challenge</button>
+                  <button class="btn btn-ghost btn-small" type="button" id="challenge-clear" hidden>Clear challenge</button>
+                  <button class="btn btn-ghost btn-small danger-text" type="button" id="group-delete">Delete group</button>
+                </div>
+              </form>
+            </div>
+          </section>
+        </section>
       </section>
 
-      <section class="wrap" id="friends" aria-labelledby="friends-h">
-        <div class="section-head">
-          <p class="overline">Trek partners</p>
-          <h2 id="friends-h">Friend codes</h2>
-          <p>Anyone who enters your code sends you a request. Accept it and you land on each
-            other's boards — nothing is shared until both sides agree.</p>
-        </div>
-
-        <div class="code-block">
-          <p class="my-code num" id="my-code">————</p>
-          <div class="cta-row">
-            <button class="btn btn-ghost btn-small" type="button" id="copy-code">Copy code</button>
-            <button class="btn btn-ghost btn-small" type="button" id="share-invite">Share invite</button>
+      <!-- ————————————————————— Premium ————————————————————— -->
+      <section class="wrap view" id="view-premium" data-view="premium" aria-labelledby="premium-h" hidden>
+        <div class="premium">
+          <div class="premium-copy">
+            <h1 class="view-title" id="premium-h">Premium is on the way</h1>
+            <p class="lead">Tracking is free, needs no account, and stays that way. The five
+              features here will be Premium once it goes on sale. Until then they are open
+              to everyone, on the phone, in the extension and on this dashboard.</p>
+            <p class="fine">
+              This page only reads distance. ThumbTrek never sees what is on your screen,
+              and the dashboard never writes a score. It reads the day records your phone
+              and browser wrote and the boards you chose to join. The only things it changes
+              are your friend list and the groups you start or join.
+            </p>
           </div>
-          <p class="fine">
-            Invite link: <a id="invite-link" href="/i/">https://thumbtrek.adityamer.dev/i/</a>
-          </p>
-          <p class="fine" id="code-unpublished" hidden>
-            Nobody can find you by this code yet: it starts working once leaderboards are
-            turned on in the phone app. You can still add other people's codes below.
-          </p>
+
+          <article class="plan on-track" aria-labelledby="plan-premium">
+            <h2 id="plan-premium">Premium</h2>
+            <p class="plan-price num">₹99<small>a month</small></p>
+            <p class="plan-terms">Or ₹799 a year. Planned pricing, not on sale yet. Everything below is free until then.</p>
+            <ul>
+              <li>One limit across your phone and your browser</li>
+              <li>A separate limit for each app</li>
+              <li>Weekly and monthly reports</li>
+              <li>Private groups and challenges with friends</li>
+              <li>Backup and restore of your full history</li>
+            </ul>
+            <button class="btn btn-primary" type="button" disabled>Not on sale yet</button>
+          </article>
         </div>
-
-        <div id="requests" hidden>
-          <h3 class="marker">
-            <span class="marker-text">Trek requests</span>
-            <span class="marker-rule" aria-hidden="true"></span>
-            <span class="marker-trailing num" id="requests-count"></span>
-          </h3>
-          <ul class="people" id="requests-rows"></ul>
-        </div>
-
-        <h3 class="marker">
-          <span class="marker-text">Your trek partners</span>
-          <span class="marker-rule" aria-hidden="true"></span>
-        </h3>
-        <ul class="people" id="friend-list"></ul>
-
-        <form class="add-form" id="add-form">
-          <label for="add-code">Add by code</label>
-          <div class="add-row">
-            <input
-              id="add-code"
-              name="code"
-              type="text"
-              inputmode="latin"
-              autocomplete="off"
-              autocapitalize="characters"
-              spellcheck="false"
-              maxlength="40"
-              placeholder="ABCD-1234"
-              aria-describedby="add-help"
-            />
-            <button class="btn btn-primary" type="submit">Add</button>
-          </div>
-          <p class="fine" id="add-help">
-            A code, or a whole <code>thumbtrek.adityamer.dev/i/…</code> link — both work.
-          </p>
-        </form>
-        <p class="error" id="friends-error" hidden></p>
-      </section>
-
-      <section class="wrap" aria-label="What this page can and cannot do">
-        <p class="fine">
-          Distance only. ThumbTrek never reads what is on your screen, and this page never
-          writes one: it reads the day records your clients wrote, and the boards you opted
-          into. The only thing it changes is your friend list.
-        </p>
       </section>
     </div>
   </main>
 
   <footer class="wrap">
-    <span>© ThumbTrek · Android sideload</span>
-    <span>
+    <span>ThumbTrek dashboard</span>
+    <nav aria-label="Footer">
+      <a href="/">Site</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
       <a href="https://github.com/Aditya190803/ThumbTrek">GitHub</a>
-      ·
       <a href="https://github.com/Aditya190803/ThumbTrek/releases">Releases</a>
-    </span>
+    </nav>
   </footer>
 
   <script type="module" src="/app/main.js"></script>

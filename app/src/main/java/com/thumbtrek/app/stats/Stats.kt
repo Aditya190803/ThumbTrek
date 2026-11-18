@@ -339,7 +339,7 @@ val LANDMARKS = listOf(
 )
 
 fun comparison(meters: Double): String {
-    if (meters <= 0.0) return "No trek yet — go scroll something."
+    if (meters <= 0.0) return "Nothing scrolled yet."
     val landmark = LANDMARKS.lastOrNull { meters >= it.meters } ?: LANDMARKS.first()
     val times = meters / landmark.meters
     return "That's ${String.format(Locale.US, "%.1f", times)}× ${landmark.label}."
@@ -348,7 +348,6 @@ fun comparison(meters: Double): String {
 /** One achievement: [progress] is clamped 0..1 so UI can show a fill or lock. */
 data class Badge(
     val id: String,
-    val emoji: String,
     val label: String,
     val detail: String,
     val earned: Boolean,
@@ -357,14 +356,13 @@ data class Badge(
 
 private fun badge(
     id: String,
-    emoji: String,
     label: String,
     value: Double,
     target: Double,
     detail: String,
 ): Badge {
     val progress = if (target <= 0.0) 1.0 else (value / target).coerceIn(0.0, 1.0)
-    return Badge(id, emoji, label, detail, progress >= 1.0, progress)
+    return Badge(id, label, detail, progress >= 1.0, progress)
 }
 
 /**
@@ -379,54 +377,54 @@ fun badges(
     streak: Int,
     cleanStreak: Int = 0,
 ): List<Badge> = listOf(
-    badge("first_trek", "👣", "First steps", totalMeters, 1.0,
-        "Complete your first trek"),
-    badge("banana", "🍌", "Banana", totalMeters, 100.0,
-        "Trek 100 m in total"),
-    badge("kilometer", "🎯", "Kilometer club", totalMeters, 1_000.0,
-        "Trek 1 km in total"),
-    badge("bridge", "🌉", "Golden Gate", totalMeters, 2_737.0,
-        "Trek 2.7 km in total"),
-    badge("fivek", "🏅", "5K", totalMeters, 5_000.0,
-        "Trek 5 km in total"),
-    badge("burj_day", "🏙️", "Burj day", bestDayMeters, 830.0,
-        "Trek 830 m — the Burj Khalifa — in a single day"),
-    badge("tenk", "🥉", "10K", totalMeters, 10_000.0,
-        "Trek 10 km in total"),
-    badge("half_marathon", "🥈", "Half marathon", totalMeters, 21_097.0,
-        "Trek 21.1 km in total"),
-    badge("everest", "🏔️", "Everest", bestDayMeters, 8_849.0,
-        "Trek 8.8 km in a single day"),
-    badge("marathon", "🏃", "Marathon thumb", totalMeters, 42_195.0,
-        "Trek 42.2 km in total"),
-    badge("ultra", "🥇", "Ultra", totalMeters, 50_000.0,
-        "Trek 50 km in total"),
-    badge("century", "💯", "Century", totalMeters, 100_000.0,
-        "Trek 100 km in total"),
-    badge("quarter_million", "🚀", "Quarter-million", totalMeters, 250_000.0,
-        "Trek 250 km in total"),
-    badge("half_million", "⭐", "Half-million", totalMeters, 500_000.0,
-        "Trek 500 km in total"),
-    badge("million", "🌟", "Thousand-K club", totalMeters, 1_000_000.0,
-        "Trek 1,000 km in total"),
-    badge("streak_3", "🔥", "Warm-up", streak.toDouble(), 3.0,
+    badge("first_trek", "First steps", totalMeters, 1.0,
+        "Scroll your first metre"),
+    badge("banana", "Banana", totalMeters, 100.0,
+        "Scroll 100 m in total"),
+    badge("kilometer", "Kilometer club", totalMeters, 1_000.0,
+        "Scroll 1 km in total"),
+    badge("bridge", "Golden Gate", totalMeters, 2_737.0,
+        "Scroll 2.7 km in total"),
+    badge("fivek", "5K", totalMeters, 5_000.0,
+        "Scroll 5 km in total"),
+    badge("burj_day", "Burj day", bestDayMeters, 830.0,
+        "Scroll 830 m, the height of the Burj Khalifa, in a single day"),
+    badge("tenk", "10K", totalMeters, 10_000.0,
+        "Scroll 10 km in total"),
+    badge("half_marathon", "Half marathon", totalMeters, 21_097.0,
+        "Scroll 21.1 km in total"),
+    badge("everest", "Everest", bestDayMeters, 8_849.0,
+        "Scroll 8.8 km in a single day"),
+    badge("marathon", "Marathon thumb", totalMeters, 42_195.0,
+        "Scroll 42.2 km in total"),
+    badge("ultra", "Ultra", totalMeters, 50_000.0,
+        "Scroll 50 km in total"),
+    badge("century", "Century", totalMeters, 100_000.0,
+        "Scroll 100 km in total"),
+    badge("quarter_million", "Quarter-million", totalMeters, 250_000.0,
+        "Scroll 250 km in total"),
+    badge("half_million", "Half-million", totalMeters, 500_000.0,
+        "Scroll 500 km in total"),
+    badge("million", "Thousand-K club", totalMeters, 1_000_000.0,
+        "Scroll 1,000 km in total"),
+    badge("streak_3", "Warm-up", streak.toDouble(), 3.0,
         "Keep a 3-day streak"),
-    badge("streak_7", "📅", "Week trekker", streak.toDouble(), 7.0,
+    badge("streak_7", "Week trekker", streak.toDouble(), 7.0,
         "Keep a 7-day streak"),
-    badge("streak_14", "🌱", "Two-week habit", streak.toDouble(), 14.0,
+    badge("streak_14", "Two-week habit", streak.toDouble(), 14.0,
         "Keep a 14-day streak"),
-    badge("streak_30", "🗓️", "Monthly mover", streak.toDouble(), 30.0,
+    badge("streak_30", "Monthly mover", streak.toDouble(), 30.0,
         "Keep a 30-day streak"),
-    badge("streak_100", "💎", "Centurion streak", streak.toDouble(), 100.0,
+    badge("streak_100", "Centurion streak", streak.toDouble(), 100.0,
         "Keep a 100-day streak"),
-    badge("streak_365", "👑", "Year-round trekker", streak.toDouble(), 365.0,
+    badge("streak_365", "Year-round trekker", streak.toDouble(), 365.0,
         "Keep a 365-day streak"),
-    badge("clean_3", "🧼", "Clean slate", cleanStreak.toDouble(), 3.0,
+    badge("clean_3", "Clean slate", cleanStreak.toDouble(), 3.0,
         "Stay under your limit 3 days in a row"),
-    badge("clean_7", "🛡️", "Under control", cleanStreak.toDouble(), 7.0,
+    badge("clean_7", "Under control", cleanStreak.toDouble(), 7.0,
         "Stay under your limit 7 days in a row"),
-    badge("clean_14", "🧘", "Steady mind", cleanStreak.toDouble(), 14.0,
+    badge("clean_14", "Steady mind", cleanStreak.toDouble(), 14.0,
         "Stay under your limit 14 days in a row"),
-    badge("clean_30", "🏵️", "Month of restraint", cleanStreak.toDouble(), 30.0,
+    badge("clean_30", "Month of restraint", cleanStreak.toDouble(), 30.0,
         "Stay under your limit 30 days in a row"),
 )

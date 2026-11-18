@@ -48,6 +48,15 @@ export const DEFAULTS = Object.freeze({
   autoLimitNotice: null,
   /** True once the user has explicitly chosen no limit at all. Nothing overrides that. */
   noLimitChosen: false,
+  /** One limit across the phone and the browser (contract §7). Off by default, and it
+   *  needs sync to be on to do anything. */
+  sharedLimit: false,
+  /** Wall-clock milliseconds of the last limit change here; the newest edit wins. */
+  limitSetAt: 0,
+  /** What the other sources measured on `date`, as of the last sync: `{ date, um }`. */
+  otherToday: null,
+  /** A separate limit for each site, as `domain -> metres`. Local to this browser. */
+  siteLimits: {},
 });
 
 /** Reads the whole settings object, with defaults filled in for anything never written. */
@@ -105,7 +114,7 @@ export async function setDailyLimit(meters, today = todayKey()) {
   if (meters === null) {
     return write({
       dailyLimitM: null, limitSince: null, baselineSince: null, autoLimitNotice: null,
-      noLimitChosen: true,
+      noLimitChosen: true, limitSetAt: Date.now(),
     });
   }
   const settings = await readSettings();
@@ -116,13 +125,14 @@ export async function setDailyLimit(meters, today = todayKey()) {
     baselineSince: null,
     autoLimitNotice: null,
     noLimitChosen: false,
+    limitSetAt: Date.now(),
   });
 }
 
 /** Begin (or restart) a baseline week: no cap and no judgements until it is done. */
 export const startBaseline = (today = todayKey()) => write({
   dailyLimitM: null, limitSince: null, baselineSince: today, autoLimitNotice: null,
-  noLimitChosen: false,
+  noLimitChosen: false, limitSetAt: Date.now(),
 });
 
 /**
@@ -145,8 +155,66 @@ export async function applyAutoLimit(limitM, baselineM, today = todayKey()) {
   if (!settings.baselineSince) return settings;
   return write({
     dailyLimitM: limitM, limitSince: today, baselineSince: null,
-    autoLimitNotice: Math.round(baselineM),
+    autoLimitNotice: Math.round(baselineM), limitSetAt: Date.now(),
   });
+}
+
+/** Turning sharing off forgets what the phone measured; it no longer counts here. */
+export const setSharedLimit = (enabled) => write(
+  enabled ? { sharedLimit: true } : { sharedLimit: false, otherToday: null },
+);
+
+/**
+ * Takes a limit another device set (contract §7). Not an edit by this user in this
+ * browser, so it keeps the other device's timestamp. Null means "no limit".
+ */
+export async function adoptSharedLimit(limitM, setAt, today = todayKey()) {
+  const settings = await readSettings();
+  return write(limitM === null
+    ? {
+      dailyLimitM: null, limitSince: null, baselineSince: null, autoLimitNotice: null,
+      noLimitChosen: true, limitSetAt: setAt,
+    }
+    : {
+      dailyLimitM: limitM, limitSince: settings.limitSince ?? today, baselineSince: null,
+      autoLimitNotice: null, noLimitChosen: false, limitSetAt: setAt,
+    });
+}
+
+export const setOtherToday = (date, um) => write({ otherToday: date ? { date, um } : null });
+
+/** Today's distance from the other sources in metres, or 0 when it does not apply. */
+export function otherTodayMeters(settings, today = todayKey()) {
+  const other = settings?.otherToday;
+  // A figure fetched yesterday says nothing about today.
+  return settings?.sharedLimit && other?.date === today ? other.um / 1_000_000 : 0;
+}
+
+/** Sets one site's own limit in metres, or removes it when `meters` is null. */
+export async function setSiteLimit(domain, meters) {
+  const next = { ...(await readSettings()).siteLimits };
+  if (meters === null) delete next[domain];
+  else next[domain] = meters;
+  return write({ siteLimits: next });
+}
+
+/**
+ * Applies the settings half of a restored backup. Settings only fill gaps: a limit or a
+ * site limit already set here is the current choice, and an old file does not overrule it.
+ */
+export async function restoreSettings(restored) {
+  const settings = await readSettings();
+  const patch = {
+    siteLimits: { ...restored.siteLimits, ...settings.siteLimits },
+    customSites: { ...restored.customSites, ...settings.customSites },
+  };
+  if (dailyLimit(settings) === null && !settings.baselineSince && restored.limitMeters !== null) {
+    Object.assign(patch, {
+      dailyLimitM: restored.limitMeters, limitSince: todayKey(), noLimitChosen: false,
+      limitSetAt: Date.now(),
+    });
+  }
+  return write(patch);
 }
 
 export const dismissAutoLimitNotice = () => write({ autoLimitNotice: null });

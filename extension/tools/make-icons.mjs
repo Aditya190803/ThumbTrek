@@ -5,19 +5,15 @@
  *
  * Chrome will not accept an SVG for `icons` or `action.default_icon` -- it takes bitmaps
  * only -- so the extension needs PNGs even though the mark is a vector everywhere else in
- * this repo. Committing four hand-made binaries would mean the icon has a *second* source of
- * truth that silently drifts from `web/assets/mark.svg`, which is the exact failure the
- * launcher-icon PNG pipeline already ran into on the Android side: two definitions, one of
- * them dead, and an afternoon lost to editing the wrong one.
- *
- * So the geometry below is the mark's geometry, transcribed once, and the PNGs are output.
- * Change the mark, re-run this, and the two cannot disagree.
+ * this repo. Committing four hand-made binaries would leave nobody able to change them, so
+ * the geometry below is the mark's lap, adapted to a square tile, and the PNGs are output.
+ * Change the mark, edit the constants, re-run this.
  *
  * ## Why it is written by hand
  *
  * No canvas, no sharp, no resvg: the extension has no dependencies and this repo has no
- * node_modules. What is actually needed is small -- fill a rounded rectangle, stroke a few
- * curves and a polyline, fill a disc -- so it is done with a supersampled distance field
+ * node_modules. What is actually needed is small -- fill a rounded rectangle, fill a small
+ * stadium, stroke one path -- so it is done with a supersampled distance field
  * (every shape reduces to "how far is this sample from a polyline") and node's built-in
  * `zlib` for the PNG's one compressed chunk.
  */
@@ -31,42 +27,72 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const OUT = join(HERE, '..', 'icons');
 
 // ---------------------------------------------------------------------------------------
-// The mark, on the same 32-unit grid as web/assets/mark.svg
+// The mark, on a 32-unit grid
 // ---------------------------------------------------------------------------------------
 
-const GROUND = [0x0c, 0x0f, 0x0b];
-const MOSS = [0x8b, 0xe6, 0xa0];
-const INK = [0xed, 0xf1, 0xe6];
-const AMBER = [0xf2, 0xb4, 0x55];
+// web/assets/track-mark.svg is a 40x24 stadium. A toolbar icon is square, so here the same lap
+// sits on a track-blue tile: the darker infield, and the volt lap running 72% of the way
+// round from the left end of the top straight. The chalk lane line is left out; at 16px it
+// would be a smear between the lap and the edge.
+const TRACK = [0x23, 0x40, 0xe0];
+const TRACK_DEEP = [0x1a, 0x2f, 0xb0];
+const VOLT = [0xd7, 0xff, 0x3a];
 
-/** Cubic Bezier, flattened to a polyline. 24 segments is invisible at any icon size. */
-function bezier(p0, p1, p2, p3, steps = 24) {
-  const points = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const u = 1 - t;
-    points.push([
-      u * u * u * p0[0] + 3 * u * u * t * p1[0] + 3 * u * t * t * p2[0] + t * t * t * p3[0],
-      u * u * u * p0[1] + 3 * u * u * t * p1[1] + 3 * u * t * t * p2[1] + t * t * t * p3[1],
-    ]);
+const CORNER = 7; // the tile's rounded-rect radius
+
+/** The lap: a stadium 22 wide and 13 tall, centred on the tile. */
+const LAP = { left: 5, top: 9.5, width: 22, height: 13 };
+const LAP_HALF_STROKE = 1.7;
+const LAP_SHARE = 0.72;
+
+/** The infield: a short fat segment, which a distance field turns into a small stadium. */
+const INFIELD = { from: [13, 16], to: [19, 16], radius: 2 };
+
+/**
+ * The stadium's outline as a polyline, starting at the left end of the top straight and
+ * running clockwise, cut off after `share` of its length. That is the same start point and
+ * direction a stroked SVG `<rect rx>` uses, so the icon agrees with every oval in the UI.
+ */
+function lapPath(share) {
+  const r = LAP.height / 2;
+  const x0 = LAP.left + r;
+  const x1 = LAP.left + LAP.width - r;
+  const cy = LAP.top + r;
+  const points = [[x0, LAP.top], [x1, LAP.top]];
+  const ARC_STEPS = 32;
+  for (let i = 1; i <= ARC_STEPS; i++) {
+    const angle = -Math.PI / 2 + (Math.PI * i) / ARC_STEPS;
+    points.push([x1 + r * Math.cos(angle), cy + r * Math.sin(angle)]);
   }
-  return points;
+  points.push([x0, LAP.top + LAP.height]);
+  for (let i = 1; i <= ARC_STEPS; i++) {
+    const angle = Math.PI / 2 + (Math.PI * i) / ARC_STEPS;
+    points.push([x0 + r * Math.cos(angle), cy + r * Math.sin(angle)]);
+  }
+
+  let total = 0;
+  for (let i = 1; i < points.length; i++) {
+    total += Math.hypot(points[i][0] - points[i - 1][0], points[i][1] - points[i - 1][1]);
+  }
+  const budget = total * share;
+  const cut = [points[0]];
+  let walked = 0;
+  for (let i = 1; i < points.length; i++) {
+    const [ax, ay] = points[i - 1];
+    const [bx, by] = points[i];
+    const step = Math.hypot(bx - ax, by - ay);
+    if (walked + step >= budget) {
+      const t = (budget - walked) / step;
+      cut.push([ax + (bx - ax) * t, ay + (by - ay) * t]);
+      break;
+    }
+    cut.push(points[i]);
+    walked += step;
+  }
+  return cut;
 }
 
-/** The three thumbprint contours: `M13 21 C13 17.5 19 17.5 19 21`, and its two siblings. */
-const CONTOURS = [
-  bezier([13, 21], [13, 17.5], [19, 17.5], [19, 21]),
-  bezier([10, 21], [10, 14.5], [22, 14.5], [22, 21]),
-  bezier([7, 21], [7, 11.5], [25, 11.5], [25, 21]),
-];
-
-/** The route: `M5 25.5 L11 23 L17 25 L25.5 20`. */
-const ROUTE = [[5, 25.5], [11, 23], [17, 25], [25.5, 20]];
-
-/** The amber waypoint at the route's end. */
-const WAYPOINT = { cx: 25.5, cy: 20, r: 2.2 };
-
-const CORNER = 7; // the mark's rounded-rect radius, on the 32 grid
+const LAP_PATH = lapPath(LAP_SHARE);
 
 // ---------------------------------------------------------------------------------------
 // Rasterising
@@ -120,11 +146,10 @@ function shade(px, py, unit) {
       const y = (py + (sy + 0.5) / SS) * unit;
 
       if (roundedRectDistance(x, y, 32, CORNER) > 0) continue; // outside the tile
-      let colour = GROUND;
-      // Painted in the SVG's own order, so overlaps resolve the same way.
-      if (CONTOURS.some((c) => distanceToPolyline(x, y, c) <= 1)) colour = MOSS;
-      if (distanceToPolyline(x, y, ROUTE) <= 1) colour = INK;
-      if (Math.hypot(x - WAYPOINT.cx, y - WAYPOINT.cy) <= WAYPOINT.r) colour = AMBER;
+      let colour = TRACK;
+      if (distanceToSegment(x, y, INFIELD.from, INFIELD.to) <= INFIELD.radius) colour = TRACK_DEEP;
+      // A stroke with round caps is every point within half the stroke of the path.
+      if (distanceToPolyline(x, y, LAP_PATH) <= LAP_HALF_STROKE) colour = VOLT;
 
       r += colour[0];
       g += colour[1];

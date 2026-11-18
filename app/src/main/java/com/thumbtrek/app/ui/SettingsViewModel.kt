@@ -18,7 +18,10 @@ import java.time.LocalDate
 import com.thumbtrek.app.stats.freeLimitEditsLeft
 import com.thumbtrek.app.stats.weekKey
 import com.thumbtrek.app.track.ScrollTrackerService
+import com.google.firebase.auth.FirebaseAuth
+import com.thumbtrek.app.social.AccountSync
 import com.thumbtrek.app.work.LimitNudgeWorker
+import com.thumbtrek.app.work.WeeklyReportWorker
 import com.thumbtrek.app.work.StreakReminderWorker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -45,6 +48,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         val limitM: Float? = null,
         val freeEditsLeft: Int = 1,
         val premium: Boolean = false,
+        /** The limit is kept in the account and the browser's scrolling counts against it. */
+        val sharedLimit: Boolean = false,
+        val appLimits: Map<String, Float> = emptyMap(),
+        val weeklyReport: Boolean = false,
     )
 
     private val prefs = Prefs.get(app)
@@ -68,7 +75,16 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         limitM = prefs.dailyLimitM.value,
         freeEditsLeft = freeLimitEditsLeft(prefs.limitEditWeek, prefs.limitEditCount),
         premium = prefs.premium.value,
+        sharedLimit = prefs.sharedLimit.value,
+        appLimits = prefs.appLimits.value,
+        weeklyReport = prefs.weeklyReport.value,
     )
+
+    private val account = AccountSync(app)
+
+    /** Signed in with sync on: what the shared limit needs before it can do anything. */
+    val canShareLimit: Boolean
+        get() = FirebaseAuth.getInstance().currentUser != null && prefs.leaderboardOptIn.value
 
     /** Last limit-edit attempt: null until the user tries to save. */
     private val _limitEdit = MutableStateFlow<Prefs.LimitEditResult?>(null)
@@ -104,12 +120,25 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         _limitEdit,
     ) { limitM, premium, edit -> LimitSnapshot(limitM, premium, edit) }
 
+    private data class ExtraSnapshot(
+        val sharedLimit: Boolean,
+        val appLimits: Map<String, Float>,
+        val weeklyReport: Boolean,
+    )
+
+    private val extraState = combine(
+        prefs.sharedLimit,
+        prefs.appLimits,
+        prefs.weeklyReport,
+    ) { shared, appLimits, weekly -> ExtraSnapshot(shared, appLimits, weekly) }
+
     val state = combine(
         prefState,
         prefs.anonymous,
         trackingEnabled,
         limitState,
-    ) { snap: PrefSnapshot, anon: Boolean, enabled: Boolean, limit: LimitSnapshot ->
+        extraState,
+    ) { snap: PrefSnapshot, anon: Boolean, enabled: Boolean, limit: LimitSnapshot, extra: ExtraSnapshot ->
         UiState(
             trackingEnabled = enabled,
             trackedApps = snap.tracked,
@@ -122,6 +151,9 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
             freeEditsLeft = if (!BILLING_ENFORCED || limit.premium) Int.MAX_VALUE
                 else freeLimitEditsLeft(prefs.limitEditWeek, prefs.limitEditCount),
             premium = limit.premium,
+            sharedLimit = extra.sharedLimit,
+            appLimits = extra.appLimits,
+            weeklyReport = extra.weeklyReport,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), initial)
 
@@ -168,6 +200,36 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         prefs.startBaseline()
         LimitNudgeWorker.cancel(getApplication())
         _limitEdit.value = null
+        pushSharedLimit()
+    }
+
+    /**
+     * Sharing on: reconcile straight away, so the browser's limit (or this one) is in
+     * place before the user leaves the screen. Off: take the account's copy away.
+     */
+    fun setSharedLimit(enabled: Boolean) {
+        prefs.setSharedLimit(enabled)
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { if (enabled) account.syncSharedLimit() else account.withdrawSharedLimit() }
+        }
+    }
+
+    /** Best effort: the next sync repeats it, so a failure here costs nothing. */
+    private fun pushSharedLimit() {
+        if (!prefs.sharedLimit.value) return
+        viewModelScope.launch(Dispatchers.IO) { runCatching { account.syncSharedLimit() } }
+    }
+
+    fun setAppLimit(pkg: String, meters: Float?) {
+        prefs.setAppLimit(pkg, meters)
+        // App nudges ride on the limit-nudge job, which only runs while something needs it.
+        if (prefs.limitNudge.value) LimitNudgeWorker.schedule(getApplication())
+    }
+
+    fun setWeeklyReport(enabled: Boolean) {
+        prefs.setWeeklyReport(enabled)
+        if (enabled) WeeklyReportWorker.schedule(getApplication())
+        else WeeklyReportWorker.cancel(getApplication())
     }
 
     /** Launchable user-installed apps, for the "add another app" picker. */
@@ -228,6 +290,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
     fun trySetLimit(meters: Float): Prefs.LimitEditResult {
         val result = prefs.trySetDailyLimit(meters, weekKey())
         _limitEdit.value = result
+        if (result is Prefs.LimitEditResult.Applied) pushSharedLimit()
         return result
     }
 
@@ -235,6 +298,7 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         prefs.clearDailyLimit()
         LimitNudgeWorker.cancel(getApplication())
         _limitEdit.value = null
+        pushSharedLimit()
     }
 
     fun clearLimitEdit() {

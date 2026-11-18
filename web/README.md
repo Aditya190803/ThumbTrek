@@ -7,9 +7,13 @@ at a pinned version, and files served exactly as they sit in this folder.
 ```
 web/
   index.html            the marketing page
-  styles.css            the design system: tokens, buttons, sections, the contour panel
-  assets/mark.svg
-  vercel.json           cleanUrls, headers, and the /i/<code> rewrite
+  styles.css            the design system (DESIGN.md): tokens, buttons, the lap oval, lane rows, pricing
+  site.js               the direct-download button (a file, so the CSP can forbid inline scripts)
+  privacy.html          → /privacy
+  terms.html            → /terms
+  assets/track-mark.svg
+  assets/og.png         the 1200×630 share image
+  vercel.json           cleanUrls, security headers including the CSP, and the /i/<code> rewrite
   app/
     index.html          the dashboard          → /app
     invite.html         the invite page        → /app/invite, and /i/<code> via a rewrite
@@ -20,10 +24,22 @@ web/
     stats.js            streaks, buckets, landmarks, badges (port of stats/Stats.kt)
     board.js            leaderboard scoring, the µm/pixels fallback, the per-source split
     data.js             every Firestore read
-    friends.js          the two-edge friendship protocol — the only writes on the site
-    charts.js           inline-SVG charts with a real data table behind them
-    dom.js              element helpers
-    main.js             the dashboard controller
+    friends.js          the two-edge friendship protocol, one of two kinds of write on the site
+    group-store.js      creating, joining, leaving and deleting groups, and setting challenges;
+                        the other kind of write. Never a progress document
+    report.js           weekly and monthly reports  ┐ shared with extension/lib, byte for
+    groups.js           groups and challenges       │ byte; a test in each suite fails if
+    limits.js           the shared limit, Premium   ┘ they drift
+    oval.js             the lap oval as numbers: lane percentages, caption, geometry
+    charts.js           the oval and the history chart as inline SVG, with a data table behind the chart
+    dom.js              element helpers, the loading skeleton
+    state.js            what the dashboard knows, and the figures derived from it
+    today-view.js       Today: the oval, its lanes, the limit note, the totals
+    history-view.js     History: the chart, sources, breakdown, day log, records, badges
+    report-view.js      History: the report
+    friends-view.js     Friends: the leaderboard, the podium, the friend list
+    groups-view.js      Friends: groups, their boards and challenges
+    main.js             the dashboard controller: auth, listeners, routing between sections
     invite.js           the invite-page controller
     test/               node --test, no dependencies
 ```
@@ -36,6 +52,8 @@ web/
 | `/app`          | `app/index.html`     | dashboard; signed-out visitors get a real page, not a redirect |
 | `/app/invite`   | `app/invite.html`    | invite page, reachable directly with `?code=…`           |
 | `/i/<code>`     | → `/app/invite`      | rewrite, so the pretty URL stays in the address bar      |
+| `/privacy`      | `privacy.html`       | what is measured, published, and how to delete it        |
+| `/terms`        | `terms.html`         | plain terms; Premium is described as not on sale         |
 
 `/i/<code>` is the link `social/Identity.kt` has always put on the phone's share sheet, so
 those URLs are already out in the world. The rewrite in `vercel.json` passes the capture
