@@ -64,8 +64,10 @@
 
     <h2>Who processes it</h2>
     <p>Data you publish is stored in Google Firebase (Firestore and Authentication). Sign-in
-      uses your Google account. The Android app checks GitHub for updates with an anonymous
-      request that carries no account, no device identifier and no scroll data. There is no
+      uses your Google account. The Android app downloaded from GitHub checks GitHub for
+      updates with an anonymous request that carries no account, no device identifier and no
+      scroll data. The Google Play version gets its updates from Google Play and makes no such
+      request. There is no
       advertising, no analytics and no tracking of any kind, and nothing is sold.</p>
     <p>When the Android app crashes, it sends a crash report to Google Firebase Crashlytics
       so the bug can be found and fixed. A report holds the stack trace, the device model,
