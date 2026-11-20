@@ -68,7 +68,6 @@ import com.thumbtrek.app.share.BackupStore
 import com.thumbtrek.app.stats.BILLING_ENFORCED
 import com.thumbtrek.app.stats.formatDistance
 import com.thumbtrek.app.track.ScrollTrackerService
-import com.thumbtrek.app.update.UpdateSettingsContent
 import kotlinx.coroutines.launch
 
 
@@ -182,8 +181,8 @@ fun SettingsScreen(
                 // an accessibility service on. See ScrollTrackerService.pause.
                 Spacer(modifier = Modifier.height(14.dp))
                 Text(
-                    "Google Pay or a bank app refusing to open? They block any accessibility " +
-                        "service not installed from the Play Store. Pause tracking, pay, then " +
+                    "Google Pay or a bank app refusing to open? Some payment apps block " +
+                        "while any accessibility service is on. Pause tracking, pay, then " +
                         "turn it back on here.",
                     style = MaterialTheme.typography.bodySmall,
                     color = Trek.textDim,
@@ -503,22 +502,9 @@ fun SettingsScreen(
         Column {
             SectionHead("About ThumbTrek")
 
-            // The self-updater rides here, above the Version row (the banner-ish slot the
-            // old TODO reserved). Its stock container · UpdateCard's OutlinedCard · would
-            // drop a foreign card shape into this screen's panel system, so we take
-            // UpdateSettingsContent, contents only, and dress it in a TrekPanel the way
-            // Privacy does. UpdateUi.kt is deliberately plain Material3 so it keeps
-            // compiling when the design system moves; the dressing stays local to this
-            // file. The content wires up its own ViewModel via the default viewModel(),
-            // which shares state with the background worker through UpdateRepository.
-            TrekPanel { UpdateSettingsContent() }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
+            // Play build: Google Play delivers updates, so there is no updater panel here.
             ActionRow(
                 title = "Version",
-                // Same PackageManager lookup UpdateRepository performs for the updater's
-                // own "Installed:" line, so the two can never disagree.
                 subtitle = "ThumbTrek $installedVersion",
                 onClick = null,
             )
@@ -749,9 +735,8 @@ internal fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
 }
 
 /**
- * The installed version name, read the same way the updater's UpdateRepository reads it so
- * the Version row and the updater's own "Installed:" line can never disagree. A bare "?"
- * keeps the row intact if the package manager somehow cannot see our own package.
+ * The installed version name. A bare "?" keeps the row intact if the package manager
+ * somehow cannot see our own package.
  */
 private fun installedVersionName(context: Context): String =
     try {

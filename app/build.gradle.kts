@@ -103,16 +103,13 @@ android {
         }
 
         release {
-            // R8 stays OFF deliberately. proguard-rules.pro already carries the keep rules
-            // this app would need (Room, Firebase/Firestore, Compose, the accessibility
-            // service, the updater's reflective-free surface), but nothing here has been
-            // verified by an actual shrunk build yet — and a bad R8 config on a sideloaded,
-            // self-updating app is unrecoverable: the broken build is also the one that
-            // ships the next update. Flip both flags to true, run `assembleRelease`, and
-            // smoke-test tracking + sign-in + leaderboard on a device before trusting it.
+            // R8 is ON for the Play build. On main it stays off, because a broken shrunk
+            // build there would also be the one shipping its own fix through the
+            // self-updater. Here Play delivers updates, so a bad build can be replaced like
+            // any other. Crashlytics de-obfuscates stack traces with the uploaded mapping file.
             manifestPlaceholders["crashlyticsEnabled"] = true
-            isMinifyEnabled = false
-            isShrinkResources = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -168,4 +165,15 @@ dependencies {
     testImplementation(libs.junit)
     // org.json ships with Android but is only a stub on the unit-test classpath.
     testImplementation(libs.json)
+}
+
+// The mapping upload needs a real Firebase project. With the committed placeholder config
+// (a fresh clone, or CI without the GOOGLE_SERVICES_JSON secret) it would fail the whole
+// release build, so it only runs when the real config is present.
+val realFirebaseConfig = file("google-services.json").takeIf { it.isFile }
+    ?.readText()?.contains("thumbtrek-placeholder") == false
+android.buildTypes.getByName("release") {
+    configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+        mappingFileUploadEnabled = realFirebaseConfig
+    }
 }

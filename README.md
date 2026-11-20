@@ -277,9 +277,30 @@ hand-built sideload, forever. An APK signed with anything else will not install 
 That is exactly why the workflow signs from a repository secret rather than from whatever
 key happens to sit on the machine doing the build.
 
-## Automatic updates
+## Google Play build (this branch)
 
-ThumbTrek is not on the Play Store, so it updates itself. Everything lives in
+`release/play` is the Play Store line. It is `main` minus the self-updater, plus R8:
+
+- **No self-updater.** Play's policy forbids an app updating itself outside Play, so
+  `app/src/main/java/com/thumbtrek/app/update/`, `REQUEST_INSTALL_PACKAGES`,
+  `UPDATE_PACKAGES_WITHOUT_USER_ACTION` and the Settings update panel are gone. The
+  sideloaded APK on `main` keeps all of them.
+- **R8 on** (`isMinifyEnabled`, `isShrinkResources`). On `main` it stays off because a broken
+  shrunk build would also be the one shipping its own fix; here Play delivers fixes.
+  Smoke-tested on an API 35 emulator: onboarding, the disclosure, tracking banking real
+  distance, sign-in failing cleanly without an account, and all four tabs.
+- **Builds an AAB.** `.github/workflows/release.yml` on this branch runs on `play-v*` tags
+  and attaches a signed `.aab` plus the R8 mapping to the run. Upload it in Play Console.
+
+Keeping it in sync: rebase this branch onto `main` (or merge `main` into it) before every
+Play release. The diff is small and lives in a handful of files: the manifest, the Settings
+About section, `proguard-rules.pro`, `app/build.gradle.kts`, the workflow and this section.
+
+Before the first upload, see "Play Console checklist" in `docs/play-store.md` on `main`.
+
+## Automatic updates (sideloaded build on `main` only)
+
+The sideloaded build updates itself. This branch has none of it. Everything lives in
 `app/src/main/java/com/thumbtrek/app/update/` and could be deleted wholesale without
 touching anything else.
 

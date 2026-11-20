@@ -1,50 +1,46 @@
-# Cuts a signed ThumbTrek release and publishes everything the in-app updater needs.
+# Builds the signed Android App Bundle for Google Play. This is the release/play branch's
+# workflow. main keeps its own, which publishes the sideloaded APK and update.json that
+# the in-app updater reads. This branch has no updater, so it publishes neither.
 #
-# Trigger: push a version tag.
+# Trigger: push a play tag pointing at a commit on release/play.
 #
-#     git tag -a v0.2.0 -m "What changed in this build"
-#     git push origin v0.2.0
+#     git tag -a play-v0.7.0 -m "What changed"
+#     git push origin play-v0.7.0
 #
-# The tag's annotation message becomes the release notes shown inside the app, so write it
-# for a human. Bump `versionCode` and `versionName` in app/build.gradle.kts first — the
-# updater compares versionCode, and a release whose versionCode is not higher than the
-# installed one is invisible to it.
+# Bump `versionCode` first: Play rejects an upload whose versionCode it has already seen,
+# and that counter is shared with the sideloaded line if both use the same applicationId.
 #
-# `workflow_dispatch` runs the same build without publishing, so the signing setup can be
-# tested before a real release exists.
+# The .aab is attached to the workflow run as an artifact. Upload it in Play Console →
+# Release → (track) → Create new release. Automating the upload needs a Play service
+# account (r0adkll/upload-google-play or the Play Developer API) and is left out on
+# purpose until the first manual release has gone through review.
 #
-# Required repository secrets (Settings → Secrets and variables → Actions):
-#   KEYSTORE_BASE64        base64 of the release .jks
-#   KEYSTORE_PASSWORD      the store password
-#   KEY_ALIAS              the key alias inside the store
-#   KEY_PASSWORD           the key password
-#   GOOGLE_SERVICES_JSON   (optional) the real app/google-services.json, so release builds
-#                          can sign in to Firebase. Without it the build falls back to the
-#                          committed placeholder and Google Sign-In will not work.
-name: Release
+# Required repository secrets (the same ones main's workflow uses):
+#   KEYSTORE_BASE64, KEYSTORE_PASSWORD, KEY_ALIAS, KEY_PASSWORD
+#     The upload key. If you enroll in Play App Signing with the existing release key as
+#     the app signing key, the Play build and the sideloaded APK share a signature, so
+#     people can move from one to the other without uninstalling.
+#   GOOGLE_SERVICES_JSON
+#     The real app/google-services.json. Required here, not optional: without it sign-in
+#     breaks, and the Crashlytics mapping file can't be uploaded, so R8-obfuscated crash
+#     reports would be unreadable.
+name: Play release
 
 on:
   push:
     tags:
-      - "v*"
+      - "play-v*"
   workflow_dispatch:
 
-# Needed to create the GitHub Release and upload its assets.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  release:
+  bundle:
     runs-on: ubuntu-latest
-
-    env:
-      GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          # Annotated tag contents are the release notes, and they only exist with tags fetched.
-          fetch-depth: 0
 
       - uses: actions/setup-java@v4
         with:
@@ -54,112 +50,52 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Restore the real Firebase config
-        if: env.GOOGLE_SERVICES_JSON != ''
-        run: printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
-
-      - name: Warn when building against the Firebase placeholder
-        if: env.GOOGLE_SERVICES_JSON == ''
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
         run: |
-          echo "::warning::GOOGLE_SERVICES_JSON secret is not set — this build uses the committed placeholder and Google Sign-In will fail in it."
+          set -euo pipefail
+          if [ -z "${GOOGLE_SERVICES_JSON}" ]; then
+            echo "::error::GOOGLE_SERVICES_JSON secret is missing. A Play build without it ships broken sign-in."
+            exit 1
+          fi
+          printf '%s' "$GOOGLE_SERVICES_JSON" > app/google-services.json
 
-      - name: Decode the release keystore
+      - name: Decode the upload keystore
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
         run: |
           set -euo pipefail
           if [ -z "${KEYSTORE_BASE64}" ]; then
-            echo "::error::KEYSTORE_BASE64 secret is missing — refusing to publish an unsigned build."
+            echo "::error::KEYSTORE_BASE64 secret is missing. Play only accepts signed bundles."
             exit 1
           fi
           printf '%s' "$KEYSTORE_BASE64" | base64 -d > "${RUNNER_TEMP}/thumbtrek-release.jks"
-          # Sanity check: base64 -d happily produces garbage from a mangled paste.
           test -s "${RUNNER_TEMP}/thumbtrek-release.jks"
 
-      - name: Build the signed release APK
+      - name: Build the signed bundle
         env:
-          # These are the env-var fallbacks app/build.gradle.kts reads when there is no
-          # local keystore.properties.
           THUMBTREK_KEYSTORE_FILE: ${{ runner.temp }}/thumbtrek-release.jks
           THUMBTREK_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
           THUMBTREK_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
           THUMBTREK_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
-        run: ./gradlew --no-daemon assembleRelease
+        # testReleaseUnitTest runs the suite against the release variant as well.
+        run: ./gradlew --no-daemon testReleaseUnitTest bundleRelease
 
-      - name: Verify the APK is actually signed
-        id: verify
+      - name: Verify the bundle is signed
         run: |
           set -euo pipefail
-          APKSIGNER=$(ls -d "${ANDROID_SDK_ROOT}"/build-tools/*/apksigner | sort -V | tail -n1)
-          APK=$(ls app/build/outputs/apk/release/*.apk | head -n1)
-          echo "Verifying $APK"
-          # Fails the workflow on an unsigned/debug-signed APK, and prints the certificate
-          # fingerprints — the SHA-1 below is what Firebase needs for Google Sign-In.
-          "$APKSIGNER" verify --print-certs --verbose "$APK"
-
-      - name: Assemble the release assets
-        id: assets
-        run: |
-          set -euo pipefail
-          META=app/build/outputs/apk/release/output-metadata.json
-          VERSION_CODE=$(jq -r '.elements[0].versionCode' "$META")
-          VERSION_NAME=$(jq -r '.elements[0].versionName' "$META")
-          SOURCE=app/build/outputs/apk/release/$(jq -r '.elements[0].outputFile' "$META")
-
-          TAG="${GITHUB_REF_NAME}"
-          if [ "${GITHUB_REF_TYPE}" != "tag" ]; then
-            # Dry run from workflow_dispatch — nothing is published, but the URL still has
-            # to be well formed so the manifest can be eyeballed.
-            TAG="v${VERSION_NAME}"
-          fi
-
+          AAB=$(ls app/build/outputs/bundle/release/*.aab | head -n1)
+          # jarsigner -verify exits 0 on unsigned jars too, so require the "jar verified."
+          # line and print the certificate for the record.
+          jarsigner -verify -verbose:summary -certs "$AAB" | tee verify.txt
+          grep -q "jar verified." verify.txt
+          VERSION_NAME=$(grep -m1 'versionName = ' app/build.gradle.kts | sed 's/.*"\(.*\)".*/\1/')
           mkdir -p dist
-          APK_NAME="thumbtrek-${VERSION_NAME}.apk"
-          cp "$SOURCE" "dist/${APK_NAME}"
+          cp "$AAB" "dist/thumbtrek-${VERSION_NAME}.aab"
+          cp -r app/build/outputs/mapping/release dist/mapping
 
-          SHA256=$(sha256sum "dist/${APK_NAME}" | cut -d' ' -f1)
-          SIZE=$(stat -c%s "dist/${APK_NAME}")
-
-          # Annotated tag message is the release notes; fall back to the commit subject.
-          NOTES=$(git tag -l --format='%(contents)' "$TAG" 2>/dev/null || true)
-          if [ -z "${NOTES//[$'\n\r\t ']/}" ]; then
-            NOTES=$(git log -1 --pretty=%s)
-          fi
-
-          # This is the file the app polls. Keep the shape in sync with
-          # app/src/main/java/com/thumbtrek/app/update/UpdateManifest.kt.
-          jq -n \
-            --argjson versionCode "$VERSION_CODE" \
-            --arg versionName "$VERSION_NAME" \
-            --arg apkUrl "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${APK_NAME}" \
-            --arg sha256 "$SHA256" \
-            --argjson sizeBytes "$SIZE" \
-            --arg notes "$NOTES" \
-            --arg publishedAt "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
-            '{versionCode: $versionCode, versionName: $versionName, apkUrl: $apkUrl, sha256: $sha256, sizeBytes: $sizeBytes, notes: $notes, publishedAt: $publishedAt}' \
-            > dist/update.json
-
-          cat dist/update.json
-          {
-            echo "tag=${TAG}"
-            echo "version_name=${VERSION_NAME}"
-            echo "version_code=${VERSION_CODE}"
-          } >> "$GITHUB_OUTPUT"
-
-      # Dry run: keep the artifacts for inspection, publish nothing.
-      - name: Upload build artifacts (dry run)
-        if: github.ref_type != 'tag'
+      - name: Upload the bundle
         uses: actions/upload-artifact@v4
         with:
-          name: thumbtrek-release-dry-run
+          name: thumbtrek-play-bundle
           path: dist/
-
-      - name: Publish the GitHub Release
-        if: github.ref_type == 'tag'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.assets.outputs.tag }}
-          name: ThumbTrek ${{ steps.assets.outputs.version_name }}
-          generate_release_notes: true
-          files: |
-            dist/thumbtrek-${{ steps.assets.outputs.version_name }}.apk
-            dist/update.json
