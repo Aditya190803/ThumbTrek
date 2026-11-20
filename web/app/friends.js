@@ -63,13 +63,13 @@ export async function sendRequest(myUid, input) {
   const code = normalizeFriendCode(input);
   if (code.length !== FRIEND_CODE_LENGTH) {
     throw new Error(
-      `That code doesn't look right — friend codes are ${FRIEND_CODE_LENGTH} characters.`,
+      `That code doesn't look right. Friend codes are ${FRIEND_CODE_LENGTH} characters.`,
     );
   }
   if (code === (await friendCode(myUid))) throw new Error("That's your own code.");
 
   const friend = await resolveCode(code);
-  if (!friend) throw new Error('No trekker has that code yet.');
+  if (!friend) throw new Error('Nobody has that code yet.');
   if (friend === myUid) throw new Error("That's your own code.");
 
   const { db, storeMod, auth } = await firebase();
@@ -77,7 +77,7 @@ export async function sendRequest(myUid, input) {
   if (mine.exists()) {
     throw new Error(
       mine.data()?.status === STATUS_PENDING
-        ? 'Request already sent — waiting on them.'
+        ? 'Request already sent. Waiting on them to accept.'
         : "You're already trekking together.",
     );
   }

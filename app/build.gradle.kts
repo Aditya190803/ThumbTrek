@@ -159,4 +159,6 @@ dependencies {
     implementation(libs.play.services.coroutines)
     implementation(libs.coil.compose)
     testImplementation(libs.junit)
+    // org.json ships with Android but is only a stub on the unit-test classpath.
+    testImplementation(libs.json)
 }

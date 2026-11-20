@@ -235,7 +235,7 @@ test('week over week compares the same stretch of last week', () => {
 // --- landmarks ------------------------------------------------------------------------
 
 test('comparisons scale with distance', () => {
-  assert.equal(comparison(0), 'No trek yet — go scroll something.');
+  assert.equal(comparison(0), 'Nothing scrolled yet.');
   assert.match(comparison(0.25), /banana/);
   assert.match(comparison(12.4), /school bus/);
   assert.match(comparison(1000), /Burj Khalifa/);

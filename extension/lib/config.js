@@ -65,23 +65,3 @@ export async function loadConfig() {
   cached = Object.freeze({ ...config });
   return cached;
 }
-
-/** True when sync is usable. Never throws, so UI can branch on it without a try. */
-export async function isConfigured() {
-  try {
-    await loadConfig();
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-/** The `ConfigError` message, or null when the config is fine. For rendering a banner. */
-export async function configProblem() {
-  try {
-    await loadConfig();
-    return null;
-  } catch (error) {
-    return error instanceof ConfigError ? error.message : String(error?.message ?? error);
-  }
-}

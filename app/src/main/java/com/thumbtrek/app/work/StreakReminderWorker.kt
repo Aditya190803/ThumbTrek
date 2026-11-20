@@ -70,7 +70,7 @@ class StreakReminderWorker(
         val notification = NotificationCompat.Builder(applicationContext, STREAK_CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle("$days in, 0 m today")
-            .setContentText("Not a lecture — just the one day your streak needs a thumb.")
+            .setContentText("Your streak needs one tracked day to keep going.")
             .setContentIntent(openApp)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .setAutoCancel(true)

@@ -3,286 +3,263 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>ThumbTrek — Strava for scrolling</title>
+  <title>ThumbTrek: how far did your thumb scroll today?</title>
   <meta name="description" content="See how far your thumb scrolls on Instagram, YouTube, X and Reddit, in metres. Set a daily limit or just watch, with streaks, history and opt-in leaderboards. Android, no account needed." />
   <link rel="canonical" href="https://thumbtrek.adityamer.dev/" />
   <meta property="og:site_name" content="ThumbTrek" />
-  <meta property="og:title" content="ThumbTrek — Strava for scrolling" />
-  <meta property="og:description" content="Measure the trek your thumb already takes. Distance, daily limits, streaks and opt-in boards." />
+  <meta property="og:title" content="ThumbTrek: how far did your thumb scroll today?" />
+  <meta property="og:description" content="Your scrolling, measured in metres and laps. Daily limits, streaks and opt-in leaderboards." />
   <meta property="og:type" content="website" />
   <meta property="og:url" content="https://thumbtrek.adityamer.dev/" />
-  <meta name="twitter:card" content="summary" />
-  <meta name="theme-color" content="#0c0f0b" media="(prefers-color-scheme: dark)" />
-  <meta name="theme-color" content="#f3f1e8" media="(prefers-color-scheme: light)" />
-  <link rel="icon" href="/assets/mark.svg" type="image/svg+xml" />
+  <meta property="og:image" content="https://thumbtrek.adityamer.dev/assets/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="ThumbTrek: how far did your thumb scroll today? A running track showing 1.48 km, 3.7 laps." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:image" content="https://thumbtrek.adityamer.dev/assets/og.png" />
+  <meta name="theme-color" content="#2340e0" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#2340e0" media="(prefers-color-scheme: light)" />
+  <link rel="icon" href="/assets/track-mark.svg" type="image/svg+xml" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
-  <header class="wrap nav">
-    <a class="brand" href="/">
-      <img src="/assets/mark.svg" width="32" height="32" alt="" />
-      ThumbTrek
-    </a>
-    <nav class="nav-links" aria-label="Primary">
-      <a href="#how">How it works</a>
-      <a href="#scale">The scale</a>
-      <a href="#privacy">Privacy</a>
-      <a href="/app">Dashboard</a>
-      <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>Get the APK</a>
-    </nav>
-  </header>
+  <div class="on-track">
+    <header class="wrap nav">
+      <a class="brand" href="/">
+        <img src="/assets/track-mark.svg" width="40" height="24" alt="" />
+        ThumbTrek
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#how">How it works</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#privacy">Privacy</a>
+        <a href="/app">Dashboard</a>
+      </nav>
+    </header>
 
-  <main>
-    <section class="wrap hero" aria-labelledby="hero-h">
-      <div class="hero-copy">
-        <p class="overline">Android · sideload</p>
-        <h1 id="hero-h">Your thumb<br />goes <span>somewhere</span>.</h1>
-        <p class="hero-lead">
-          ThumbTrek measures how far. Instagram, YouTube, X and Reddit, converted from
-          pixels to metres — with a daily limit if you want one, streaks, records and
-          boards you opt into.
-        </p>
-        <div class="cta-row">
-          <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>
-            Download for Android
-          </a>
-          <a class="btn btn-ghost" href="https://github.com/Aditya190803/ThumbTrek">
-            Source on GitHub
-          </a>
+    <main id="top">
+      <section class="wrap hero" aria-labelledby="hero-h">
+        <h1 id="hero-h">Your thumb ran 3.7 laps today.</h1>
+        <div class="hero-row">
+          <p class="hero-lead">
+            ThumbTrek measures how far you scroll in Instagram, YouTube, X and Reddit, in real
+            metres. Set a daily limit, or just watch the laps add up.
+          </p>
+          <div>
+            <div class="cta-row">
+              <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>Download for Android</a>
+              <a class="btn btn-ghost" href="https://github.com/Aditya190803/ThumbTrek">Source on GitHub</a>
+            </div>
+            <p class="cta-note">Free. Android 8.0 or newer. No account needed.</p>
+          </div>
         </div>
-        <p class="cta-note">Android 8.0+ · signed APK · updates itself</p>
-      </div>
 
-      <div class="map">
-        <svg viewBox="0 0 400 320" role="img" aria-label="A route climbing across contour lines, with three waypoints marking a day's trek.">
-          <g aria-hidden="true">
-            <path class="contour" d="M-10 250 C70 230 130 264 200 246 C270 228 330 254 410 234" />
-            <path class="contour" d="M-10 218 C70 196 130 232 200 212 C270 192 330 222 410 200" />
-            <path class="contour" d="M-10 186 C70 162 130 199 200 177 C270 155 330 187 410 164" />
-            <path class="contour" d="M-10 154 C70 128 130 166 200 142 C270 118 330 152 410 128" />
-            <path class="contour" d="M-10 122 C70 94 130 133 200 107 C270 81 330 117 410 92" />
-            <path class="contour" d="M-10 90 C70 60 130 100 200 72 C270 44 330 82 410 56" />
-            <path class="contour" d="M-10 58 C70 26 130 67 200 37 C270 7 330 47 410 20" />
-          </g>
-          <path class="route" d="M40 228 L100 200 L148 210 L208 166 L260 146 L302 104 L350 82" />
-          <circle class="waypoint" cx="40" cy="228" r="5" fill="#f2b455" />
-          <circle class="waypoint" cx="208" cy="166" r="5" fill="#8be6a0" />
-          <circle class="waypoint" cx="350" cy="82" r="5" fill="#8fb6cc" />
-        </svg>
-
-        <div class="readouts">
-          <article class="readout">
-            <p class="overline">Today</p>
-            <p class="readout-value num v-moss">1.84<span class="unit">km</span></p>
-          </article>
-          <article class="readout">
-            <p class="overline">Streak</p>
-            <p class="readout-value num v-amber">12<span class="unit">days</span></p>
-          </article>
-          <article class="readout">
-            <p class="overline">Best day</p>
-            <p class="readout-value num v-slate">3.10<span class="unit">km</span></p>
-          </article>
+        <div class="oval">
+          <svg viewBox="0 0 1000 571" role="img" aria-label="An example day drawn as a running track. The outer lane shows 1.48 kilometres of a 2 kilometre limit; the inner lanes show Instagram, YouTube, X and Reddit.">
+            <rect class="oval-ground" width="1000" height="571" rx="285.5" />
+            <rect class="oval-infield" x="160" y="160" width="680" height="251" rx="125.5" />
+            <g aria-hidden="true">
+              <rect class="oval-line" x="0.75" y="0.75" width="998.5" height="569.5" rx="284.75" />
+              <rect class="oval-line" x="32" y="32" width="936" height="507" rx="253.5" />
+              <rect class="oval-line" x="64" y="64" width="872" height="443" rx="221.5" />
+              <rect class="oval-line" x="96" y="96" width="808" height="379" rx="189.5" />
+              <rect class="oval-line" x="128" y="128" width="744" height="315" rx="157.5" />
+              <rect class="oval-line" x="160" y="160" width="680" height="251" rx="125.5" />
+              <rect class="lane lane-1" style="--lap: 74" pathLength="100" stroke-width="18" x="16" y="16" width="968" height="539" rx="269.5" />
+              <rect class="lane lane-2" style="--lap: 32" pathLength="100" stroke-width="18" x="48" y="48" width="904" height="475" rx="237.5" />
+              <rect class="lane lane-3" style="--lap: 23.5" pathLength="100" stroke-width="18" x="80" y="80" width="840" height="411" rx="205.5" />
+              <rect class="lane lane-4" style="--lap: 12.5" pathLength="100" stroke-width="18" x="112" y="112" width="776" height="347" rx="173.5" />
+              <rect class="lane lane-5" style="--lap: 6" pathLength="100" stroke-width="18" x="144" y="144" width="712" height="283" rx="141.5" />
+              <line class="oval-finish" x1="285.5" y1="0" x2="285.5" y2="160" />
+            </g>
+          </svg>
+          <div class="oval-infield-text" aria-hidden="true">
+            <p class="oval-figure num">1.48<span class="unit">km</span></p>
+            <p class="oval-caption">520 m left of 2.00 km</p>
+          </div>
         </div>
-      </div>
-    </section>
 
-    <section class="wrap" id="how">
+        <ol class="lanes" aria-label="The example day, lane by lane">
+          <li><span class="lane-no">1</span><span class="lane-name">Total</span><span class="lane-dist">1.48 km</span></li>
+          <li><span class="lane-no">2</span><span class="lane-name" style="--swatch: var(--lane-2)">Instagram</span><span class="lane-dist">640 m</span></li>
+          <li><span class="lane-no">3</span><span class="lane-name" style="--swatch: var(--lane-3)">YouTube</span><span class="lane-dist">470 m</span></li>
+          <li><span class="lane-no">4</span><span class="lane-name" style="--swatch: var(--lane-4)">X</span><span class="lane-dist">250 m</span></li>
+          <li><span class="lane-no">5</span><span class="lane-name" style="--swatch: var(--lane-5)">Reddit</span><span class="lane-dist">120 m</span></li>
+        </ol>
+      </section>
+    </main>
+  </div>
+
+  <div>
+    <section class="wrap section" id="how" aria-labelledby="how-h">
       <div class="section-head">
-        <p class="overline">How it works</p>
-        <h2>A trek, not a guilt trip</h2>
-        <p>ThumbTrek measures distance, not doom. No blocking, no lectures — just the map of where your thumb already went.</p>
+        <h2 id="how-h">It counts distance, and nothing else</h2>
+        <p>No blocking and no lectures. ThumbTrek shows how far your thumb already went, and one full lap of the track is your daily limit.</p>
       </div>
 
-      <div class="trail">
-        <article class="trail-step">
+      <ol class="steps">
+        <li>
+          <span class="lane-no" aria-hidden="true">1</span>
           <div>
             <h3>Grant Accessibility once</h3>
-            <p>The service listens for scroll events in the apps you choose. It never asks for permission to read screen content, so it cannot see posts, text or URLs — only how far a view moved.</p>
+            <p>The service listens for scroll events in the apps you choose. It never asks for permission to read screen content, so it cannot see posts, text or URLs. It only sees how far a view moved.</p>
           </div>
-        </article>
-        <article class="trail-step">
+        </li>
+        <li>
+          <span class="lane-no" aria-hidden="true">2</span>
           <div>
             <h3>Scroll like you already do</h3>
-            <p>Pixels become metres using your screen's density: <span class="num">pixels ÷ dpi × 0.0254</span>. Nothing to start, nothing to stop, no timer running in the corner.</p>
+            <p>Pixels become metres using your screen's density: <code>pixels ÷ dpi × 0.0254</code>. There is nothing to start and nothing to stop.</p>
           </div>
-        </article>
-        <article class="trail-step">
+        </li>
+        <li>
+          <span class="lane-no" aria-hidden="true">3</span>
           <div>
             <h3>Pick a limit, or don't</h3>
-            <p>Set a daily distance and every day you finish at or under it counts toward a clean-day run. Rather just watch? Baseline mode keeps the numbers with no cap and no verdicts.</p>
+            <p>Set a daily distance, and every day you finish at or under it adds to your clean-day run. To just watch instead, baseline mode keeps the numbers with no cap and no verdicts.</p>
           </div>
-        </article>
-        <article class="trail-step">
+        </li>
+        <li>
+          <span class="lane-no" aria-hidden="true">4</span>
           <div>
             <h3>Check the board when you want</h3>
-            <p>Daily and weekly totals, streaks, personal records, shareable cards, and friend or global boards that stay empty until you opt in.</p>
+            <p>Daily and weekly totals, streaks, personal records, shareable cards, and friend or global leaderboards that stay empty until you opt in.</p>
           </div>
-        </article>
-      </div>
+        </li>
+      </ol>
 
       <div class="apps" aria-label="Tracked apps">
         <span class="chip">Instagram</span>
         <span class="chip">YouTube</span>
         <span class="chip">X</span>
         <span class="chip">Reddit</span>
-        <span class="chip chip-muted">+ any app you add</span>
+        <span class="chip chip-muted">and any app you add</span>
       </div>
     </section>
 
-    <section class="wrap" id="scale">
+    <section class="wrap section" id="scale" aria-labelledby="scale-h">
       <div class="section-head">
-        <p class="overline">The scale</p>
-        <h2>Metres mean nothing. Landmarks do.</h2>
-        <p>A number like 830&nbsp;m doesn't land. So every total gets measured against something you can picture — the ladder the app actually walks up.</p>
+        <h2 id="scale-h">830 m means little. The Burj Khalifa means more.</h2>
+        <p>Every total is measured against something you can picture, and counted in 400 m laps. This is the ladder the app walks up.</p>
       </div>
 
       <div class="ladder">
-        <div class="rung">
-          <span class="rung-dist num">1.8 m</span>
-          <span class="rung-label">a queen-size bed</span>
-          <span class="rung-note">a glance at notifications</span>
-        </div>
-        <div class="rung">
-          <span class="rung-dist num">28 m</span>
-          <span class="rung-label">a basketball court</span>
-          <span class="rung-note">waiting for the kettle</span>
-        </div>
-        <div class="rung">
-          <span class="rung-dist num">105 m</span>
-          <span class="rung-label">a football pitch</span>
-          <span class="rung-note">one queue</span>
-        </div>
-        <div class="rung">
-          <span class="rung-dist num">330 m</span>
-          <span class="rung-label">the Eiffel Tower</span>
-          <span class="rung-note">a coffee break</span>
-        </div>
-        <div class="rung">
-          <span class="rung-dist num">830 m</span>
-          <span class="rung-label">the Burj Khalifa</span>
-          <span class="rung-note">a lunch hour</span>
-        </div>
-        <div class="rung">
-          <span class="rung-dist num">2.74 km</span>
-          <span class="rung-label">the Golden Gate Bridge</span>
-          <span class="rung-note">an evening in</span>
-        </div>
-        <div class="rung">
-          <span class="rung-dist num">8.85 km</span>
-          <span class="rung-label">Mount Everest</span>
-          <span class="rung-note">a long weekend</span>
-        </div>
-        <div class="rung">
-          <span class="rung-dist num">42.2 km</span>
-          <span class="rung-label">a marathon</span>
-          <span class="rung-note">a fortnight, honestly</span>
-        </div>
+        <div class="rung"><span class="rung-dist">1.8 m</span><span class="rung-label">a queen-size bed</span><span class="rung-note">under 0.1 laps</span></div>
+        <div class="rung"><span class="rung-dist">28 m</span><span class="rung-label">a basketball court</span><span class="rung-note">0.1 laps</span></div>
+        <div class="rung"><span class="rung-dist">105 m</span><span class="rung-label">a football pitch</span><span class="rung-note">0.3 laps</span></div>
+        <div class="rung"><span class="rung-dist">330 m</span><span class="rung-label">the Eiffel Tower</span><span class="rung-note">0.8 laps</span></div>
+        <div class="rung"><span class="rung-dist">830 m</span><span class="rung-label">the Burj Khalifa</span><span class="rung-note">2.1 laps</span></div>
+        <div class="rung"><span class="rung-dist">2.74 km</span><span class="rung-label">the Golden Gate Bridge</span><span class="rung-note">6.9 laps</span></div>
+        <div class="rung"><span class="rung-dist">8.85 km</span><span class="rung-label">Mount Everest</span><span class="rung-note">22.1 laps</span></div>
+        <div class="rung"><span class="rung-dist">42.2 km</span><span class="rung-label">a marathon</span><span class="rung-note">105.5 laps</span></div>
       </div>
       <p class="ladder-foot">The ladder runs from a banana to the Moon. You will not reach the Moon.</p>
     </section>
 
-    <section class="wrap">
+    <section class="wrap section" aria-labelledby="built-h">
       <div class="section-head">
-        <p class="overline">Design</p>
-        <h2>Built for the long scroll</h2>
-        <p>Local-first storage, signed sideloaded updates, and a social layer that stays quiet until you turn it on.</p>
+        <h2 id="built-h">On your phone and in your browser</h2>
       </div>
-      <div class="split">
-        <article class="panel">
-          <h3>Self-updating APK</h3>
-          <p>Checks GitHub Releases over Wi‑Fi, verifies the SHA‑256, then asks once to install. No Play Store required.</p>
+      <div class="facts">
+        <article>
+          <h3>Updates itself</h3>
+          <p>The app checks GitHub Releases over Wi‑Fi, verifies the SHA‑256, then asks once to install. No Play Store required.</p>
         </article>
-        <article class="panel">
-          <h3>Opt-in social</h3>
-          <p>Friend codes, weekly boards, anonymous handles. <strong>Nothing leaves the phone until you say so.</strong></p>
+        <article>
+          <h3>Desktop counts too</h3>
+          <p>A <a href="https://github.com/Aditya190803/ThumbTrek/tree/main/extension"><strong>browser extension</strong></a> measures the same feeds on the web. Sign in on both and they add up on one dashboard.</p>
         </article>
-        <article class="panel">
+        <article>
           <h3>Honest numbers</h3>
-          <p>No calibration slider on competitive scores. A slider would just be an honour-system cheat dial — everyone measures the same raw trek.</p>
+          <p>There is no calibration slider on leaderboard scores, because a slider would be an honour-system cheat dial. Everyone is measured the same way.</p>
         </article>
       </div>
     </section>
 
-    <section class="install" id="download">
-      <div class="wrap install-inner">
-        <div>
-          <p class="overline">Install</p>
-          <h2>A minute, once</h2>
-          <p>Grab the latest signed APK from GitHub Releases. Allow installs from your browser once, and ThumbTrek handles every update after that.</p>
-          <p class="fine">Android 8.0+. Sideload only — not on the Play Store.</p>
-        </div>
-        <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>
-          Get ThumbTrek
-        </a>
-      </div>
-    </section>
-
-    <section class="wrap" id="privacy">
+    <section class="wrap section" id="pricing" aria-labelledby="pricing-h">
       <div class="section-head">
-        <p class="overline">Privacy</p>
-        <h2>What we see — and don't</h2>
-        <p>Nothing leaves the phone until you turn leaderboards on. After that, two different things do — and they have two different audiences.</p>
+        <h2 id="pricing-h">Free to track. Premium is on the way.</h2>
+        <p>Tracking is free and stays free. The five Premium features are already built, and they are free for everyone until Premium goes on sale.</p>
       </div>
-      <div class="split">
-        <article class="panel">
+      <div class="plans">
+        <article class="plan" aria-labelledby="plan-free">
+          <h3 id="plan-free">Free</h3>
+          <p class="plan-price num">₹0</p>
+          <p class="plan-terms">No account needed to track.</p>
+          <ul>
+            <li>Tracking in every app you pick</li>
+            <li>A daily limit and a clean-day run</li>
+            <li>History, records and badges</li>
+            <li>Friend and global leaderboards</li>
+            <li>Home-screen widget, share cards and CSV export</li>
+            <li>Sync between your phone and your browser</li>
+          </ul>
+          <a class="btn btn-ghost" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>Download for Android</a>
+        </article>
+        <article class="plan on-track" aria-labelledby="plan-premium">
+          <h3 id="plan-premium">Premium</h3>
+          <p class="plan-price num">₹99<small>a month</small></p>
+          <p class="plan-terms">Or ₹799 a year. Planned pricing, not on sale yet. Free until then.</p>
+          <ul>
+            <li>One limit across your phone and your browser</li>
+            <li>A separate limit for each app</li>
+            <li>Weekly and monthly reports</li>
+            <li>Private groups and challenges with friends</li>
+            <li>Backup and restore of your full history</li>
+          </ul>
+          <button class="btn btn-primary" type="button" disabled>Not on sale yet</button>
+        </article>
+      </div>
+    </section>
+
+    <section class="wrap section" id="privacy" aria-labelledby="privacy-h">
+      <div class="section-head">
+        <h2 id="privacy-h">What ThumbTrek sees, and what it doesn't</h2>
+        <p>Nothing leaves the phone until you turn leaderboards on. After that, two different things do, and they have two different audiences.</p>
+      </div>
+      <div class="facts">
+        <article>
           <h3>Never read</h3>
-          <p>No screenshots, no feed text, no URLs. The service never requests content access — it reads the scroll numbers the event itself carries and nothing else.</p>
+          <p>No screenshots, no feed text, no URLs. The service never requests content access. It reads the scroll numbers the event itself carries and nothing else.</p>
         </article>
-        <article class="panel">
+        <article>
           <h3>Published to the board</h3>
-          <p>A name you choose — your Google one or an anonymous handle — and three distances: this week, this month, all time. <strong>Anyone signed in can read those. That is what a leaderboard is.</strong></p>
+          <p>A name you choose, either your Google one or an anonymous handle, and three distances: this week, this month, all time. <strong>Anyone signed in can read those, because that is what a leaderboard is.</strong></p>
         </article>
-        <article class="panel">
+        <article>
           <h3>Synced privately to you</h3>
-          <p>Your day-by-day history and per-app split, readable by your account and nobody else's. That private copy is what lets the dashboard chart your history and what makes it survive a reinstall.</p>
+          <p>Your day-by-day history and per-app split, readable by your account and nobody else's. That private copy lets the dashboard chart your history and lets it survive a reinstall.</p>
         </article>
       </div>
       <p class="ladder-foot">Either way the history lives on your phone first, and exports as CSV from Settings. Turning the leaderboard off deletes both halves from the server.</p>
     </section>
-  </main>
+
+    <section class="wrap section" id="download" aria-labelledby="install-h">
+      <div class="install on-track">
+        <div>
+          <h2 id="install-h">Installing takes a minute, once</h2>
+          <p>Get the latest signed APK from GitHub Releases. Allow installs from your browser once, and ThumbTrek handles every update after that.</p>
+          <p class="fine">Android 8.0 or newer. Sideload only, not on the Play Store.</p>
+        </div>
+        <a class="btn btn-primary" href="https://github.com/Aditya190803/ThumbTrek/releases/latest" data-direct-download>Download for Android</a>
+      </div>
+    </section>
+  </div>
 
   <footer class="wrap">
-    <span>© ThumbTrek · Android sideload</span>
-    <span>
+    <span>ThumbTrek, an Android sideload</span>
+    <nav aria-label="Footer">
       <a href="/app">Dashboard</a>
-      ·
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
       <a href="https://github.com/Aditya190803/ThumbTrek">GitHub</a>
-      ·
       <a href="https://github.com/Aditya190803/ThumbTrek/releases">Releases</a>
-    </span>
+    </nav>
   </footer>
 
-  <script>
-    // The download buttons point at the Releases page as a working href; when the API is
-    // reachable we upgrade that to the APK asset itself so the click is a single download.
-    // Modified clicks (new tab, new window) keep the plain link: hijacking them would
-    // turn "open in a new tab" into a download in this one.
-    const FALLBACK = 'https://github.com/Aditya190803/ThumbTrek/releases/latest';
-    async function handleDirectDownload(e) {
-      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
-      e.preventDefault();
-      const btn = e.currentTarget;
-      if (btn.getAttribute('aria-busy') === 'true') return;
-      btn.setAttribute('aria-busy', 'true');
-      try {
-        const res = await fetch('https://api.github.com/repos/Aditya190803/ThumbTrek/releases/latest');
-        if (!res.ok) throw new Error(`GitHub answered ${res.status}`);
-        const data = await res.json();
-        const apk = data.assets?.find(a => a.name.endsWith('.apk'));
-        window.location.href = apk ? apk.browser_download_url : FALLBACK;
-      } catch {
-        window.location.href = FALLBACK;
-      } finally {
-        btn.removeAttribute('aria-busy');
-      }
-    }
-    document.querySelectorAll('[data-direct-download]').forEach(btn => {
-      btn.addEventListener('click', handleDirectDownload);
-    });
-  </script>
+  <script src="/site.js" defer></script>
 </body>
 </html>

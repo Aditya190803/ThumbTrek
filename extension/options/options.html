@@ -2,47 +2,48 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="color-scheme" content="light dark" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark light" />
   <title>ThumbTrek settings</title>
   <link rel="stylesheet" href="../ui/trek.css" />
   <link rel="stylesheet" href="options.css" />
 </head>
 <body>
   <a class="skip" href="#limit">Skip to settings</a>
-  <main class="wrap">
-    <header class="head">
-      <h1 class="brand">
-        <svg class="mark" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-          <g class="arcs" stroke-width="2" stroke-linecap="round" fill="none">
-            <path d="M13 21 C13 17.5 19 17.5 19 21" />
-            <path d="M10 21 C10 14.5 22 14.5 22 21" />
-            <path d="M7 21 C7 11.5 25 11.5 25 21" />
-          </g>
-          <path class="trail" d="M5 25.5 L11 23 L17 25 L25.5 20" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" fill="none" />
-          <circle class="tip" cx="25.5" cy="20" r="2.2" />
+
+  <header class="top on-track">
+    <div class="wrap">
+      <p class="brand">
+        <svg class="mark" viewBox="0 0 40 24" fill="none" aria-hidden="true">
+          <rect width="40" height="24" rx="12" fill="#2340E0" />
+          <rect x="0.75" y="0.75" width="38.5" height="22.5" rx="11.25" stroke="#FFFFFF" stroke-opacity="0.5" stroke-width="1.5" />
+          <rect x="10" y="9" width="20" height="6" rx="3" fill="#1A2FB0" />
+          <rect x="5" y="5" width="30" height="14" rx="7" stroke="#D7FF3A" stroke-width="3.5" stroke-linecap="round" pathLength="100" stroke-dasharray="72 100" />
         </svg>
         ThumbTrek
-      </h1>
-      <span class="caption">Settings</span>
-    </header>
+      </p>
+      <h1>Settings</h1>
 
-    <!-- A long page in one column: a jump list so keyboard users are not tabbing through
-         every site switch to reach their data. -->
-    <nav class="jump" aria-label="Sections">
-      <a href="#limit">Daily limit</a>
-      <a href="#sites">Sites</a>
-      <a href="#history">History</a>
-      <a href="#badges">Badges</a>
-      <a href="#account">Leaderboard</a>
-      <a href="#data">Your data</a>
-    </nav>
+      <!-- A long page in one column: a jump list so keyboard users are not tabbing through
+           every site switch to reach their data. -->
+      <nav class="jump" aria-label="Sections">
+        <a href="#limit">Daily limit</a>
+        <a href="#sites">Sites</a>
+        <a href="#history">History</a>
+        <a href="#badges">Badges</a>
+        <a href="#account">Leaderboard</a>
+        <a href="#premium">Premium</a>
+        <a href="#data">Your data</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap">
 
     <!-- ————————————————————————— Daily limit ————————————————————————— -->
     <section id="limit" aria-labelledby="limit-title" tabindex="-1">
-      <div class="section">
-        <h2 class="overline" id="limit-title">Daily limit</h2>
-        <span class="rule"></span>
+      <div class="section-head">
+        <h2 id="limit-title">Daily limit</h2>
         <span class="trailing num" id="limit-current">Not set</span>
       </div>
       <p class="lede" id="limit-lede">
@@ -53,15 +54,29 @@
         <label class="visually-hidden" for="limit-input">Daily limit in metres</label>
         <div class="unit-field">
           <input type="number" id="limit-input" inputmode="numeric" min="10" max="10000" step="1"
-                 placeholder="e.g. 200" aria-describedby="limit-note" />
-          <span class="unit" aria-hidden="true">m / day</span>
+                 placeholder="200" aria-describedby="limit-note" />
+          <span class="unit" aria-hidden="true">metres a day</span>
         </div>
         <button class="btn btn-ghost" type="submit" id="limit-save">Set limit</button>
         <button class="btn btn-ghost" type="button" id="limit-clear" hidden>Track without a limit</button>
       </form>
-      <p class="faint" id="limit-typical" hidden></p>
+      <p class="hint" id="limit-typical" hidden></p>
       <button class="btn btn-primary" type="button" id="limit-baseline" hidden>Learn my baseline</button>
       <p class="note" id="limit-note" role="status" aria-live="polite"></p>
+
+      <div class="row">
+        <div class="row-text">
+          <strong id="shared-limit-label">One limit across your phone and your browser</strong>
+          <span id="shared-limit-help">Keep one limit in your account, and count your phone’s scrolling against it.</span>
+        </div>
+        <button class="toggle" id="shared-limit" type="button" role="switch" aria-checked="false"
+                aria-labelledby="shared-limit-label" aria-describedby="shared-limit-help"></button>
+      </div>
+
+      <h3 class="sub" id="site-limits-title">A separate limit for each site</h3>
+      <p class="hint">Optional. A site with its own limit shows it in the side panel, next to its lane. Leave the field empty for none.</p>
+      <div id="site-limits" class="list" role="group" aria-labelledby="site-limits-title"></div>
+      <p class="note" id="site-limit-note" role="status" aria-live="polite"></p>
 
       <!-- Every hand-set limit is confirmed against what is known about this browser's
            scrolling. Baseline is the default way to a limit; this is the careful one. -->
@@ -80,20 +95,19 @@
 
     <!-- ————————————————————————— Sites ————————————————————————— -->
     <section id="sites" aria-labelledby="sites-title">
-      <div class="section">
-        <h2 class="overline" id="sites-title">Sites</h2>
-        <span class="rule"></span>
+      <div class="section-head">
+        <h2 id="sites-title">Sites</h2>
         <span class="trailing" id="tracked-count"></span>
       </div>
       <p class="lede">
-        Switching a site off stops it counting. It stays in this list — nothing you added is
-        forgotten until you remove it.
+        Switching a site off stops it counting. It stays in this list, and nothing you added
+        is forgotten until you remove it.
       </p>
 
       <div class="row">
         <div class="row-text">
           <strong id="track-everything-label">Track everything</strong>
-          <span class="faint" id="track-everything-help">Count every site you scroll, not just the list below.</span>
+          <span id="track-everything-help">Count every site you scroll, not just the list below.</span>
         </div>
         <button class="toggle" id="track-everything" type="button" role="switch" aria-checked="false"
                 aria-labelledby="track-everything-label" aria-describedby="track-everything-help"></button>
@@ -103,7 +117,7 @@
 
       <form class="add" id="add-form">
         <label class="visually-hidden" for="add-input">Domain to add</label>
-        <input type="text" id="add-input" placeholder="Add a site, e.g. news.ycombinator.com"
+        <input type="text" id="add-input" placeholder="news.ycombinator.com"
                autocomplete="off" spellcheck="false" aria-describedby="add-note" />
         <button class="btn btn-ghost" type="submit">Add site</button>
       </form>
@@ -112,30 +126,35 @@
 
     <!-- ————————————————————————— History ————————————————————————— -->
     <section id="history" aria-labelledby="history-title">
-      <div class="section">
-        <h2 class="overline" id="history-title">History</h2>
-        <span class="rule"></span>
+      <div class="section-head">
+        <h2 id="history-title">History</h2>
         <span class="trailing" id="history-delta"></span>
       </div>
       <dl class="records">
-        <div><dt class="caption">Today</dt><dd class="figure num" id="rec-today">—</dd></div>
-        <div><dt class="caption">This week</dt><dd class="figure num" id="rec-week">—</dd></div>
-        <div><dt class="caption">This month</dt><dd class="figure num" id="rec-month">—</dd></div>
-        <div><dt class="caption">All time</dt><dd class="figure num" id="rec-all">—</dd></div>
-        <div><dt class="caption">Best day</dt><dd class="figure num amber" id="rec-best">—</dd>
-          <dd class="faint" id="rec-best-when"></dd></div>
-        <div><dt class="caption">Streak</dt><dd class="figure num" id="rec-streak">—</dd>
-          <dd class="faint" id="rec-clean"></dd></div>
+        <div><dt>Today</dt><dd class="figure num" id="rec-today"></dd></div>
+        <div><dt>This week</dt><dd class="figure num" id="rec-week"></dd></div>
+        <div><dt>This month</dt><dd class="figure num" id="rec-month"></dd></div>
+        <div><dt>All time</dt><dd class="figure num" id="rec-all"></dd></div>
+        <div><dt>Best day</dt><dd class="figure num" id="rec-best"></dd>
+          <dd class="hint" id="rec-best-when"></dd></div>
+        <div><dt>Streak</dt><dd class="figure num" id="rec-streak"></dd>
+          <dd class="hint" id="rec-clean"></dd></div>
       </dl>
       <h3 class="sub">Last 8 weeks</h3>
       <div id="weeks" class="weeks"></div>
+
+      <div class="section-head sub-head">
+        <h3 class="sub" id="report-heading">Report</h3>
+        <span class="trailing" id="report-title"></span>
+      </div>
+      <div class="chips" id="report-choice" role="group" aria-labelledby="report-heading"></div>
+      <ul class="rows" id="report-rows" aria-live="polite"></ul>
     </section>
 
     <!-- ————————————————————————— Badges ————————————————————————— -->
     <section id="badges" aria-labelledby="badges-title">
-      <div class="section">
-        <h2 class="overline" id="badges-title">Badges</h2>
-        <span class="rule"></span>
+      <div class="section-head">
+        <h2 id="badges-title">Badges</h2>
         <span class="trailing" id="badge-count"></span>
       </div>
       <p class="lede" id="badge-lede">
@@ -147,25 +166,24 @@
 
     <!-- ————————————————————————— Account ————————————————————————— -->
     <section id="account" aria-labelledby="account-title">
-      <div class="section">
-        <h2 class="overline" id="account-title">Leaderboard and sync</h2>
-        <span class="rule"></span>
+      <div class="section-head">
+        <h2 id="account-title">Leaderboard and sync</h2>
         <span class="trailing" id="sync-when"></span>
       </div>
       <p class="lede">
-        Everything above works with no account, forever. Signing in only syncs your trek
-        across devices — and by itself it publishes nothing.
+        Everything above works with no account. Signing in only syncs your distance across
+        devices, and by itself it publishes nothing.
       </p>
 
-      <div class="panel warn" id="config-banner" hidden>
-        <strong>Sync isn't configured</strong>
+      <div class="callout callout-warn" id="config-banner" hidden>
+        <strong>Sync is not set up</strong>
         <p id="config-message"></p>
       </div>
 
       <div class="row">
         <div class="row-text">
           <strong id="account-name">Not signed in</strong>
-          <span class="faint" id="account-detail">Sign in with Google to sync across devices.</span>
+          <span id="account-detail">Sign in with Google to sync across devices.</span>
         </div>
         <button class="btn btn-ghost" id="auth-button" type="button">Sign in</button>
       </div>
@@ -173,7 +191,7 @@
       <div class="row">
         <div class="row-text">
           <strong id="opt-in-label">Publish to the leaderboard</strong>
-          <span class="faint" id="opt-in-help">
+          <span id="opt-in-help">
             Sends three distances and a name. Your per-site history stays private. Turning
             this off deletes what this browser published.
           </span>
@@ -185,7 +203,7 @@
       <div class="row">
         <div class="row-text">
           <strong id="anonymous-label">Show my name</strong>
-          <span class="faint" id="handle-preview">Anonymous by default — your handle appears after sign-in.</span>
+          <span id="handle-preview">Anonymous by default. Your handle appears after you sign in.</span>
         </div>
         <button class="toggle" id="anonymous" type="button" role="switch" aria-checked="false"
                 aria-labelledby="anonymous-label" aria-describedby="handle-preview"></button>
@@ -194,38 +212,80 @@
       <div class="row">
         <div class="row-text">
           <strong>Friend code</strong>
-          <span class="faint num" id="friend-code">Sign in to get yours.</span>
+          <span class="num" id="friend-code">Sign in to get yours.</span>
         </div>
-        <button class="btn btn-ghost" id="copy-code" type="button" hidden>Copy</button>
+        <button class="btn btn-ghost" id="copy-code" type="button" hidden>Copy code</button>
       </div>
 
       <div class="row">
         <div class="row-text">
           <strong>Sync</strong>
-          <span class="faint" id="sync-detail">Runs every 30 minutes while you're publishing.</span>
+          <span id="sync-detail">Runs every 30 minutes while you are publishing.</span>
         </div>
         <button class="btn btn-ghost" id="sync-button" type="button">Sync now</button>
       </div>
       <p class="note" id="sync-note" role="status" aria-live="polite"></p>
     </section>
 
+    <!-- ————————————————————————— Premium ————————————————————————— -->
+    <section id="premium" aria-labelledby="premium-title" tabindex="-1">
+      <div class="section-head">
+        <h2 id="premium-title">Premium</h2>
+        <span class="trailing">Not on sale yet</span>
+      </div>
+      <p class="lede">
+        Tracking is free, needs no account, and stays that way. These five features will be
+        Premium once it goes on sale. Until then they are open to everyone.
+      </p>
+      <article class="panel on-track plan" aria-labelledby="plan-title">
+        <h3 id="plan-title">Premium</h3>
+        <p class="plan-price num">₹99<small>a month</small></p>
+        <p class="plan-terms">Or ₹799 a year. Planned pricing, not on sale yet. Everything below is free until then.</p>
+        <ul>
+          <li>One limit across your phone and your browser</li>
+          <li>A separate limit for each site</li>
+          <li>Weekly and monthly reports</li>
+          <li>Private groups and challenges with friends</li>
+          <li>Backup and restore of your full history</li>
+        </ul>
+        <button class="btn btn-primary" type="button" disabled>Not on sale yet</button>
+      </article>
+    </section>
+
     <!-- ————————————————————————— Data ————————————————————————— -->
     <section id="data" aria-labelledby="data-title">
-      <div class="section">
-        <h2 class="overline" id="data-title">Your data</h2>
-        <span class="rule"></span>
+      <div class="section-head">
+        <h2 id="data-title">Your data</h2>
         <span class="trailing" id="row-count"></span>
       </div>
 
       <div class="row">
         <div class="row-text">
           <strong>Export CSV</strong>
-          <span class="faint">One line per site per day, in micrometres.</span>
+          <span>One line per site per day, in micrometres.</span>
         </div>
-        <button class="btn btn-ghost" id="export-button" type="button">Export</button>
+        <button class="btn btn-ghost" id="export-button" type="button">Export CSV</button>
       </div>
 
-      <div class="panel danger">
+      <div class="row">
+        <div class="row-text">
+          <strong>Back up</strong>
+          <span>One file with your whole history, your limits and the sites you added.</span>
+        </div>
+        <button class="btn btn-ghost" id="backup-button" type="button">Save a backup file</button>
+      </div>
+
+      <div class="row">
+        <div class="row-text">
+          <strong>Restore</strong>
+          <span>Merges a backup file in. Nothing already in this browser is lost.</span>
+        </div>
+        <button class="btn btn-ghost" id="restore-button" type="button">Restore from a file</button>
+        <input type="file" id="restore-file" accept="application/json,.json" hidden />
+      </div>
+      <p class="note" id="backup-note" role="status" aria-live="polite"></p>
+
+      <div class="callout callout-danger">
         <strong>Delete local data</strong>
         <p>
           Erases every day, every site, and the sync bookkeeping in this browser. Your phone's
@@ -237,9 +297,9 @@
       <p class="note" id="data-note" role="status" aria-live="polite"></p>
     </section>
 
-    <footer class="foot faint">
-      Measured in micrometres, shown in metres. A CSS pixel is 1/96 inch by definition —
-      that is the whole conversion.
+    <footer class="foot">
+      Measured in micrometres, shown in metres. A CSS pixel is 1/96 of an inch by
+      definition, and that is the whole conversion.
     </footer>
   </main>
 

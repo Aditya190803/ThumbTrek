@@ -1,39 +1,17 @@
 // The signed-in dashboard.
 //
-// Same product as the phone's Trek / History / Social tabs, laid out as one scrolling
-// survey sheet because a browser has the width to show at once what four tabs show in
-// sequence. The information architecture and the wording are deliberately recognisable:
-// a person who uses both should never have to learn this screen.
+// Same product as the phone's Today / History / Friends tabs, with the same sections as
+// stadium tabs in the top bar (DESIGN.md, Navigation). The lap oval leads, and every lane it
+// draws has a text row beside it. The wording is deliberately recognisable: a person who
+// uses both should never have to learn this screen.
 //
 // What it is NOT: a second place that measures. The dashboard never writes a distance, a
 // day document or a board row — it reads what the phone and the extension wrote. The only
 // writes on this page are friendship edges (friends.js), and the friend-code index, and
 // only once some client has already opted the account in.
 
-import { barChart, measureRow, progressRail } from './charts.js';
-import {
-  PERIODS,
-  archiveScore,
-  rankEntries,
-  rankOf,
-  scoreOf,
-  scoreText,
-  sourceLabel,
-  sourceSplit,
-  syncedAgo,
-} from './board.js';
-import {
-  MAX_PAGES,
-  currentKeys,
-  globalRank,
-  loadEdgeIdentities,
-  loadGlobalPage,
-  loadPodium,
-  loadProfiles,
-  watchBoardRow,
-  watchDays,
-  watchFriends,
-} from './data.js';
+import { PERIODS } from './board.js';
+import { watchBoardRow, watchDays, watchFriends, watchSharedLimit } from './data.js';
 import { announce, byId, el, fill, show } from './dom.js';
 import {
   NotConfiguredError,
@@ -45,75 +23,24 @@ import {
   watchAuth,
 } from './firebase.js';
 import {
-  acceptRequest,
-  registerFriendCode,
-  removeFriend,
-  sendRequest,
-} from './friends.js';
-import {
-  anonymousHandle,
-  formatFriendCode,
-  friendCode,
-  inviteLink,
-  inviteMessage,
-} from './identity.js';
-import {
-  addDays,
-  addMonths,
-  appBreakdown,
-  badges,
-  comparison,
-  dailyBuckets,
-  dayOverDayDelta,
-  distanceParts,
-  formatDistance,
-  landmarkFloor,
-  longDayLabel,
-  metersFromUm,
-  monthTitle,
-  monthlyBuckets,
-  mondayOf,
-  monthKey,
-  nextLandmark,
-  percentCaption,
-  personalRecord,
-  todayIso,
-  trekStreak,
-  weekKey,
-  weekOverWeekDelta,
-  weeklyBuckets,
-} from './stats.js';
-
-// ---------------------------------------------------------------------------------------
-// State
-// ---------------------------------------------------------------------------------------
-
-/** The three history ranges, matching the phone's segmented control exactly. */
-const RANGES = [
-  { label: '7 days', buckets: (days, today) => dailyBuckets(days, 7, today), start: (t) => addDays(t, -6) },
-  { label: '8 weeks', buckets: (days, today) => weeklyBuckets(days, 8, today), start: (t) => addDays(mondayOf(t), -49) },
-  { label: '6 months', buckets: (days, today) => monthlyBuckets(days, 6, today), start: (t) => `${addMonths(monthKey(t), -5)}-01` },
-];
-
-const state = {
-  today: todayIso(),
-  user: null,
-  code: '',
-  row: { exists: false, data: null, fromCache: false, loaded: false },
-  days: { docs: [], fromCache: false, loaded: false },
-  friends: { accepted: [], pending: [], fromCache: false },
-  profiles: new Map(),
-  range: 0,
-  boardKind: 'friends',
-  periodId: 'week',
-  board: { entries: [], cursor: null, exhausted: true, pages: 0, loading: false, error: null },
-  myRank: null,
-  podium: [],
-  offline: !navigator.onLine,
-  /** False when IndexedDB was refused, so nothing survives this tab closing. */
-  persistent: true,
-  busy: false,
-};
+  act,
+  avatar,
+  loadLastWeekPodium,
+  loadMore,
+  refreshBoard,
+  refreshFriendProfiles,
+  renderBoard,
+  renderFriendCode,
+  renderFriends,
+} from './friends-view.js';
+import { registerFriendCode, sendRequest } from './friends.js';
+import { refreshGroups, renderGroups, wireGroups } from './groups-view.js';
+import { renderHistory, renderRecords } from './history-view.js';
+import { friendCode, inviteLink, inviteMessage } from './identity.js';
+import { REPORTS, renderReport } from './report-view.js';
+import { PHONE_LAYOUT, RANGES, derive, reportSection, state } from './state.js';
+import { todayIso } from './stats.js';
+import { renderToday } from './today-view.js';
 
 /** Live-query teardown, so switching accounts does not leave listeners on the old uid. */
 let unsubscribes = [];
@@ -188,8 +115,49 @@ function wireStaticControls() {
   }
   byId('signout').addEventListener('click', () => signOutOfThumbTrek());
 
+  window.addEventListener('hashchange', () => showView(viewFromHash()));
+  showView(viewFromHash() ?? 'today');
+
+  // The oval is wider on a desktop than on a phone (DESIGN.md), and that is a different
+  // drawing, not a different size, so it is redrawn when the layout crosses over.
+  PHONE_LAYOUT.addEventListener('change', () => {
+    if (state.user) renderToday(derive());
+  });
+
   window.addEventListener('online', () => setOffline(false));
   window.addEventListener('offline', () => setOffline(true));
+}
+
+// ---------------------------------------------------------------------------------------
+// Sections
+// ---------------------------------------------------------------------------------------
+
+/** The dashboard's sections, in tab order. Each is a `[data-view]` block in index.html. */
+const VIEWS = ['today', 'history', 'friends', 'premium'];
+
+
+/** The section named by the address bar, or null for any other hash (the skip link's). */
+function viewFromHash() {
+  const name = location.hash.slice(1);
+  return VIEWS.includes(name) ? name : null;
+}
+
+/**
+ * Shows one section and marks its tab. Tabs are plain links to a hash, so this runs from
+ * `hashchange` and the back button walks through the sections a person visited.
+ */
+function showView(name) {
+  if (!name) return;
+  const changed = state.view !== name;
+  state.view = name;
+  for (const view of document.querySelectorAll('[data-view]')) {
+    show(view, view.dataset.view === name);
+  }
+  for (const tab of document.querySelectorAll('[data-tab]')) {
+    if (tab.dataset.tab === name) tab.setAttribute('aria-current', 'page');
+    else tab.removeAttribute('aria-current');
+  }
+  if (changed) window.scrollTo(0, 0);
 }
 
 function setOffline(offline) {
@@ -215,6 +183,8 @@ async function onAuthChanged(user) {
   state.days = { docs: [], fromCache: false, loaded: false };
   state.friends = { accepted: [], pending: [], fromCache: false };
   state.myRank = null;
+  state.limit = null;
+  state.groups = { list: [], loaded: false, open: null, progress: [] };
 
   show(byId('welcome'), !user);
   show(byId('dashboard'), Boolean(user));
@@ -224,7 +194,7 @@ async function onAuthChanged(user) {
     return;
   }
 
-  byId('account-name').textContent = user.displayName || 'Trekker';
+  byId('account-name').textContent = user.displayName || 'Signed in';
   const avatar = byId('account-avatar');
   if (user.photoURL) {
     avatar.referrerPolicy = 'no-referrer';
@@ -257,7 +227,10 @@ async function onAuthChanged(user) {
       user.uid,
       (row) => {
         if (!current()) return;
+        const joined = row.exists && !state.row.exists;
         state.row = { ...row, loaded: true };
+        // Groups need a published account; the first row that says so opens them.
+        if (joined || !state.groups.loaded) refreshGroups();
         // The friend-code index is only published once some client has opted this account
         // in — a board row existing IS that opt-in. Registering it earlier would put a
         // uid in a public collection for someone who never agreed to be findable.
@@ -301,51 +274,25 @@ async function onAuthChanged(user) {
       (error) => current() && reportSection('friends-error', explainError(error)),
     ),
   );
+  keep(
+    await watchSharedLimit(
+      user.uid,
+      (limit) => {
+        if (!current()) return;
+        state.limit = limit;
+        renderAll();
+      },
+      // With older rules deployed this read is refused; the page then knows no limit,
+      // which is what it showed before sharing existed.
+      () => {},
+    ),
+  );
   if (!current()) return;
 
   refreshBoard();
   loadLastWeekPodium();
   renderAll();
 }
-
-function reportSection(id, message) {
-  const node = byId(id);
-  if (!node) return;
-  node.textContent = message;
-  show(node, Boolean(message));
-}
-
-// ---------------------------------------------------------------------------------------
-// Derived data
-// ---------------------------------------------------------------------------------------
-
-/**
- * Day documents collapse two ways: totalled per date for every chart, and kept per source
- * for the phone-vs-browser split. One pass, because a user with three years of history has
- * a couple of thousand documents and this runs on every snapshot.
- */
-function derive() {
-  const byDate = new Map();
-  const bySource = new Map();
-  for (const doc of state.days.docs) {
-    byDate.set(doc.date, (byDate.get(doc.date) ?? 0) + doc.um);
-    if (!bySource.has(doc.source)) bySource.set(doc.source, new Map());
-    const perDay = bySource.get(doc.source);
-    perDay.set(doc.date, (perDay.get(doc.date) ?? 0) + doc.um);
-  }
-  const active = [...byDate].filter(([, um]) => um > 0).map(([date]) => date);
-  return { byDate, bySource, active };
-}
-
-function rangeStart() {
-  return RANGES[state.range].start(state.today);
-}
-
-/** True while the account has published totals but no day-by-day history to chart. */
-function historyMissing(derived) {
-  return derived.byDate.size === 0 && state.row.exists;
-}
-
 // ---------------------------------------------------------------------------------------
 // Render
 // ---------------------------------------------------------------------------------------
@@ -357,11 +304,13 @@ function renderAll() {
   state.today = todayIso();
   const derived = derive();
   renderConnection();
-  renderTotals(derived);
+  renderToday(derived);
   renderHistory(derived);
   renderRecords(derived);
+  renderReport();
   renderBoard();
   renderFriends();
+  renderGroups();
 }
 
 function renderConnection() {
@@ -373,832 +322,16 @@ function renderConnection() {
   // went wrong" for all of them would leave the reader unable to tell which.
   if (state.offline && !state.persistent) {
     strip.textContent =
-      'Offline, and this browser is not letting the page keep a local copy — private ' +
-      'browsing usually does that. Reconnect to see anything.';
+      'Offline, and this browser is not letting the page keep a local copy. Private ' +
+      'browsing usually does that. Reconnect to see your figures.';
   } else if (state.offline) {
     strip.textContent =
-      'Offline. These are the figures saved on this device the last time it reached the ' +
-      'network — the phone may have logged more since.';
+      'Offline. These are the figures saved on this device the last time it was online. ' +
+      'Your phone may have logged more since.';
   } else {
     strip.textContent = 'Showing a saved copy while the network catches up.';
   }
 }
-
-function renderTotals({ byDate, active }) {
-  const today = state.today;
-  const todayBlock = byId('today-figure').closest('.today');
-  const grid = byId('totals-grid');
-  // Same rule as the history: until the first day snapshot lands, "0 m" would be a claim
-  // about today rather than an admission that the page has not heard yet.
-  if (!state.days.loaded) {
-    todayBlock.setAttribute('aria-busy', String(!state.days.failed));
-    grid.setAttribute('aria-busy', String(!state.days.failed));
-    byId('today-figure').textContent = '—';
-    byId('today-unit').textContent = '';
-    byId('today-compare').textContent = state.days.failed
-      ? 'Your history could not be read — the reason is under History below.'
-      : 'Reading today’s trek…';
-    show(byId('today-goal'), false);
-    show(byId('today-delta'), false);
-    fill(grid, state.days.failed ? null : loadingSkeleton('Reading your totals', [60, 60, 60, 60]));
-    return;
-  }
-  todayBlock.removeAttribute('aria-busy');
-  grid.removeAttribute('aria-busy');
-  const todayUm = byDate.get(today) ?? 0;
-  let weekUm = 0;
-  let monthUm = 0;
-  let allUm = 0;
-  const monday = mondayOf(today);
-  const month = monthKey(today);
-  for (const [date, um] of byDate) {
-    allUm += um;
-    if (date >= monday && date <= today) weekUm += um;
-    if (monthKey(date) === month) monthUm += um;
-  }
-
-  const meters = metersFromUm(todayUm);
-  const [figure, unit] = distanceParts(meters);
-  byId('today-figure').textContent = figure;
-  byId('today-unit').textContent = unit;
-  byId('today-compare').textContent = comparison(meters);
-
-  // Progress to the next landmark: the multiple is the joke, the rail is the reason to
-  // look again tomorrow.
-  const next = nextLandmark(meters);
-  const goal = byId('today-goal');
-  if (next && meters > 0) {
-    const floor = landmarkFloor(meters);
-    const span = Math.max(next.meters - floor, 0.0001);
-    fill(
-      goal,
-      progressRail((meters - floor) / span),
-      el('p', {
-        class: 'fine',
-        text: `${formatDistance(next.meters - meters)} to go before ${next.label}.`,
-      }),
-    );
-    show(goal, true);
-  } else {
-    show(goal, false);
-  }
-
-  const delta = dayOverDayDelta(byDate, today);
-  const deltaNode = byId('today-delta');
-  if (delta === null || todayUm === 0) {
-    show(deltaNode, false);
-  } else {
-    deltaNode.textContent = `${delta >= 0 ? '+' : '−'}${Math.abs(delta)}% on yesterday`;
-    deltaNode.className = `delta ${delta >= 0 ? 'delta-up' : 'delta-down'}`;
-    show(deltaNode, true);
-  }
-
-  // All-time comes from the day ledger, not from the board row: the ledger is the thing
-  // this page can actually verify, and a row total that disagrees means a client is behind.
-  fill(
-    byId('totals-grid'),
-    readout('This week', weekUm, weekOverWeekDelta(byDate, today), 'on last week'),
-    readout('This month', monthUm),
-    readout('All time', allUm),
-    readout('Days tracked', null, null, null, `${active.length}`),
-  );
-}
-
-function readout(label, um, delta = null, deltaSuffix = '', override = null) {
-  const [figure, unit] = override ? [override, ''] : distanceParts(metersFromUm(um ?? 0));
-  return el(
-    'div',
-    { class: 'readout-cell' },
-    el('p', { class: 'overline', text: label }),
-    el(
-      'p',
-      { class: 'readout-figure num' },
-      figure,
-      unit ? el('span', { class: 'unit', text: unit }) : null,
-    ),
-    delta === null || delta === undefined
-      ? null
-      : el('p', {
-          class: `delta ${delta >= 0 ? 'delta-up' : 'delta-down'}`,
-          text: `${delta >= 0 ? '+' : '−'}${Math.abs(delta)}% ${deltaSuffix}`,
-        }),
-  );
-}
-
-function renderHistory(derived) {
-  const { byDate, bySource } = derived;
-  const range = RANGES[state.range];
-
-  const empty = byId('history-empty');
-  const body = byId('history-body');
-  // "No history" and "the history has not arrived yet" look identical and mean opposite
-  // things, so the first snapshot has to land before either sentence is allowed on screen.
-  if (!state.days.loaded) {
-    show(body, false);
-    // After a failure the error above says it all; a skeleton under it would promise data.
-    show(empty, !state.days.failed);
-    fill(empty, loadingSkeleton('Reading your history'));
-    return;
-  }
-  if (byDate.size === 0) {
-    show(body, false);
-    show(empty, true);
-    empty.textContent = historyMissing(derived)
-      ? 'This account has published totals but no day-by-day history yet. The per-day ' +
-        'ledger arrives with the next sync from a client that writes it; until then the ' +
-        'figures above are all there is to chart.'
-      : 'Nothing logged yet. Once tracking has run for a day, this fills with daily ' +
-        'totals, the split between your devices, and where the scrolling happened.';
-    return;
-  }
-  show(empty, false);
-  show(body, true);
-
-  const buckets = range.buckets(byDate, state.today);
-  fill(
-    byId('history-chart'),
-    barChart(buckets, {
-      format: (um) => formatDistance(metersFromUm(um)),
-      caption: `Trek distance over the last ${range.label.toLowerCase()}`,
-    }),
-  );
-
-  renderSources(bySource);
-  renderBreakdown();
-  renderDayLog(byDate);
-}
-
-/**
- * Phone vs browser. This is the reason to open the dashboard at all rather than the app:
- * the day ledger is keyed by source, so it is the only place the split exists.
- */
-function renderSources(bySource) {
-  const from = rangeStart();
-  const to = state.today;
-  const rows = [];
-  for (const [source, perDay] of bySource) {
-    let um = 0;
-    for (const [date, value] of perDay) {
-      if (date >= from && date <= to) um += value;
-    }
-    rows.push({ source, um });
-  }
-  rows.sort((a, b) => b.um - a.um || (a.source < b.source ? -1 : 1));
-
-  const total = rows.reduce((sum, row) => sum + row.um, 0);
-  const peak = Math.max(...rows.map((r) => r.um), 0);
-  const target = byId('sources-rows');
-
-  if (!rows.length || total === 0) {
-    fill(
-      target,
-      el('p', {
-        class: 'fine',
-        text: 'No scrolling recorded from any device in this range.',
-      }),
-    );
-  } else {
-    fill(
-      target,
-      rows.map((row, index) =>
-        measureRow({
-          label: sourceLabel(row.source),
-          value: formatDistance(metersFromUm(row.um)),
-          note: total > 0 ? `${Math.round((row.um / total) * 100)}%` : null,
-          fraction: peak > 0 ? row.um / peak : 0,
-          tone: index === 0 ? 'moss' : 'slate',
-          leading: true,
-        }),
-      ),
-    );
-  }
-
-  // A single-source account is the normal case, not an error — say which one is missing
-  // rather than drawing an empty second bar.
-  const known = new Set(rows.filter((r) => r.um > 0).map((r) => r.source));
-  const missing = ['android', 'web'].filter((s) => !known.has(s));
-  const note = byId('sources-note');
-  if (missing.length === 1 && known.size) {
-    note.textContent =
-      missing[0] === 'web'
-        ? 'Nothing from a browser yet — every metre in this range came from the phone.'
-        : 'Nothing from the phone in this range — this is all browser scrolling.';
-    show(note, true);
-  } else {
-    show(note, false);
-  }
-
-  // What each client last PUBLISHED, as opposed to what it recorded. The two answer
-  // different questions — the rows above come from the day ledger, this comes from the
-  // board row — and a client that stopped syncing is only visible here.
-  //
-  // Read through the same per-source gate the rollup uses: a source whose own weekKey is
-  // not this week contributes nothing to this week, so it says so rather than showing last
-  // week's figure under this week's heading. An absent `sources` block (an older phone) or
-  // a single entry is normal, not a fault.
-  const published = sourceSplit(state.row.data, 'week', currentKeys(state.today));
-  const sync = byId('sources-sync');
-  if (published.length) {
-    fill(
-      sync,
-      published.map((entry) => {
-        const ago = syncedAgo(entry.updatedAt);
-        const when = ago ? `synced ${ago}` : 'never synced';
-        return el('li', {
-          text: entry.stale
-            ? `${sourceLabel(entry.source)} has published nothing for this week — ${when}.`
-            : `${sourceLabel(entry.source)} published ${formatDistance(entry.meters)} for ` +
-              `this week — ${when}.`,
-        });
-      }),
-    );
-    show(sync, true);
-  } else {
-    show(sync, false);
-  }
-}
-
-/** Per-site and per-app: the `apps` map on each day document, summed over the range. */
-function renderBreakdown() {
-  const rows = appBreakdown(state.days.docs, rangeStart(), state.today);
-  const target = byId('breakdown-rows');
-  if (!rows.length) {
-    fill(
-      target,
-      el('p', {
-        class: 'fine',
-        text: 'No per-app breakdown in this range. Older day records carry a daily total ' +
-          'without the split.',
-      }),
-    );
-    byId('breakdown-count').textContent = '';
-    return;
-  }
-  const peak = rows[0].um;
-  const total = rows.reduce((sum, row) => sum + row.um, 0);
-  byId('breakdown-count').textContent = `${rows.length} ${rows.length === 1 ? 'source' : 'sources'}`;
-  fill(
-    target,
-    rows.map((row) =>
-      measureRow({
-        label: row.key,
-        value: formatDistance(metersFromUm(row.um)),
-        note: total > 0 ? `${Math.round((row.um / total) * 100)}%` : null,
-        fraction: peak > 0 ? row.um / peak : 0,
-        tone: 'slate',
-        leading: true,
-      }),
-    ),
-  );
-}
-
-function renderDayLog(byDate) {
-  const dates = [...byDate.keys()].sort().reverse();
-  const peak = Math.max(...byDate.values(), 0);
-  const target = byId('daylog-rows');
-  byId('daylog-count').textContent = `${dates.length} ${dates.length === 1 ? 'day' : 'days'}`;
-  let month = null;
-  const nodes = [];
-  for (const date of dates) {
-    const thisMonth = monthKey(date);
-    if (thisMonth !== month) {
-      month = thisMonth;
-      nodes.push(el('p', { class: 'overline daylog-month', text: monthTitle(thisMonth) }));
-    }
-    const um = byDate.get(date);
-    nodes.push(
-      measureRow({
-        label: longDayLabel(date),
-        value: formatDistance(metersFromUm(um)),
-        fraction: peak > 0 ? um / peak : 0,
-        tone: date === state.today ? 'moss' : 'slate',
-      }),
-    );
-  }
-  fill(target, nodes);
-}
-
-function renderRecords({ byDate, active }) {
-  if (!state.days.loaded) {
-    show(byId('streak'), false);
-    fill(
-      byId('records-rows'),
-      state.days.failed ? null : loadingSkeleton('Reading your records', [70, 55, 62]),
-    );
-    return;
-  }
-  show(byId('streak'), true);
-  const streak = trekStreak(active, state.today);
-  const record = personalRecord(byDate);
-  const bestWeek = weeklyBuckets(byDate, 52, state.today).reduce(
-    (best, bucket) => (best && best.um >= bucket.um ? best : bucket),
-    null,
-  );
-  const allUm = [...byDate.values()].reduce((sum, um) => sum + um, 0);
-
-  const streakNode = byId('streak');
-  streakNode.textContent = streak > 0 ? `${streak} day streak` : 'No streak yet';
-  streakNode.className = streak > 0 ? 'streak streak-live' : 'streak';
-
-  fill(
-    byId('records-rows'),
-    record && record.um > 0
-      ? ledgerLine('Longest single day', formatDistance(metersFromUm(record.um)), longDayLabel(record.date))
-      : null,
-    bestWeek && bestWeek.um > 0
-      ? ledgerLine('Best week', formatDistance(metersFromUm(bestWeek.um)), `week of ${bestWeek.label}`)
-      : null,
-    ledgerLine(
-      'Current streak',
-      streak > 0 ? `${streak} days` : 'None',
-      streak > 0 ? 'keep it going' : 'scroll today to start one',
-    ),
-  );
-
-  // The clean-day badges are left out rather than shown at 0%. A daily limit is per-device
-  // and never synced (PRD §11.7), so this page cannot know whether a day was clean — and a
-  // row of "stay under your limit" tiles stuck at zero would pass that judgement on every
-  // visitor, including people in baseline mode who never set a limit at all.
-  const earned = badges(
-    metersFromUm(allUm),
-    metersFromUm(record?.um ?? 0),
-    streak,
-  )
-    .filter((badge) => !badge.id.startsWith('clean_'))
-    .sort((a, b) => Number(b.earned) - Number(a.earned) || b.progress - a.progress);
-
-  byId('badge-count').textContent = `${earned.filter((b) => b.earned).length} / ${earned.length}`;
-  fill(
-    byId('badges'),
-    earned.map((badge) =>
-      el(
-        'li',
-        { class: badge.earned ? 'badge badge-earned' : 'badge' },
-        el('span', { class: 'badge-emoji', 'aria-hidden': 'true', text: badge.emoji }),
-        el('span', { class: 'badge-label', text: badge.label }),
-        el('span', {
-          class: 'visually-hidden',
-          text: badge.earned
-            ? 'earned'
-            : `${percentCaption(badge.progress)} complete. ${badge.detail}`,
-        }),
-        badge.earned ? null : progressRail(badge.progress, 'slate'),
-      ),
-    ),
-  );
-
-  const next = earned.find((b) => !b.earned);
-  const nextNode = byId('badge-next');
-  if (next) {
-    nextNode.textContent = `Next up: ${next.detail.toLowerCase()} (${percentCaption(next.progress)}).`;
-    show(nextNode, true);
-  } else {
-    show(nextNode, false);
-  }
-}
-
-function ledgerLine(label, value, caption) {
-  return el(
-    'div',
-    { class: 'ledger' },
-    el(
-      'div',
-      { class: 'ledger-head' },
-      el('span', { class: 'ledger-label', text: label }),
-      el('span', { class: 'ledger-value num', text: value }),
-    ),
-    el('p', { class: 'fine', text: caption }),
-  );
-}
-
-// ---------------------------------------------------------------------------------------
-// Leaderboard
-// ---------------------------------------------------------------------------------------
-
-/**
- * Guards against an older board answer landing after a newer one. Two controls and a live
- * friends snapshot can all ask for a board, and a slow "global / all time" reply arriving
- * after a fast "friends / this week" would otherwise repaint the wrong list under the
- * right pressed button.
- */
-let boardRequest = 0;
-
-async function refreshBoard() {
-  if (!state.user) return;
-  const token = ++boardRequest;
-  state.board = { entries: [], cursor: null, exhausted: true, pages: 0, loading: true, error: null };
-  state.myRank = null;
-  renderBoard();
-  try {
-    if (state.boardKind === 'global') {
-      const page = await loadGlobalPage(state.periodId, null);
-      if (token !== boardRequest) return;
-      state.board = {
-        entries: page.entries,
-        cursor: page.cursor,
-        exhausted: page.exhausted,
-        pages: 1,
-        loading: false,
-        error: null,
-      };
-      renderBoard();
-      const rank = await globalRank(
-        state.periodId,
-        scoreOf(state.row.data ?? {}, state.periodId, currentKeys(state.today)).value,
-      );
-      if (token !== boardRequest) return;
-      state.myRank = rank;
-    } else {
-      const entries = await loadProfiles([state.user.uid, ...state.friends.accepted]);
-      if (token !== boardRequest) return;
-      // Private audience: edge handwriting over public rows, self included, so the
-      // friends board reads the way friends read each other. Old edges fall through.
-      try {
-        const edges = await loadEdgeIdentities(state.user.uid);
-        const me = state.user.displayName || 'Trekker';
-        for (const entry of entries) {
-          const edge = entry.uid === state.user.uid
-            ? { name: me, photo: state.user.photoURL ?? '' }
-            : edges.get(entry.uid);
-          if (edge?.name) {
-            entry.displayName = edge.name;
-            entry.photoUrl = edge.photo ?? '';
-          }
-        }
-      } catch (error) {
-        console.warn('ThumbTrek: could not read edge identities.', error);
-      }
-      state.board = { entries, cursor: null, exhausted: true, pages: 1, loading: false, error: null };
-    }
-  } catch (error) {
-    if (token !== boardRequest) return;
-    state.board = { ...state.board, loading: false, error: explainError(error) };
-  }
-  renderBoard();
-}
-
-async function loadMore() {
-  if (state.board.loading || state.board.exhausted || state.board.pages >= MAX_PAGES) return;
-  // Same token as refreshBoard: switching board or period mid-page must discard this page
-  // rather than append fifty global rows to a friends list.
-  const token = boardRequest;
-  state.board = { ...state.board, loading: true };
-  renderBoard();
-  try {
-    const page = await loadGlobalPage(state.periodId, state.board.cursor);
-    if (token !== boardRequest) return;
-    state.board = {
-      entries: [...state.board.entries, ...page.entries],
-      cursor: page.cursor ?? state.board.cursor,
-      exhausted: page.exhausted,
-      pages: state.board.pages + 1,
-      loading: false,
-      error: null,
-    };
-    announce(`Loaded ${page.entries.length} more trekkers.`);
-  } catch (error) {
-    if (token !== boardRequest) return;
-    state.board = { ...state.board, loading: false, error: explainError(error) };
-  }
-  renderBoard();
-}
-
-function renderBoard() {
-  const keys = currentKeys(state.today);
-  const ranked = rankEntries(state.board.entries, state.periodId, keys);
-  const target = byId('board-rows');
-  target.setAttribute('aria-busy', String(state.board.loading));
-  byId('board-refresh').disabled = state.board.loading;
-  reportSection('board-error', state.board.error);
-
-  const mine = rankOf(ranked, state.user?.uid);
-  const standing = byId('board-standing');
-  const rank = state.boardKind === 'global' ? state.myRank ?? mine : mine;
-  if (rank) {
-    standing.textContent =
-      state.boardKind === 'global' ? `You're #${rank} globally.` : `You're #${rank} of this group.`;
-    show(standing, true);
-  } else if (!state.row.loaded) {
-    // Neither "not published" nor "not ranked" is true yet — the row has not arrived.
-    show(standing, false);
-  } else if (state.row.exists) {
-    standing.textContent = "You're not on this board for this period yet.";
-    show(standing, true);
-  } else {
-    standing.textContent =
-      'Your score is not published. Turn leaderboards on in the phone app — this page ' +
-      'deliberately cannot publish it for you.';
-    show(standing, true);
-  }
-
-  if (state.board.loading && !ranked.length) {
-    fill(target, loadingSkeleton('Reading the board'));
-  } else if (!ranked.length) {
-    fill(
-      target,
-      state.boardKind === 'friends'
-        ? emptyState(
-            'Nobody here but you',
-            'Friend codes are the only way onto this board. Send yours to one person and ' +
-              'it stops being a solo sport.',
-          )
-        : emptyState(
-            'The global board is empty',
-            'Nobody has published a score for this period yet. Try again in a bit, or ' +
-              'check the friends board.',
-          ),
-    );
-  } else {
-    const leader = ranked[0]?.score.value ?? 0;
-    fill(
-      target,
-      ranked.map((entry) => boardRow(entry, leader)),
-    );
-  }
-
-  const more = byId('board-more');
-  const canLoadMore =
-    state.boardKind === 'global' && !state.board.exhausted && state.board.pages < MAX_PAGES;
-  show(more, canLoadMore);
-  more.disabled = state.board.loading;
-  more.textContent = state.board.loading ? 'Loading…' : 'Load more';
-
-  const hidden = byId('board-hidden');
-  show(
-    hidden,
-    state.boardKind === 'friends' &&
-      state.friends.accepted.length > 0 &&
-      ranked.length < state.friends.accepted.length + 1,
-  );
-}
-
-function boardRow(entry, leader) {
-  const isMe = entry.uid === state.user?.uid;
-  const value = scoreText(entry.score, formatDistance);
-  const fraction = leader > 0 ? entry.score.value / leader : 0;
-  const name = isMe ? `${entry.displayName} (you)` : entry.displayName;
-  const legacy = entry.score.unit === 'pixels';
-
-  return el(
-    'li',
-    { class: isMe ? 'board-row board-row-me' : 'board-row' },
-    el(
-      'div',
-      { class: 'board-head' },
-      el('span', { class: `rank num rank-${Math.min(entry.rank, 4)}`, text: `${entry.rank}` }),
-      avatar(entry.photoUrl, entry.displayName),
-      el('span', { class: 'board-name', text: name }),
-      el('span', { class: 'board-value num', text: value }),
-      state.boardKind === 'friends' && !isMe
-        ? el('button', {
-            class: 'icon-button',
-            type: 'button',
-            title: `Remove ${entry.displayName}`,
-            'aria-label': `Remove ${entry.displayName}`,
-            onclick: () => confirmRemove(entry),
-            text: '×',
-          })
-        : null,
-    ),
-    el(
-      'div',
-      { class: 'rail', 'aria-hidden': 'true' },
-      el('div', {
-        class: `rail-fill ${isMe ? 'rail-moss' : 'rail-slate'}`,
-        style: `width:${Math.min(Math.max(fraction, 0), 1) * 100}%`,
-      }),
-    ),
-    legacy
-      ? el('p', {
-          class: 'fine',
-          text: 'On an older build that reports screen pixels. Ranked, but there is no ' +
-            'comparable distance to show.',
-        })
-      : null,
-  );
-}
-
-function avatar(photoUrl, name) {
-  const initial = () =>
-    el('span', {
-      class: 'avatar avatar-blank',
-      'aria-hidden': 'true',
-      text: (name || '?').charAt(0).toUpperCase(),
-    });
-  if (!photoUrl) return initial();
-  // Google profile photos refuse hotlinked requests that carry a referrer, and a dead
-  // photo URL should fall back to the initial rather than a broken-image glyph.
-  const img = el('img', {
-    class: 'avatar',
-    src: photoUrl,
-    alt: '',
-    loading: 'lazy',
-    width: 32,
-    height: 32,
-    referrerpolicy: 'no-referrer',
-  });
-  img.addEventListener('error', () => img.replaceWith(initial()), { once: true });
-  return img;
-}
-
-function emptyState(title, body) {
-  return el('div', { class: 'empty' }, el('h3', { text: title }), el('p', { text: body }));
-}
-
-/**
- * Loading reads as the shape of what is coming. The spoken label carries the sentence
- * for screen readers; the shimmer is hidden from them so it is not announced as content.
- */
-function loadingSkeleton(label, widths = [88, 72, 80, 58]) {
-  return el(
-    'div',
-    { class: 'skel', role: 'status', 'aria-label': label },
-    el('span', { class: 'visually-hidden', text: label }),
-    ...widths.map((w) => el('i', { style: `width:${w}%`, 'aria-hidden': 'true' })),
-  );
-}
-
-async function loadLastWeekPodium() {
-  try {
-    const rows = await loadPodium(weekKey(addDays(state.today, -7)));
-    state.podium = rows;
-  } catch (error) {
-    console.warn('ThumbTrek: no archive for last week.', error);
-    state.podium = [];
-  }
-  renderPodium();
-}
-
-/**
- * Last week's top three as an actual podium: second, first, third, at three heights. A
- * ranked list of three names reads as data; three blocks of different heights reads as a
- * result. It is the one piece of pure delight on this page and it earns its place.
- */
-function renderPodium() {
-  const section = byId('podium');
-  show(section, state.podium.length > 0);
-  if (!state.podium.length) return;
-  const order = [1, 0, 2].filter((i) => i < state.podium.length);
-  fill(
-    byId('podium-row'),
-    order.map((index) => {
-      const row = state.podium[index];
-      const score = archiveScore(row);
-      return el(
-        'li',
-        { class: `podium-slot podium-${index + 1}` },
-        avatar(row.photoUrl ?? '', row.displayName ?? 'Trekker'),
-        el('span', { class: 'podium-name', text: row.displayName || 'Trekker' }),
-        el('span', { class: 'podium-value num', text: scoreText(score, formatDistance) }),
-        el('span', { class: 'podium-block', 'aria-hidden': 'true', text: `${index + 1}` }),
-      );
-    }),
-  );
-}
-
-// ---------------------------------------------------------------------------------------
-// Friends
-// ---------------------------------------------------------------------------------------
-
-function renderFriendCode() {
-  byId('my-code').textContent = formatFriendCode(state.code);
-  byId('invite-link').textContent = inviteLink(state.code);
-  byId('invite-link').href = `/i/${state.code}`;
-}
-
-/** Names for everyone on either side of the graph, so no row says a raw uid. */
-async function refreshFriendProfiles() {
-  const ids = [...state.friends.accepted, ...state.friends.pending].filter(
-    (uid) => !state.profiles.has(uid),
-  );
-  if (!ids.length) return renderFriends();
-  try {
-    for (const entry of await loadProfiles(ids)) state.profiles.set(entry.uid, entry);
-  } catch (error) {
-    console.warn('ThumbTrek: could not read friend profiles.', error);
-  }
-  // Edge handwriting beats the public row: friends see each other's real names while
-  // the global board keeps the handle. Same override the phone's friendBoard applies.
-  // Anyone with no board row AND no edge identity falls back to the stable pseudonym.
-  let edges = new Map();
-  try {
-    edges = await loadEdgeIdentities(state.user.uid);
-  } catch (error) {
-    console.warn('ThumbTrek: could not read edge identities.', error);
-  }
-  for (const uid of ids) {
-    const edge = edges.get(uid);
-    const current = state.profiles.get(uid);
-    if (current && !current.unpublished) {
-      if (edge) state.profiles.set(uid, { ...current, displayName: edge.name, photoUrl: edge.photo });
-      continue;
-    }
-    if (state.profiles.has(uid)) continue;
-    state.profiles.set(uid, edge
-      ? { uid, displayName: edge.name, photoUrl: edge.photo, unpublished: true }
-      : {
-        uid,
-        displayName: await anonymousHandle(uid),
-        photoUrl: '',
-        unpublished: true,
-      });
-  }
-  renderFriends();
-}
-
-function renderFriends() {
-  // The code only resolves once some client has opted in and published the index entry,
-  // so say so rather than letting someone send out a code that finds nobody.
-  show(
-    byId('code-unpublished'),
-    Boolean(state.user) && state.row.loaded && !state.row.exists && !state.row.fromCache,
-  );
-  const requests = state.friends.pending;
-  show(byId('requests'), requests.length > 0);
-  byId('requests-count').textContent = `${requests.length}`;
-  fill(
-    byId('requests-rows'),
-    requests.map((uid) => {
-      const profile = state.profiles.get(uid);
-      return el(
-        'li',
-        { class: 'request' },
-        avatar(profile?.photoUrl ?? '', profile?.displayName ?? 'Trekker'),
-        el('span', { class: 'request-name', text: profile?.displayName ?? 'A trekker' }),
-        el('button', {
-          class: 'btn btn-primary btn-small',
-          type: 'button',
-          text: 'Accept',
-          onclick: () => act(() => acceptRequest(state.user.uid, uid), 'Request accepted.'),
-        }),
-        el('button', {
-          class: 'btn btn-ghost btn-small',
-          type: 'button',
-          text: 'Decline',
-          onclick: () => act(() => removeFriend(state.user.uid, uid), 'Request declined.'),
-        }),
-      );
-    }),
-  );
-
-  const list = byId('friend-list');
-  if (!state.friends.accepted.length) {
-    fill(
-      list,
-      el('p', {
-        class: 'fine',
-        text: 'No trek partners yet. Share your code, or add someone else’s below.',
-      }),
-    );
-  } else {
-    fill(
-      list,
-      state.friends.accepted.map((uid) => {
-        const profile = state.profiles.get(uid);
-        return el(
-          'li',
-          { class: 'friend' },
-          avatar(profile?.photoUrl ?? '', profile?.displayName ?? 'Trekker'),
-          el('span', { class: 'friend-name', text: profile?.displayName ?? 'A trekker' }),
-          profile?.unpublished
-            ? el('span', { class: 'tag', text: 'not on the board' })
-            : null,
-          el('button', {
-            class: 'btn btn-ghost btn-small',
-            type: 'button',
-            text: 'Remove',
-            onclick: () => confirmRemove({ uid, displayName: profile?.displayName ?? 'this trekker' }),
-          }),
-        );
-      }),
-    );
-  }
-}
-
-function confirmRemove(entry) {
-  const ok = window.confirm(
-    `Remove ${entry.displayName}?\n\nYou will drop off each other's boards. Friend codes ` +
-      'still work, so you can add each other back later.',
-  );
-  if (ok) act(() => removeFriend(state.user.uid, entry.uid), `Removed ${entry.displayName}.`);
-}
-
-/** Runs a write, reports it in one place, and never leaves a button stuck in "busy". */
-async function act(work, successMessage) {
-  if (state.busy) return;
-  state.busy = true;
-  reportSection('friends-error', '');
-  try {
-    await work();
-    announce(successMessage);
-  } catch (error) {
-    reportSection('friends-error', explainError(error));
-    announce(explainError(error));
-  } finally {
-    state.busy = false;
-  }
-}
-
 // ---------------------------------------------------------------------------------------
 // Controls
 // ---------------------------------------------------------------------------------------
@@ -1208,7 +341,7 @@ function wireSegmented(containerId, options, onSelect, initial = 0) {
   const buttons = options.map((label, index) =>
     el('button', {
       type: 'button',
-      class: 'segment',
+      class: 'chip-btn',
       'aria-pressed': String(index === initial),
       text: label,
       onclick: () => {
@@ -1227,6 +360,13 @@ function wireDashboardControls() {
     state.range = index;
     if (state.user) renderHistory(derive());
   });
+
+  wireSegmented('report-choice', REPORTS.map((r) => r.label), (index) => {
+    state.report = index;
+    if (state.user) renderReport();
+  });
+
+  wireGroups();
 
   wireSegmented('board-kind', ['Friends', 'Global'], (index) => {
     state.boardKind = index === 0 ? 'friends' : 'global';
@@ -1262,7 +402,7 @@ function wireDashboardControls() {
       const selection = window.getSelection();
       selection.removeAllRanges();
       selection.addRange(range);
-      announce('Copy blocked by the browser — the code is selected, press Ctrl+C.');
+      announce('The browser blocked copying. The code is selected, so press Ctrl+C.');
     }
   });
 
@@ -1292,7 +432,7 @@ function wireDashboardControls() {
     await act(async () => {
       await sendRequest(state.user.uid, value);
       input.value = '';
-    }, 'Request sent. They have to accept before you land on each other’s boards.');
+    }, 'Request sent. They have to accept before you appear on each other’s boards.');
   });
 }
 

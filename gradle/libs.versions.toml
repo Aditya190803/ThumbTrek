@@ -1,20 +1,21 @@
 [versions]
 agp = "8.7.3"
-kotlin = "2.0.21"
-ksp = "2.0.21-1.0.28"
-coreKtx = "1.15.0"
+kotlin = "2.1.21"
+ksp = "2.1.21-2.0.1"
+coreKtx = "1.16.0"
 lifecycle = "2.8.7"
-activityCompose = "1.9.3"
-composeBom = "2024.12.01"
-room = "2.6.1"
-work = "2.10.0"
+activityCompose = "1.10.1"
+composeBom = "2025.06.00"
+room = "2.7.2"
+work = "2.10.2"
 startup = "1.1.1"
 junit = "4.13.2"
-googleServices = "4.4.2"
-firebaseBom = "33.7.0"
-credentials = "1.3.0"
+json = "20240303"
+googleServices = "4.4.3"
+firebaseBom = "33.15.0"
+credentials = "1.5.0"
 googleid = "1.1.1"
-playServicesCoroutines = "1.9.0"
+playServicesCoroutines = "1.10.2"
 coil = "2.7.0"
 
 [libraries]
@@ -42,6 +43,7 @@ googleid = { group = "com.google.android.libraries.identity.googleid", name = "g
 play-services-coroutines = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-play-services", version.ref = "playServicesCoroutines" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
+json = { group = "org.json", name = "json", version.ref = "json" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

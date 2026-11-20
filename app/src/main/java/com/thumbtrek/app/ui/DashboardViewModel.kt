@@ -17,6 +17,7 @@ import com.thumbtrek.app.stats.dailyBuckets
 import com.thumbtrek.app.stats.isCleanDay
 import com.thumbtrek.app.stats.limitStreak
 import com.thumbtrek.app.stats.pixelsToMeters
+import com.thumbtrek.app.social.micrometresToMeters
 import com.thumbtrek.app.stats.totalThisMonth
 import com.thumbtrek.app.stats.totalThisWeek
 import com.thumbtrek.app.stats.trekStreak
@@ -70,6 +71,13 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         val baselineDays: Int = 0,
         /** The typical day behind a just-applied automatic limit, until acknowledged. */
         val autoLimitNotice: Float? = null,
+        /**
+         * Today's distance from the browser, when the limit is shared with it. Counts
+         * against the limit and gets its own lane; zero whenever sharing is off.
+         */
+        val otherSourcesM: Double = 0.0,
+        /** Package name to its own daily limit in metres. */
+        val appLimits: Map<String, Float> = emptyMap(),
     )
 
     private val dao = ScrollDatabase.get(app).dao()
@@ -118,6 +126,17 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         PrefsUi(custom, limit, limitSince, baselineSince, notice)
     }
 
+    private data class LimitExtras(val otherUm: Long, val otherDate: String?, val appLimits: Map<String, Float>)
+
+    /** The two limit additions: what the browser measured today, and per-app limits. */
+    private val limitExtras = combine(
+        prefs.sharedLimit,
+        prefs.otherSourcesToday,
+        prefs.appLimits,
+    ) { shared, other, appLimits ->
+        LimitExtras(if (shared) other?.um ?: 0L else 0L, other?.date, appLimits)
+    }
+
     private data class DayScope(
         val date: LocalDate,
         val perApp: List<AppTotal>,
@@ -137,14 +156,19 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
         dao.observeAllDays(),
         trackingEnabled,
         prefsUi,
-    ) { scope, allDays, enabled, p ->
+        limitExtras,
+    ) { scope, allDays, enabled, p, extras ->
         val customLabels = p.customLabels
         val limitM = p.limitM
         val date = scope.date
         val byDate = allDays.associate { LocalDate.parse(it.date) to it.pixels }
         val todayPx = scope.perApp.sumOf { it.pixels }
-        val todayMeters = pixelsToMeters(todayPx, dpi)
+        // A figure fetched yesterday says nothing about today.
+        val otherM = if (extras.otherDate == date.toString()) micrometresToMeters(extras.otherUm) else 0.0
+        val todayMeters = pixelsToMeters(todayPx, dpi) + otherM
+        // Today is judged on the combined figure; earlier days on this phone's own history.
         val dayMeters = byDate.mapValues { pixelsToMeters(it.value, dpi) }
+            .let { if (otherM > 0.0) it + (date to todayMeters) else it }
         // The run never reaches back past the day the limit began, so a baseline week
         // (or any stretch before a first limit) is never scored against it.
         val firstTracked = dayMeters.keys.minOrNull()
@@ -182,6 +206,8 @@ class DashboardViewModel(app: Application) : AndroidViewModel(app) {
                 trackedDaysSince(dayMeters, it, date).size.coerceAtMost(BASELINE_DAYS)
             } ?: 0,
             autoLimitNotice = p.autoLimitNotice,
+            otherSourcesM = otherM,
+            appLimits = extras.appLimits,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), UiState())
 

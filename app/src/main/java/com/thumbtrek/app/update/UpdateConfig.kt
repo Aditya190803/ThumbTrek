@@ -40,7 +40,6 @@ object UpdateConfig {
 
     // 1..3 are already taken by the daily summary, streak reminder and social notifiers.
     const val NOTIFICATION_ID_READY = 5
-    const val NOTIFICATION_ID_PROGRESS = 6
 
     /** Sent to [InstallResultReceiver] by PackageInstaller when a session finishes. */
     const val ACTION_INSTALL_RESULT = "com.thumbtrek.app.update.INSTALL_RESULT"

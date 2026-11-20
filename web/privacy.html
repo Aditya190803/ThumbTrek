@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Privacy | ThumbTrek</title>
+  <meta name="description" content="What ThumbTrek measures, what it publishes, who can read it, and how to delete it." />
+  <link rel="canonical" href="https://thumbtrek.adityamer.dev/privacy" />
+  <meta name="theme-color" content="#2340e0" />
+  <link rel="icon" href="/assets/track-mark.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="wrap nav">
+    <a class="brand" href="/">
+      <img src="/assets/track-mark.svg" width="40" height="24" alt="" />
+      ThumbTrek
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="/">Home</a>
+      <a href="/terms">Terms</a>
+      <a href="/app">Dashboard</a>
+    </nav>
+  </header>
+
+  <main class="wrap legal">
+    <h1>Privacy</h1>
+    <p class="legal-date">Last updated 18 November 2026</p>
+
+    <p>ThumbTrek measures how far you scroll. This page says exactly what it collects, where
+      that goes, who can read it, and how to remove it. It covers the Android app, the
+      browser extension and this website.</p>
+
+    <h2>What is measured, and what is not</h2>
+    <ul>
+      <li>The Android app reads the scroll offsets that Android's accessibility events carry
+        for the apps you choose, and nothing else. It never reads text, images, links or
+        anything else on screen, and it takes no screenshots.</li>
+      <li>The extension reads one number per scroll on the sites you switch on, and the
+        site's name. It reads no page content. Sites you have not switched on are discarded
+        before anything is stored.</li>
+      <li>What is kept is a distance per app or site per day, and your settings. That stays
+        on your device.</li>
+    </ul>
+
+    <h2>What leaves your device</h2>
+    <p>Nothing, until you sign in and turn on leaderboards. Signing in alone publishes
+      nothing. After you turn leaderboards on, three kinds of data are stored in Google
+      Firebase:</p>
+    <ul>
+      <li><strong>Your board row.</strong> A name you choose (your Google name or an
+        anonymous handle) and three distances: this week, this month and all time. Anyone
+        signed in can read it, because that is what a leaderboard is.</li>
+      <li><strong>Your private history.</strong> Your distance per day, split by app or
+        site. Only your account can read it. It lets the dashboard draw your history.</li>
+      <li><strong>What you share on purpose.</strong> Friends see your real Google name.
+        Groups you join show your name and your distance inside the group's window to the
+        other members. If you turn on one limit across your devices, the limit is stored in
+        your account, readable only by you.</li>
+    </ul>
+
+    <h2>Who processes it</h2>
+    <p>Data you publish is stored in Google Firebase (Firestore and Authentication). Sign-in
+      uses your Google account. The Android app checks GitHub for updates with an anonymous
+      request that carries no account, no device identifier and no scroll data. There is no
+      advertising, no analytics and no tracking of any kind, and nothing is sold.</p>
+
+    <h2>Backups and exports</h2>
+    <p>Backup files and CSV exports are written to a place you choose and are never uploaded
+      by ThumbTrek. Keep them somewhere safe: they hold your full history.</p>
+
+    <h2>Deleting your data</h2>
+    <ul>
+      <li>Turning leaderboards off deletes your board row and your private history from the
+        server, and takes your numbers out of every group.</li>
+      <li>Leaving a group removes your numbers from it. Deleting a group you own removes
+        everyone's numbers from it.</li>
+      <li>Uninstalling the app or removing the extension deletes everything stored on that
+        device.</li>
+    </ul>
+
+    <h2>Payments</h2>
+    <p>Premium is not on sale yet, and ThumbTrek takes no payments. When it does, payment
+      details will be handled by the payment provider and never stored by ThumbTrek. This
+      page will be updated before that happens.</p>
+
+    <h2>Children</h2>
+    <p>ThumbTrek is not directed at children under 13 and does not knowingly collect their
+      data.</p>
+
+    <h2>Questions</h2>
+    <p>Open an issue on <a class="text-link" href="https://github.com/Aditya190803/ThumbTrek/issues">GitHub</a>.
+      The source code is public, so every claim on this page can be checked.</p>
+  </main>
+
+  <footer class="wrap">
+    <span>ThumbTrek</span>
+    <nav aria-label="Footer">
+      <a href="/privacy" aria-current="page">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="https://github.com/Aditya190803/ThumbTrek">GitHub</a>
+    </nav>
+  </footer>
+</body>
+</html>

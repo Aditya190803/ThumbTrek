@@ -1,0 +1,46 @@
+# Runs every test suite on each push and pull request. The release workflow only builds;
+# this is what catches a regression before a tag exists.
+name: Test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web-and-extension:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      # Both are buildless and dependency-free, so there is nothing to install.
+      - name: Web dashboard tests
+        run: node --test web/app/test/*.test.js
+      - name: Extension tests
+        working-directory: extension
+        run: npm test
+
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      # Builds against the committed Firebase placeholder, which is all the tests need.
+      - name: Build, unit tests and lint
+        run: ./gradlew --no-daemon assembleDebug testDebugUnitTest lintDebug
+      - name: Keep the reports when something fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-reports
+          path: app/build/reports

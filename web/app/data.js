@@ -9,6 +9,7 @@
 
 import { firebase } from './firebase.js';
 import { boardEntry, periodById } from './board.js';
+import { parseGroup } from './groups.js';
 import { monthKey, todayIso, weekKey } from './stats.js';
 
 /** Firestore caps `in` queries at 30 values, so friend lists are read in chunks. */
@@ -235,4 +236,60 @@ export async function watchFriends(uid, onChange, onError) {
     },
     onError,
   );
+}
+
+// ---------------------------------------------------------------------------------------
+// The shared limit and groups (docs/sync-protocol.md §7, §8)
+// ---------------------------------------------------------------------------------------
+
+/**
+ * The limit the account's clients share, `users/{uid}/settings/limits`, live. The page only
+ * reads it: a limit is set on the phone or in the browser, where the scrolling happens.
+ * Delivers null while sharing is off, which is the document not existing.
+ */
+export async function watchSharedLimit(uid, onChange, onError) {
+  const { db, storeMod } = await firebase();
+  return storeMod.onSnapshot(
+    storeMod.doc(db, 'users', uid, 'settings', 'limits'),
+    (snap) => {
+      const data = snap.data();
+      onChange(snap.exists()
+        ? { limitUm: Number(data?.limitUm) || 0, setAt: Number(data?.setAt) || 0 }
+        : null);
+    },
+    onError,
+  );
+}
+
+/** Every group this uid belongs to, by name. The rules allow exactly this query. */
+export async function loadMyGroups(uid) {
+  const { db, storeMod } = await firebase();
+  const snap = await storeMod.getDocs(
+    storeMod.query(
+      storeMod.collection(db, 'groups'),
+      storeMod.where('members', 'array-contains', uid),
+      storeMod.limit(100),
+    ),
+  );
+  return snap.docs
+    .map((d) => parseGroup(d.id, d.data()))
+    .filter(Boolean)
+    .sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
+}
+
+/** One group's progress documents, `{ uid, source, name, photo, windowKey, um }`. */
+export async function loadGroupProgress(groupId) {
+  const { db, storeMod } = await firebase();
+  const snap = await storeMod.getDocs(storeMod.collection(db, 'groups', groupId, 'progress'));
+  return snap.docs.map((d) => {
+    const data = d.data() ?? {};
+    return {
+      uid: String(data.uid ?? ''),
+      source: String(data.source ?? ''),
+      name: String(data.name ?? ''),
+      photo: String(data.photo ?? ''),
+      windowKey: String(data.windowKey ?? ''),
+      um: Number(data.um) || 0,
+    };
+  });
 }

@@ -8,7 +8,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  badges, comparison, dailyBuckets, dayOverDayDelta, distanceParts, formatDistance, isCleanDay,
+  badges, comparison, dailyBuckets, dayOverDayDelta, formatDistance, isCleanDay,
   limitStreak, monthKey, monthlyBuckets, percentDelta, personalRecord, siteTrends,
   totalThisMonth, totalThisWeek, trekStreak, weekKey, weeklyBuckets, weekOverWeekDelta,
 } from '../lib/stats.js';
@@ -22,11 +22,6 @@ test('distance formatting matches the Kotlin', () => {
   assert.equal(formatDistance(340.2), '340 m');
   assert.equal(formatDistance(1000), '1 km');
   assert.equal(formatDistance(1234), '1.23 km');
-});
-
-test('distance parts split the figure from the unit', () => {
-  assert.deepEqual(distanceParts(1234), ['1.23', 'km']);
-  assert.deepEqual(distanceParts(12), ['12', 'm']);
 });
 
 test('streak counts back from today', () => {
@@ -95,7 +90,7 @@ test('mondayOf lands on Monday for every day of a week', () => {
 });
 
 test('comparisons scale with distance', () => {
-  assert.equal(comparison(0), 'No trek yet — go scroll something.');
+  assert.equal(comparison(0), 'Nothing scrolled yet.');
   assert.match(comparison(0.25), /banana/);
   assert.match(comparison(12.4), /school bus/);
   assert.match(comparison(1000), /Burj Khalifa/);

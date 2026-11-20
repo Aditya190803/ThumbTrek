@@ -1,16 +1,11 @@
-/* ThumbTrek dashboard.
-   Loaded after /styles.css and built entirely on its tokens — same ground, same moss,
-   amber and slate, same two typefaces, same 1.25 modular scale. Nothing here introduces a
-   colour or a size; if a value is not a var(), it is a geometry (a bar width, a podium
-   height), not a new decision.
+/* ThumbTrek dashboard and invite page.
+   Loaded after /styles.css and built on its tokens (DESIGN.md). Nothing here introduces a
+   colour; a value that is not a var() is a geometry.
 
-   The one structural rule carried over from the app (app/.../ui/Surfaces.kt): panels are
-   for things that genuinely are discrete objects — one person's row, one banner, one
-   achievement. Sections are separated by a marker and whitespace instead. Boxing every
-   group in a card is exactly what made the previous pass read as a stock dashboard, and it
-   was rejected there for the same reason it is avoided here. */
+   The structural rule: a list of things is rows divided by lane lines, and a panel is only
+   for a single object (the friend code, the Premium plan, the invitation). */
 
-/* ——————————————————————————————— Utility ——————————————————————————————— */
+/* ———————————————————————————— Utility ———————————————————————————— */
 
 .visually-hidden {
   position: absolute;
@@ -30,93 +25,162 @@
   left: var(--s-3);
   top: -4rem;
   z-index: 10;
-  padding: 0.6rem 1rem;
-  border-radius: 0.5rem;
-  background: var(--moss);
-  color: var(--on-moss);
-  font-family: var(--display);
-  font-weight: 600;
-  transition: top 140ms ease;
+  padding: 0.6rem 1.1rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 650;
+  transition: top 140ms ease-out;
 }
 
 .skip-link:focus-visible {
   top: var(--s-3);
 }
 
-.mono {
-  font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
-  font-size: var(--t-sm);
-  color: var(--amber);
+code {
+  font: inherit;
+  font-weight: 600;
+  color: var(--text);
   word-break: break-word;
 }
 
-code {
-  font-family: ui-monospace, "SFMono-Regular", "Consolas", monospace;
-  font-size: 0.92em;
-  color: var(--ink-muted);
+.text-link {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
 }
 
+.fine {
+  margin-top: var(--s-3);
+}
+
+.lead {
+  margin-top: var(--s-2);
+  color: var(--text-dim);
+  font-size: var(--t-md);
+  max-width: 40rem;
+}
+
+.detail {
+  margin-top: var(--s-2);
+  color: var(--warn);
+  font-size: var(--t-sm);
+  word-break: break-word;
+}
+
+/* An error is a sentence in a danger-washed stadium corner, never colour alone. */
 .error {
-  margin: var(--s-3) 0 0;
-  padding: 0.85rem 1rem;
-  border: 1px solid var(--danger-line);
-  border-radius: 0.55rem;
+  margin-top: var(--s-3);
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-input);
   background: var(--danger-wash);
-  color: var(--danger-ink);
+  color: var(--text);
+  border-left: 0;
+  font-size: var(--t-sm);
+}
+
+.error::before {
+  content: "Problem: ";
+  font-weight: 700;
+  color: var(--danger);
+}
+
+.connection {
+  padding: 0.8rem 1rem;
+  border-radius: var(--radius-input);
+  background: var(--warn-wash);
+  color: var(--text);
   font-size: var(--t-sm);
 }
 
 .empty-note {
-  margin: var(--s-3) 0 0;
-  color: var(--ink-muted);
+  margin-top: var(--s-4);
+  color: var(--text-dim);
   max-width: 44rem;
 }
 
 .empty {
-  padding: var(--s-3) 0;
+  display: block !important;
+  padding: var(--s-4) 0;
 }
 
 .empty h3 {
-  margin: 0 0 var(--s-1);
-  font-family: var(--display);
-  font-weight: 600;
   font-size: var(--t-md);
-  letter-spacing: -0.02em;
+  font-weight: 650;
 }
 
 .empty p {
-  margin: 0;
-  color: var(--ink-muted);
+  margin-top: var(--s-1);
+  color: var(--text-dim);
   max-width: 38rem;
   font-size: var(--t-sm);
 }
 
-/* ——————————————————————————————— Chrome ——————————————————————————————— */
+/* Loading reads as the shape of what is coming: bars on the sunken track. */
+.skel {
+  display: grid;
+  gap: 0.6rem;
+  padding: var(--s-2) 0;
+}
 
-/* Auth gating, CSS layer. JS toggles `hidden` on these two; the rules below decide what
-   `hidden` *allows*. The body default in index.html is data-auth="out", so a signed-out
-   visitor can never see the account cluster — not before JS runs, not if auth resolves
-   slowly, not if a stale script shows it. NOTE the :not([hidden]): an author display rule
-   beats the UA [hidden] rule, so without it the cluster would stick visible. */
+.skel i {
+  display: block;
+  height: 0.8rem;
+  border-radius: 999px;
+  background: var(--sunken);
+  animation: pulse 1200ms ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  to { opacity: 0.45; }
+}
+
+/* ———————————————————————————— App bar ———————————————————————————— */
+
+.appbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-3) var(--s-4);
+  padding: var(--s-4) 0;
+}
+
+.appbar-side {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+.btn-small {
+  min-height: 2.25rem;
+  padding: 0.35rem 1rem;
+  font-size: var(--t-xs);
+}
+
+/* Auth gating, CSS layer. JS toggles `hidden`; the rules below decide what `hidden`
+   allows. The body default in index.html is data-auth="out", so a signed-out visitor can
+   never see the account cluster or the section tabs: not before JS runs, not if auth
+   resolves slowly, not if a stale script shows them. NOTE the :not([hidden]): an author
+   display rule beats the UA [hidden] rule, so without it the cluster would stick visible. */
 .account {
   display: none;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.6rem;
 }
 
 body[data-auth="in"] #account:not([hidden]) {
   display: inline-flex;
 }
 
-/* One-way safety rails: no JS path, stale script, or slow resolve can paint the
-   gateway for a signed-in visitor, or the data for a signed-out one. Deliberately
-   WITHOUT :not([hidden]) — unlike the header halves above, these are never allowed
-   to show in the wrong state, whatever JS thinks. */
+/* One-way safety rails, deliberately WITHOUT :not([hidden]): these are never allowed to
+   show in the wrong state, whatever JS thinks. */
 body[data-auth="in"] #welcome {
   display: none;
 }
 
-body[data-auth="out"] #dashboard {
+body[data-auth="out"] #dashboard,
+body[data-auth="out"] #tabs {
   display: none;
 }
 
@@ -129,472 +193,545 @@ body[data-auth="out"] #signin-head:not([hidden]) {
 }
 
 .account-name {
-  max-width: 12rem;
+  max-width: 11rem;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--ink);
   font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--text-dim);
 }
 
 .avatar {
   width: 2rem;
   height: 2rem;
-  border-radius: 999px;
+  flex: none;
+  border-radius: 50%;
   object-fit: cover;
-  border: 1px solid var(--hairline);
-  flex: 0 0 auto;
+  background: var(--sunken);
 }
 
 .avatar-blank {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--moss-wash);
-  color: var(--moss);
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: var(--t-sm);
-}
-
-.btn-small {
-  min-height: 2.2rem;
-  padding: 0.35rem 0.8rem;
+  display: inline-grid;
+  place-items: center;
+  background: var(--track);
+  color: var(--chalk);
+  font-weight: 700;
   font-size: var(--t-xs);
 }
 
-/* A state banner, not a card: full-bleed hairline band across the top of the data. */
-.connection {
-  width: min(100% - 2 * var(--gutter), var(--max));
-  margin: var(--s-4) auto 0;
-  padding: 0.7rem 0.95rem;
-  border: 1px solid var(--amber-line);
-  border-radius: 0.55rem;
-  background: var(--amber-wash);
-  color: var(--amber-ink);
-  font-size: var(--t-sm);
+/* Section tabs: stadiums, the selected one filled with the accent (DESIGN.md). */
+.tabs {
+  display: flex;
+  gap: var(--s-1);
+  padding: var(--s-1);
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--panel-border);
 }
 
-/* ——————————————————————————————— App bar ——————————————————————————————— */
+.tab {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.5rem;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  font-size: var(--t-sm);
+  font-weight: 600;
+  color: var(--text-dim);
+  transition: background 160ms ease-out, color 160ms ease-out;
+}
 
-/* Deliberately not the site nav: no marketing links, a hairline underneath, and a
-   Dashboard tag so the signed-in tool never reads as a second landing page. */
-.appbar {
+.tab:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.tab[aria-current="page"] {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+/* Range and board switches: the same stadium, smaller, as pressed buttons. */
+.chips {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--s-1);
+}
+
+.chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+}
+
+.chip-btn {
+  min-height: 2.25rem;
+  padding: 0 1rem;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: var(--t-xs);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 160ms ease-out, color 160ms ease-out, border-color 160ms ease-out;
+}
+
+.chip-btn:hover {
+  color: var(--text);
+  border-color: var(--text-faint);
+}
+
+.chip-btn[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--on-accent);
+}
+
+/* ———————————————————————————— Page blocks ———————————————————————————— */
+
+.block {
+  padding-block: var(--s-4) var(--s-5);
+}
+
+.notices {
+  display: grid;
+  gap: var(--s-2);
+}
+
+.view {
+  padding-block: var(--s-4) var(--s-section);
+}
+
+.view > section,
+#history-body > * + *,
+.view > .figures {
+  margin-top: var(--s-6);
+}
+
+.view-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: var(--s-3) var(--s-4);
+}
+
+.view-title {
+  font-size: var(--t-xl);
+  font-weight: 700;
+  font-stretch: 125%;
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+
+.sub {
+  display: flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  margin-bottom: var(--s-3);
+  font-size: var(--t-md);
+  font-weight: 650;
+}
+
+.sub-count {
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--text-faint);
+}
+
+.columns {
+  display: grid;
+  gap: var(--s-5);
+}
+
+/* ———————————————————————————— Signed out ———————————————————————————— */
+
+.gateway {
+  border-radius: calc(var(--radius) * 1.6);
+  padding: var(--s-5) var(--s-4);
+  display: grid;
+  gap: var(--s-5);
+  align-items: center;
+  overflow: hidden;
+}
+
+.gateway h1,
+.invite-card h1 {
+  font-size: clamp(1.9rem, 4.6vw, 3rem);
+  font-weight: 800;
+  font-stretch: 125%;
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  text-wrap: balance;
+}
+
+.gateway .hero-lead,
+.invite-card .hero-lead {
+  margin-top: var(--s-3);
+}
+
+.gateway .cta-row,
+.invite-card .cta-row {
+  margin-top: var(--s-4);
+}
+
+.gateway .error,
+.invite-card .error {
+  background: var(--track-deep);
+}
+
+.gateway .error::before,
+.invite-card .error::before {
+  color: var(--chalk);
+}
+
+.gateway-oval {
+  width: 100%;
+  height: auto;
+}
+
+.block > .facts {
+  margin-top: var(--s-5);
+}
+
+/* ———————————————————————————— Today ———————————————————————————— */
+
+.today {
+  display: grid;
+  gap: var(--s-4);
+  margin-top: var(--s-4);
+  align-items: start;
+}
+
+.today .oval {
+  margin-top: 0;
+}
+
+.oval[aria-busy="true"] .oval-caption {
+  color: var(--chalk);
+}
+
+/* The total lane says its state in colour here and in words in the caption. */
+.lane-tone-warn {
+  stroke: var(--warn);
+}
+
+.lane-tone-danger {
+  stroke: #ff5c7a;
+}
+
+.today-compare {
+  margin-top: var(--s-4);
+  font-size: var(--t-md);
+  font-weight: 500;
+}
+
+.delta {
+  margin-top: var(--s-1);
+  font-size: var(--t-sm);
+  color: var(--text-dim);
+}
+
+#today-goal {
+  margin-top: var(--s-4);
+}
+
+#today-goal .fine {
+  margin-top: var(--s-2);
+}
+
+/* The limit note: what this page cannot know, and the Premium feature that would fix it. */
+.locked {
+  margin-top: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1.5px solid var(--line);
+  font-size: var(--t-sm);
+  color: var(--text-dim);
+}
+
+.locked strong {
+  color: var(--text);
+  font-weight: 650;
+}
+
+.locked-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--s-3);
-  padding: var(--s-3) 0;
-  border-bottom: 1px solid var(--hairline-soft);
-}
-
-.appbar .brand {
-  font-size: var(--t-base);
-}
-
-.appbar .brand img {
-  width: 1.7rem;
-  height: 1.7rem;
-}
-
-.appbar-tag {
-  margin-left: 0.35rem;
-  padding: 0.22rem 0.65rem;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: var(--t-xs);
-  letter-spacing: 0.01em;
-  color: var(--ink-faint);
-  white-space: nowrap;
-}
-
-.appbar-side {
-  display: flex;
-  align-items: center;
-  gap: var(--s-2);
-}
-
-/* ——————————————————————————————— Gateway ——————————————————————————————— */
-
-/* The signed-out state is one bordered panel with the single action — the landing page
-   already made the case, so nothing here pitches. The contour map survives underneath
-   as a cropped banner: same motif, opposite composition, so the two pages rhyme
-   without repeating. */
-.gateway-wrap {
-  display: grid;
-  gap: var(--s-5);
-  padding: var(--s-6) 0 var(--s-section);
-}
-
-.gateway {
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius);
-  background: linear-gradient(160deg, var(--ground-raised), var(--ground-sunken));
-  box-shadow: var(--shadow);
-  padding: clamp(1.5rem, 4vw, 3rem);
-  max-width: 56rem;
-}
-
-.gateway h1 {
-  margin: var(--s-3) 0 var(--s-4);
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: clamp(2rem, 6vw, 3.25rem);
-  line-height: 0.98;
-  letter-spacing: -0.04em;
-  text-wrap: balance;
-}
-
-.gateway h1 span {
-  color: var(--moss);
-}
-
-.gateway-list {
-  margin: var(--s-4) 0 var(--s-5);
-  font-size: var(--t-sm);
-}
-
-/* `.promise` is absolutely positioned by default: it was designed as the overlay pinned
-   to the bottom of the contour map (position:relative). Inside the gateway there is no
-   such positioning context, so without this it escapes to a full-width bar across the
-   viewport. Here it is a plain inline checklist; the dash marker survives. */
-.gateway .promise {
-  position: static;
-  border: none;
-  background: none;
-  backdrop-filter: none;
-  padding: 0;
-}
-
-.gateway-map {
-  max-height: 15rem;
-}
-
-.gateway-map svg {
-  height: 15rem;
-}
-
-/* ——————————————————————————————— Skeletons ————————————————————————————— */
-
-/* Loading reads as the shape of what is coming, not a sentence about waiting. Widths
-   are passed inline per row so each list shimmers in its own rhythm. */
-.skel {
-  display: grid;
-  gap: 0.6rem;
-  padding: 0.4rem 0;
-}
-
-.skel i {
-  display: block;
-  height: 0.9rem;
-  border-radius: 0.4rem;
-  background: linear-gradient(90deg, var(--ground-raised), var(--hairline-soft), var(--ground-raised));
-  background-size: 200% 100%;
-  animation: skel-sweep 1.2s ease infinite;
-}
-
-@keyframes skel-sweep {
-  to {
-    background-position: -200% 0;
-  }
-}
-
-/* ——————————————————————————————— Section furniture ——————————————————————————————— */
-
-/* The app's SectionHead: a wide-tracked overline, a hairline running to the edge of the
-   content column, and an optional trailing figure. Survey-sheet furniture, not a card. */
-.marker {
-  display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  margin: var(--s-5) 0 var(--s-3);
-  font-weight: 400;
-  font-size: var(--t-base);
-}
-
-/* Sentence case, like every other label (DESIGN.md) — the rule does the dividing. */
-.marker-text,
-.marker-trailing {
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: var(--t-sm);
-  letter-spacing: 0.01em;
-  color: var(--ink-muted);
-  white-space: nowrap;
-}
-
-.marker-trailing {
-  color: var(--ink-faint);
+  min-height: 2.75rem;
+  margin-top: var(--s-3);
+  padding: 0.5rem 0;
+  border-top: 1.5px solid var(--line-soft);
+  color: var(--text);
   font-weight: 500;
-  font-variant-numeric: tabular-nums;
 }
 
-.marker-rule {
-  flex: 1;
-  height: 1px;
-  background: var(--hairline);
+.locked-row:hover .chip {
+  background: var(--accent);
+  color: var(--on-accent);
 }
 
-.control-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s-2);
-  align-items: center;
-  margin-bottom: var(--s-4);
+/* Week, month, all time: figures in a row divided by lane lines, not boxed. */
+.figures {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  border-top: 1.5px solid var(--line);
 }
 
-/* ——————————————————————————————— Segmented control ——————————————————————————————— */
-
-.segmented {
-  display: inline-flex;
-  padding: 3px;
-  gap: 3px;
-  border: 1px solid var(--hairline-soft);
-  border-radius: 0.55rem;
-  background: var(--ground-sunken);
+.figure {
+  padding: var(--s-4) var(--s-3) var(--s-4) 0;
+  border-bottom: 1.5px solid var(--line);
 }
 
-.segment {
-  min-height: 2.4rem;
-  padding: 0.4rem 0.9rem;
-  border: 1px solid transparent;
-  border-radius: 8px;
-  background: transparent;
-  color: var(--ink-faint);
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: var(--t-xs);
-  cursor: pointer;
-  transition: color 160ms ease, background 160ms ease, border-color 160ms ease;
+.figure-label {
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--text-faint);
 }
 
-.segment:hover {
-  color: var(--ink-muted);
+.figure-value {
+  margin-top: var(--s-1);
+  font-size: clamp(1.5rem, 3.4vw, 2.1rem);
+  font-weight: 800;
+  font-stretch: 125%;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
 }
 
-.segment[aria-pressed="true"] {
-  background: var(--ground-raised);
-  border-color: var(--hairline);
-  color: var(--ink);
-}
-
-/* ——————————————————————————————— Today ——————————————————————————————— */
-
-.today {
-  margin-bottom: var(--s-5);
-}
-
-.today-figure {
-  margin: 0;
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: clamp(3rem, 11vw, 5.5rem);
-  line-height: 0.95;
-  letter-spacing: -0.045em;
-  color: var(--moss);
-}
-
-.today-figure .unit {
-  font-size: 0.3em;
-  font-weight: 600;
-  color: var(--ink-faint);
-  margin-left: 0.25em;
+.figure-value .unit {
+  font-size: 0.5em;
+  margin-left: 0.2em;
   letter-spacing: 0;
 }
 
-.today-compare {
-  margin: var(--s-3) 0 0;
-  font-size: var(--t-md);
-  color: var(--ink);
-  max-width: 34rem;
+.figures > .skel {
+  grid-column: 1 / -1;
 }
 
-.delta {
-  margin: var(--s-2) 0 0;
-  font-family: var(--display);
+.streak {
+  margin-top: var(--s-4);
+  color: var(--text-dim);
+}
+
+.streak-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text);
   font-weight: 600;
-  font-size: var(--t-xs);
-  letter-spacing: 0.02em;
 }
 
-/* Coloured only by direction — never by a judgement about the number. */
-.delta-up { color: var(--amber); }
-.delta-down { color: var(--slate); }
-
-#today-goal {
-  margin-top: var(--s-3);
-  max-width: 30rem;
+.streak-live::before {
+  content: "";
+  width: 1.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: var(--warn);
 }
 
-.totals-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
-  gap: var(--s-4);
-  border-top: 1px solid var(--hairline);
-  padding-top: var(--s-4);
-}
+/* ———————————————————————————— Rows ———————————————————————————— */
 
-.readout-cell p {
+.rows {
+  list-style: none;
   margin: 0;
+  padding: 0;
+  border-top: 1.5px solid var(--line);
 }
 
-.readout-figure {
-  margin-top: var(--s-1) !important;
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: var(--t-lg);
-  letter-spacing: -0.03em;
-  color: var(--ink);
+.row {
+  padding: 0.8rem 0;
+  border-bottom: 1.5px solid var(--line-soft);
 }
 
-.readout-figure .unit {
-  font-size: 0.62em;
-  font-weight: 600;
-  color: var(--ink-faint);
-  margin-left: 0.15em;
-}
-
-/* ——————————————————————————————— Charts ——————————————————————————————— */
-
-.chart-figure {
-  margin: 0 0 var(--s-4);
-}
-
-/* Wide ranges scroll inside the figure rather than pushing the page sideways. */
-.chart-scroll {
-  overflow-x: auto;
-  padding-bottom: 0.25rem;
-}
-
-.chart {
-  width: 100%;
-  min-width: 20rem;
-  height: auto;
-}
-
-.chart-base {
-  stroke: var(--hairline);
-  stroke-width: 1;
-}
-
-.bar {
-  fill: var(--moss);
-  opacity: 0.55;
-}
-
-/* Amber marks the bucket you are standing in — the same reservation the app makes. */
-.bar-current {
-  fill: var(--amber);
-  opacity: 1;
-}
-
-.bar-label {
-  fill: var(--ink-faint);
-  font-family: var(--display);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-}
-
-.bar-label-current {
-  fill: var(--ink);
-}
-
-.chart-caption {
-  margin-top: var(--s-2);
-  color: var(--ink-faint);
-  font-size: var(--t-xs);
-}
-
-/* ——————————————————————————————— Measure rows ——————————————————————————————— */
-
-.measure {
-  padding: 0.55rem 0;
-  border-bottom: 1px solid var(--hairline-soft);
-}
-
-.measure-head {
+.row-head {
   display: flex;
   align-items: baseline;
-  gap: 0.6rem;
-  margin-bottom: 0.45rem;
+  gap: var(--s-3);
 }
 
-.measure-label {
+.row-label {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--t-sm);
-  color: var(--ink);
+  font-weight: 500;
 }
 
-.measure-note {
-  font-size: var(--t-xs);
-  color: var(--ink-faint);
+.row-note {
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--text-faint);
   font-variant-numeric: tabular-nums;
 }
 
-.measure-value {
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: var(--t-sm);
-  color: var(--ink-muted);
+.row-value {
+  font-weight: 700;
+  font-stretch: 125%;
 }
 
-.dot {
-  width: 0.55rem;
-  height: 0.55rem;
-  border-radius: 999px;
-  flex: 0 0 auto;
-  align-self: center;
+.row .fine {
+  margin-top: 0.15rem;
 }
 
-.dot-moss { background: var(--moss); }
-.dot-slate { background: var(--slate); }
+.row .rail {
+  margin-top: 0.55rem;
+}
+
+.row-current .row-label {
+  font-weight: 700;
+}
 
 .rail {
-  height: 5px;
+  height: 0.5rem;
   border-radius: 999px;
-  background: var(--ground-sunken);
+  background: var(--sunken);
   overflow: hidden;
-}
-
-.rail-thin {
-  height: 3px;
 }
 
 .rail-fill {
   height: 100%;
   border-radius: 999px;
-  /* Never narrower than the cap: a sliver reads like a rendering bug, not a small value. */
-  min-width: 5px;
-  transition: width 420ms cubic-bezier(0.16, 1, 0.3, 1);
+  background: var(--accent);
 }
-
-.rail-moss { background: var(--moss); }
-.rail-slate { background: var(--slate); }
 
 .sync-list {
   list-style: none;
   padding: 0;
-  margin: var(--s-2) 0 0;
 }
 
-/* ——————————————————————————————— Day log ——————————————————————————————— */
+.sync-list li + li {
+  margin-top: var(--s-1);
+}
+
+/* Lane rows the controller builds: ranked lists share the hero's lane pattern. */
+.lanes-note {
+  display: block !important;
+}
+
+.lane-who {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-width: 0;
+  font-weight: 500;
+}
+
+.who-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lanes > li {
+  align-items: center;
+}
+
+/* ———————————————————————————— History ———————————————————————————— */
+
+#history-chart {
+  margin-top: var(--s-4);
+}
+
+.chart-figure {
+  margin: 0;
+}
+
+.chart-scroll {
+  overflow-x: auto;
+}
+
+.chart {
+  width: 100%;
+  min-width: 20rem;
+  max-height: 16rem;
+}
+
+.bar {
+  fill: var(--series-1);
+}
+
+.bar-series-1 { fill: var(--series-1); }
+.bar-series-2 { fill: var(--series-2); }
+.bar-series-3 { fill: var(--series-3); }
+.bar-series-4 { fill: var(--series-4); }
+.bar-series-5 { fill: var(--series-5); }
+.bar-series-6 { fill: var(--series-6); }
+
+.bar-empty {
+  fill: var(--line);
+}
+
+.bar-hit {
+  fill: transparent;
+}
+
+.bar-label {
+  fill: var(--text-faint);
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.bar-label-current {
+  fill: var(--text);
+  font-weight: 700;
+}
+
+.chart-base {
+  stroke: var(--line);
+  stroke-width: 1.5;
+}
+
+.chart-caption {
+  margin-top: var(--s-2);
+  font-size: var(--t-sm);
+  color: var(--text-faint);
+}
+
+.legend {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s-2) var(--s-4);
+  margin: 0 0 var(--s-3);
+  padding: 0;
+  font-size: var(--t-sm);
+  color: var(--text-dim);
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.swatch {
+  width: 1.5rem;
+  height: 0.5rem;
+  border-radius: 999px;
+}
+
+.swatch-series-1 { background: var(--series-1); }
+.swatch-series-2 { background: var(--series-2); }
+.swatch-series-3 { background: var(--series-3); }
+.swatch-series-4 { background: var(--series-4); }
+.swatch-series-5 { background: var(--series-5); }
+.swatch-series-6 { background: var(--series-6); }
 
 .daylog {
-  margin-top: var(--s-5);
-  border-top: 1px solid var(--hairline);
+  border-top: 1.5px solid var(--line);
+  border-bottom: 1.5px solid var(--line);
 }
 
 .daylog summary {
   display: flex;
-  align-items: center;
-  gap: var(--s-3);
-  padding: var(--s-3) 0;
+  align-items: baseline;
+  gap: 0.6rem;
+  min-height: 3rem;
+  padding: 0.75rem 0;
+  font-weight: 650;
   cursor: pointer;
   list-style: none;
 }
@@ -603,495 +740,352 @@ body[data-auth="out"] #signin-head:not([hidden]) {
   display: none;
 }
 
-.daylog summary::after {
-  content: "▾";
+.daylog-hint {
   margin-left: auto;
-  color: var(--ink-faint);
-  transition: transform 160ms ease;
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--text-faint);
 }
 
-.daylog[open] summary::after {
-  transform: rotate(180deg);
+.daylog-hint::before {
+  content: "Show";
+}
+
+.daylog[open] .daylog-hint::before {
+  content: "Hide";
 }
 
 .daylog-month {
-  margin: var(--s-4) 0 var(--s-2);
+  margin-top: var(--s-4);
+  padding-bottom: var(--s-2);
+  border-bottom: 1.5px solid var(--line);
+  font-size: var(--t-sm);
+  font-weight: 650;
+  color: var(--text-dim);
 }
 
-/* ——————————————————————————————— Records ——————————————————————————————— */
-
-/* Amber is reserved for streak heat and records, so it always means heat rather than
-   "look here". At zero the marker becomes a quiet invitation instead of vanishing —
-   an element that disappears teaches a new user nothing. */
-.streak {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.55rem;
-  margin: 0 0 var(--s-4);
-  padding: 0.45rem 0.9rem;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
-  color: var(--ink-faint);
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: var(--t-xs);
+.badge-earned .row-value {
+  color: var(--good);
 }
 
-.streak::before {
-  content: "";
-  width: 0.45rem;
-  height: 0.45rem;
-  border-radius: 999px;
-  background: currentColor;
+.badge:not(.badge-earned) .row-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
 }
 
-.streak-live {
-  border-color: var(--amber-line);
-  background: var(--amber-wash);
-  color: var(--amber);
-}
-
-.ledger {
-  padding: 0.7rem 0;
-  border-bottom: 1px solid var(--hairline-soft);
-}
-
-.ledger-head {
-  display: flex;
-  align-items: baseline;
-  gap: var(--s-3);
-}
-
-.ledger-label {
-  flex: 1;
-  color: var(--ink);
-}
-
-.ledger-value {
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: var(--t-lg);
-  letter-spacing: -0.02em;
-  color: var(--amber);
-}
-
-.badges {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(6.5rem, 1fr));
-  gap: var(--s-2);
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.badge {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.85rem 0.5rem;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius);
-  background: var(--ground-raised);
-  text-align: center;
-}
-
-.badge-earned {
-  border-color: var(--moss-line);
-  background: var(--moss-wash);
-}
-
-.badge-emoji {
-  font-size: 1.35rem;
-  line-height: 1;
-  filter: grayscale(1);
-  opacity: 0.55;
-}
-
-.badge-earned .badge-emoji {
-  filter: none;
-  opacity: 1;
-}
-
-.badge-label {
-  font-size: var(--t-xs);
-  color: var(--ink-faint);
-}
-
-.badge-earned .badge-label {
-  color: var(--moss);
-}
-
-.badge .rail {
-  width: 100%;
-}
-
-/* ——————————————————————————————— Leaderboard ——————————————————————————————— */
+/* ———————————————————————————— Leaderboard and friends ———————————————————————————— */
 
 .standing {
-  margin: 0 0 var(--s-3);
-  font-family: var(--display);
-  font-weight: 600;
-  color: var(--ink);
+  margin-top: var(--s-4);
+  font-size: var(--t-md);
+  font-weight: 650;
 }
 
 .board {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: var(--s-2);
+  margin-top: var(--s-4);
 }
 
-/* One person's row IS a discrete object, so it gets a panel. Sections around it do not. */
-.board-row {
-  padding: 0.7rem 0.9rem;
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius);
-  background: var(--ground-raised);
+.board > .board-row {
+  grid-template-columns: 2.25rem minmax(0, 1fr) auto auto;
+  row-gap: 0.55rem;
 }
 
+.board-row > .rail,
+.board-row > .fine {
+  grid-column: 1 / -1;
+  margin-top: 0;
+}
+
+/* Your own row: washed with the accent and said in words, "(you)". */
 .board-row-me {
-  border-color: var(--moss-line);
-  background: var(--moss-wash);
+  background: var(--accent-wash);
+  margin-inline: calc(var(--s-3) * -1);
+  padding-inline: var(--s-3) !important;
+  border-radius: var(--radius-input);
 }
 
-.board-head {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  margin-bottom: 0.5rem;
-}
-
-.rank {
-  min-width: 1.6rem;
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: var(--t-sm);
-  color: var(--ink-faint);
-}
-
-/* Gold, silver, bronze for the top three; everyone else a plain tabular figure, which
-   keeps the eye on the podium without turning the list into confetti. */
 .rank-1 { color: var(--gold); }
 .rank-2 { color: var(--silver); }
 .rank-3 { color: var(--bronze); }
 
-.board-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.view .cta-row {
+  margin-top: var(--s-4);
 }
 
-.board-value {
-  font-family: var(--display);
-  font-weight: 600;
-  color: var(--ink);
+#friends .columns {
+  margin-top: var(--s-4);
+  align-items: start;
 }
 
-.board-row .fine {
-  margin: 0.5rem 0 0;
-}
-
-/* 2.5rem: the remove control sits at the end of a row people scroll past with a thumb. */
-.icon-button {
-  width: 2.5rem;
-  height: 2.5rem;
-  flex: 0 0 auto;
-  border: 1px solid transparent;
-  border-radius: 999px;
-  background: transparent;
-  color: var(--ink-faint);
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.icon-button:hover {
-  color: var(--ink);
-  border-color: var(--hairline);
-}
-
-.podium {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--s-2);
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.podium-slot {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.4rem;
-  text-align: center;
-  min-width: 0;
-}
-
-.podium-name,
-.podium-value {
-  font-size: var(--t-xs);
-  max-width: 100%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.podium-value {
-  color: var(--ink-faint);
-}
-
-.podium-block {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 0.5rem;
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: var(--t-lg);
-}
-
-/* Medal tint mixed from the medal token, so the blocks follow the theme with the ranks. */
-.podium-block { border: 1px solid; }
-.podium-1 .podium-block { height: 4.6rem; color: var(--gold); }
-.podium-2 .podium-block { height: 3.4rem; color: var(--silver); }
-.podium-3 .podium-block { height: 2.5rem; color: var(--bronze); }
-.podium-slot .podium-block {
-  border-color: color-mix(in srgb, currentColor 50%, transparent);
-  background: color-mix(in srgb, currentColor 16%, transparent);
-}
-
-/* ——————————————————————————————— Friends ——————————————————————————————— */
-
-.code-block {
-  padding: var(--s-4);
-  border: 1px solid var(--hairline);
-  border-radius: var(--radius);
-  background: var(--ground-sunken);
-  max-width: 26rem;
+.code-panel h3 {
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--text-faint);
 }
 
 .my-code {
-  margin: 0 0 var(--s-3);
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: var(--t-xl);
-  letter-spacing: 0.08em;
-  color: var(--ink);
-}
-
-.code-block .fine {
-  margin-top: var(--s-3) !important;
+  margin-top: var(--s-1);
+  font-size: clamp(1.75rem, 5vw, 2.5rem);
+  font-weight: 800;
+  font-stretch: 125%;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
   word-break: break-all;
 }
 
-.code-block a {
-  color: var(--moss);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-}
-
-.people {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: grid;
-  gap: var(--s-2);
-}
-
-.request,
-.friend {
-  display: flex;
-  align-items: center;
-  gap: 0.7rem;
-  padding: 0.55rem 0;
-  border-bottom: 1px solid var(--hairline-soft);
-  min-height: 3rem;
-}
-
-.request-name,
-.friend-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tag {
-  padding: 0.15rem 0.5rem;
-  border: 1px solid var(--hairline);
-  border-radius: 999px;
-  font-size: var(--t-xs);
-  color: var(--ink-faint);
-}
-
-.add-form {
-  margin-top: var(--s-5);
-  max-width: 26rem;
+.code-panel .cta-row {
+  margin-top: var(--s-3);
 }
 
 .add-form label {
   display: block;
-  font-family: var(--display);
-  font-weight: 600;
-  font-size: var(--t-sm);
-  color: var(--ink-muted);
-  margin-bottom: var(--s-2);
+  font-weight: 650;
 }
 
 .add-row {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--s-2);
+  margin-top: var(--s-2);
 }
 
 .add-row input {
-  flex: 1;
-  min-width: 0;
-  min-height: 2.85rem;
-  padding: 0.6rem 0.85rem;
-  border: 1px solid var(--hairline);
-  border-radius: 0.55rem;
-  background: var(--ground-sunken);
-  color: var(--ink);
-  font-family: var(--display);
-  font-size: var(--t-base);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+  flex: 1 1 12rem;
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border-radius: var(--radius-input);
+  border: 1.5px solid var(--line);
+  background: var(--sunken);
+  color: var(--text);
+  font: inherit;
+  font-variant-numeric: tabular-nums;
 }
 
 .add-row input::placeholder {
-  color: var(--ink-faint);
-  letter-spacing: 0.06em;
+  color: var(--text-faint);
 }
 
 .add-row input:focus-visible {
-  outline: 2px solid var(--moss);
-  outline-offset: 2px;
-  border-color: var(--moss);
+  outline: none;
+  border-color: var(--accent);
 }
 
-/* ——————————————————————————————— Invite steps ——————————————————————————————— */
+.people {
+  margin-top: 0;
+}
 
-/* A real ordered list: these steps happen in order, on a device that is not this one, and
-   the number is the only thing keeping someone's place while they switch to it. */
-.steps {
-  margin: 0;
-  padding-left: 1.4rem;
+.person {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2) var(--s-3);
+}
+
+.person .who-name {
+  flex: 1;
+  font-weight: 500;
+}
+
+#requests,
+#friends > section {
+  margin-top: var(--s-5);
+}
+
+/* ———————————————————————————— Premium ———————————————————————————— */
+
+.premium {
   display: grid;
-  gap: var(--s-3);
-  color: var(--ink-muted);
-  max-width: 38rem;
+  gap: var(--s-5);
+  align-items: start;
 }
 
-.steps li {
-  padding-left: 0.2rem;
+.premium-copy .fine {
+  max-width: 40rem;
 }
 
-.steps li::marker {
-  font-family: var(--display);
-  font-weight: 700;
-  color: var(--moss);
+/* ———————————————————————————— Invite page ———————————————————————————— */
+
+.invite-card {
+  border-radius: calc(var(--radius) * 1.6);
+  padding: var(--s-5) var(--s-4);
 }
 
-.steps .btn {
-  margin-right: 0.6rem;
-  vertical-align: middle;
+.code-label {
+  margin-top: var(--s-5);
+  font-size: var(--t-sm);
+  font-weight: 500;
+  color: var(--text-faint);
 }
 
-.steps strong {
-  color: var(--ink);
-  font-weight: 600;
+.invite-state {
+  margin-top: var(--s-4);
+  color: var(--text-dim);
 }
 
-/* ——————————————————————————————— Signed-out panel ——————————————————————————————— */
-
-.promise {
-  position: absolute;
-  inset: auto var(--s-4) var(--s-4) var(--s-4);
-  list-style: none;
-  padding: 0.8rem 0.95rem;
-  margin: 0;
-  border: 1px solid var(--hairline);
-  border-radius: 0.65rem;
-  background: var(--glass);
-  backdrop-filter: blur(10px);
-  display: grid;
-  gap: 0.35rem;
-  font-size: var(--t-xs);
-  color: var(--ink-muted);
+.invite .steps .btn {
+  margin-top: var(--s-3);
 }
 
-.promise li::before {
-  content: "— ";
-  color: var(--moss);
-}
+/* ———————————————————————————— Wide ———————————————————————————— */
 
-/* ——————————————————————————————— Loading ——————————————————————————————— */
-
-/* Before the first day snapshot lands, the figures are a placeholder rather than a "0 m"
-   that reads as a verdict on someone who scrolled all morning. */
-.today[aria-busy="true"] .today-figure,
-.totals-grid[aria-busy="true"] .readout-figure {
-  color: var(--ink-faint);
-}
-
-/* ——————————————————————————————— Responsive ——————————————————————————————— */
-
-@media (max-width: 480px) {
-  /* The gateway carries its own sign-in button; a second one squeezed into the bar is
-     what pushes the brand off a 360px screen. */
-  #signin-head,
-  body[data-auth="out"] #signin-head:not([hidden]) {
-    display: none;
+@media (min-width: 860px) {
+  .today {
+    grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+    gap: var(--s-6);
+    align-items: center;
   }
 
-  .appbar-tag {
-    display: none;
+  .today-side .lanes > li:first-child {
+    border-top: 0;
   }
 
-  .code-block {
-    padding: var(--s-3);
+  .figures {
+    grid-template-columns: repeat(4, 1fr);
   }
 
-  .my-code {
-    font-size: var(--t-lg);
+  .columns {
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--s-6);
+  }
+
+  .rows-two {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--s-6);
+  }
+
+  .gateway {
+    grid-template-columns: 1.1fr 1fr;
+    padding: var(--s-6) var(--s-5);
+  }
+
+  .premium {
+    grid-template-columns: 1fr 24rem;
+    gap: var(--s-6);
+  }
+
+  .invite-card {
+    padding: var(--s-6) var(--s-5);
   }
 }
 
 @media (max-width: 640px) {
+  /* The tabs take their own row and scroll sideways rather than wrap. */
+  .tabs {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .tab {
+    flex: 1;
+    justify-content: center;
+    padding: 0 0.75rem;
+  }
+
   .account-name {
     display: none;
   }
 
-  .segmented {
-    width: 100%;
+  .board > .board-row {
+    grid-template-columns: 1.75rem minmax(0, 1fr) auto;
   }
 
-  .segment {
-    flex: 1;
-  }
-
-  .podium-name,
-  .podium-value {
-    font-size: 0.7rem;
+  .board-row > .btn {
+    grid-column: 2 / -1;
+    justify-self: start;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .icon-button,
-  .rail-fill,
-  .segment,
-  .skip-link,
-  .daylog summary::after,
   .skel i {
-    transition: none;
     animation: none;
   }
+
+  .skip-link,
+  .tab,
+  .chip-btn {
+    transition: none;
+  }
 }
+
+/* ———————————————————————————— Report and groups ———————————————————————————— */
+
+.sub-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+}
+
+#groups {
+  margin-top: var(--s-6);
+}
+
+#groups-forms {
+  margin-top: var(--s-4);
+  align-items: start;
+}
+
+#group-list {
+  margin-top: var(--s-4);
+}
+
+#group-list .row-note {
+  flex: 1 1 12rem;
+  color: var(--text-dim);
+}
+
+.group-board {
+  margin-top: var(--s-4);
+  padding-top: var(--s-4);
+  border-top: 1.5px solid var(--line);
+}
+
+.group-board .cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--s-2);
+}
+
+.challenge-form {
+  margin-top: var(--s-5);
+}
+
+.field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: var(--s-3);
+  margin-top: var(--s-2);
+}
+
+.field-grid label {
+  display: grid;
+  gap: var(--s-1);
+  font-size: var(--t-sm);
+  font-weight: 650;
+}
+
+.field-grid input,
+.field-grid select {
+  min-height: 2.75rem;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-input);
+  border: 1.5px solid var(--line);
+  background: var(--sunken);
+  color: var(--text);
+  font: inherit;
+  font-weight: 400;
+}
+
+.field-grid input:focus-visible,
+.field-grid select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.danger-text {
+  color: var(--danger);
+}
+

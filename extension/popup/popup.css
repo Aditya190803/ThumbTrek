@@ -1,324 +1,202 @@
-/* Side panel layout. The design system lives in ../ui/trek.css; this file only places things.
+/* The side panel (and the popup, where a browser has no side panel).
+   Built on ui/trek.css (DESIGN.md). The track band comes first and keeps its own palette
+   in both themes; everything under it sits on the page ground. */
 
-   The panel is as wide as the user drags it, from Chrome's ~320px minimum up. Content is
-   capped at a readable measure and centred, so a wide panel gets margins rather than a
-   hero figure stranded on one side and rails stretched past the point of comparison. The
-   order is the priority: distance, limit, sites, week, records. */
-
-body {
-  width: 100%;
-  min-height: 100vh;
-  overflow-x: hidden;
+html {
+  /* A popup has no width of its own; a side panel ignores this and takes the panel's. */
+  min-width: 22.5rem;
 }
 
 .sheet {
-  max-width: 30rem;
-  margin: 0 auto;
-  padding: var(--s-3) var(--s-3) var(--s-2);
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
+  min-height: 100%;
 }
 
-/* ————————————————————————————— Head ————————————————————————————— */
+.inner {
+  width: min(100%, 30rem);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+/* ———————————————————————————— The track band ———————————————————————————— */
+
+.band {
+  padding-block: var(--s-4) var(--s-5);
+}
 
 .head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--s-2);
+  gap: var(--s-3);
+  margin-bottom: var(--s-4);
 }
 
-.brand {
-  margin: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  font-family: var(--display);
-  font-weight: 700;
-  font-size: 0.9375rem;
-  letter-spacing: -0.02em;
+.band .alert {
+  margin-bottom: var(--s-4);
+  background: var(--track-deep);
+  color: var(--chalk);
 }
 
-.mark {
-  width: 1.4rem;
-  height: 1.4rem;
+.band .lanes {
+  margin-top: var(--s-4);
 }
 
-.alert {
-  margin: 0;
-  padding: var(--s-2) var(--s-3);
-  border: 1px solid var(--danger-line);
-  border-radius: var(--r-sm);
-  background: var(--danger-wash);
-  color: var(--danger);
-  font-size: 0.8125rem;
+.others {
+  margin-top: var(--s-3);
 }
 
-/* ————————————————————————————— Hero ————————————————————————————— */
-
-/* No card. The contours *are* the container: survey linework behind the figure, barely
-   there, doing the job a border would do without adding a box to a screen of boxes. */
-.hero {
-  position: relative;
-  padding: var(--s-1) 0 0;
+.others ul {
+  list-style: none;
+  padding: 0;
+  margin-top: var(--s-1);
 }
 
-.contours {
-  position: absolute;
-  inset: -0.4rem -0.6rem auto -0.6rem;
-  height: 6.5rem;
-  width: calc(100% + 1.2rem);
-  pointer-events: none;
-  z-index: 0;
-}
-
-.contours path {
-  fill: none;
-  stroke: var(--moss);
-  stroke-width: 1;
-  vector-effect: non-scaling-stroke;
-}
-
-/* Graded rather than uniform, so the panel has depth instead of looking like ruled paper. */
-.contours path:nth-child(1) { opacity: 0.16; }
-.contours path:nth-child(2) { opacity: 0.12; }
-.contours path:nth-child(3) { opacity: 0.09; }
-.contours path:nth-child(4) { opacity: 0.06; }
-
-.hero > *:not(.contours) {
-  position: relative;
-  z-index: 1;
-}
-
-.hero .caption {
-  margin: 0 0 0.25rem;
-}
-
-.hero-line {
-  margin: 0;
+.others li {
   display: flex;
-  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s-3);
+  padding: 0.25rem 0;
+  font-size: var(--t-sm);
+  color: var(--text-dim);
+}
+
+.empty {
+  margin-top: var(--s-4);
+}
+
+.empty h3 {
+  font-size: var(--t-md);
+  font-weight: 650;
+}
+
+.empty p {
+  margin-top: var(--s-1);
+  font-size: var(--t-sm);
+  color: var(--text-dim);
 }
 
 .comparison {
-  margin: 0.3rem 0 0;
-  color: var(--ink-muted);
-  font-size: 0.8125rem;
-}
-
-.hero-meta {
-  margin: var(--s-2) 0 0;
-  display: flex;
-  align-items: center;
-  gap: var(--s-1) var(--s-2);
-  flex-wrap: wrap;
-  font-size: 0.75rem;
-  font-weight: 600;
-}
-
-/* ————————————————————————— Daily limit ————————————————————————— */
-
-.limit .section {
-  margin-bottom: var(--s-1);
-}
-
-.limit .rail {
-  height: 6px;
-  margin-top: 0.35rem;
-}
-
-.limit-text {
-  margin: 0.4rem 0 0;
-  font-size: 0.8125rem;
-  font-weight: 600;
-}
-
-#baseline {
+  margin-top: var(--s-4);
   font-weight: 500;
 }
 
-/* ————————————————————————————— Sites ————————————————————————————— */
+/* ———————————————————————————— Under the track ———————————————————————————— */
 
-.site-rows {
-  list-style: none;
-  margin: 0;
-  padding: 0;
+.ground {
+  display: grid;
+  gap: var(--s-5);
+  padding-block: var(--s-5) var(--s-4);
 }
 
-.site-rows .measure-row {
-  padding: 0.3rem 0;
-  gap: 0.25rem;
+.heading {
+  font-size: var(--t-md);
+  font-weight: 650;
+  letter-spacing: -0.005em;
 }
 
-.site-rows .measure-row:not(:last-child) {
-  border-bottom: 1px solid var(--hairline-soft);
-}
-
-.more {
-  margin: 0.2rem 0 0;
-  font-size: 0.75rem;
-}
-
-/* The current tab: one quiet line, not a panel — it is a shortcut, not a section. */
-.here {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: var(--s-2);
-  margin-top: -0.3rem;
-  font-size: 0.8125rem;
-  color: var(--ink-muted);
-}
-
-.here-text {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.here .link-btn {
-  flex: 0 0 auto;
-  font-size: 0.8125rem;
-}
-
-/* ———————————————————————— The week's route ———————————————————————— */
-
-.spark {
-  margin: 0;
-}
-
-.spark svg {
-  display: block;
-  width: 100%;
-  height: auto;
-  overflow: visible;
-}
-
-/* The baseline is drawn, not implied: a route needs ground to climb away from. */
-.spark .ground {
-  stroke: var(--hairline);
-  stroke-width: 1;
-}
-
-.spark .route {
-  fill: none;
-  stroke: var(--slate);
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  /* Traced in once on open, then left at rest — the finished route is the resting state.
-     The dash length is set from the path's own measured length in popup.js, because a
-     hard-coded one clips or lags on a week with a different shape. */
-  animation: trace 900ms var(--ease) forwards;
-}
-
-/* The fill under the route reads volume without adding seven more marks to the sheet. */
-.spark .under {
-  fill: var(--slate);
-  opacity: 0.08;
-  stroke: none;
-}
-
-.spark .stop {
-  fill: var(--ground);
-  stroke: var(--slate);
-  stroke-width: 1.5;
-}
-
-/* Today is moss — the accent that means "you, now" everywhere else in the system. */
-.spark .stop.today {
-  fill: var(--moss);
-  stroke: var(--moss);
-}
-
-@keyframes trace {
-  from { stroke-dashoffset: var(--len); }
-  to { stroke-dashoffset: 0; }
-}
-
-.axis {
-  display: flex;
-  justify-content: space-between;
-  margin-top: 0.35rem;
-  font-family: var(--body);
-  font-weight: 600;
-  font-size: 0.6875rem;
-  color: var(--ink-faint);
-}
-
-/* ————————————————————————————— Foot ————————————————————————————— */
-
-.foot {
-  display: flex;
-  align-items: flex-end;
-  gap: var(--s-3);
-  padding-top: var(--s-2);
-  border-top: 1px solid var(--hairline);
-}
-
-.stat {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.stat .figure {
-  font-size: 1.0625rem;
-  line-height: 1.15;
-}
-
-.stat .faint {
-  font-size: 0.6875rem;
-}
-
-.foot .btn {
-  margin-left: auto;
-}
-
-/* Live redraws while the panel is open: the route is already drawn, so it stays put. */
-.settled .route {
-  animation: none;
-  stroke-dashoffset: 0 !important;
-}
-
-/* ———————————————————————— Baseline week ———————————————————————— */
-
-/* Learning a typical day reads in slate, like the phone: progress, not a verdict. */
-.rail.learning {
-  background: var(--slate-wash);
-}
-
-.rail.learning > i {
-  background: var(--slate);
-}
-
-/* Day eight's announcement. The one card on the panel, because it asks for a decision. */
-.notice {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--s-1);
-  padding: var(--s-2) var(--s-3);
-  border-radius: 1rem;
-  background: var(--moss-wash);
-}
-
-.notice-title {
-  margin: 0;
-  font-size: 1rem;
-  font-weight: 700;
-}
-
-.notice-text {
-  margin: 0;
-  color: var(--ink-muted);
+/* The one panel here: the announcement that a limit now exists, with its three answers. */
+.notice p {
+  margin-top: var(--s-2);
+  font-size: var(--t-sm);
 }
 
 .notice-actions {
   display: flex;
-  gap: var(--s-1);
+  flex-wrap: wrap;
+  gap: var(--s-2);
+  margin-top: var(--s-4);
+}
+
+.notice .link-btn {
   margin-top: var(--s-1);
 }
+
+/* The page you are on, and one click to count it or stop. */
+.here {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0 var(--s-4);
+  padding: var(--s-2) 0;
+  border-block: 1.5px solid var(--line);
+  font-size: var(--t-sm);
+}
+
+/* Facts: a term, its figure, and sometimes a line of explanation, divided by lane lines. */
+.facts {
+  margin-top: var(--s-3);
+  border-top: 1.5px solid var(--line);
+}
+
+.fact {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.15rem var(--s-3);
+  align-items: baseline;
+  padding: 0.7rem 0;
+  border-bottom: 1.5px solid var(--line-soft);
+}
+
+.fact dt {
+  font-weight: 500;
+  color: var(--text-dim);
+}
+
+.fact-value {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--s-2);
+  justify-self: end;
+  font-weight: 700;
+  font-stretch: 125%;
+}
+
+.fact-value .chip {
+  font-stretch: 100%;
+}
+
+.fact-note {
+  grid-column: 1 / -1;
+  font-size: var(--t-sm);
+  color: var(--text-faint);
+}
+
+.fact-note .btn {
+  margin-top: var(--s-2);
+}
+
+/* A Premium feature as its ordinary row: nothing blurred, the chip says what it is. */
+.premium-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--s-3);
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.6rem 0;
+  border: 0;
+  border-block: 1.5px solid var(--line);
+  background: none;
+  text-align: left;
+  font-size: var(--t-sm);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.premium-row:hover .chip {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.foot {
+  display: flex;
+  justify-content: center;
+}
+
+/* A site past its own limit: the danger colour as it appears on the track. */
+.lane-dist.over,
+#others-list .over {
+  color: var(--lane-danger);
+}
+

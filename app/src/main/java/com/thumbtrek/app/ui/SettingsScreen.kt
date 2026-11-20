@@ -11,15 +11,11 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.ScrollState
-import androidx.compose.foundation.border
-import androidx.compose.foundation.selection.selectable
-import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -32,7 +28,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
@@ -54,13 +49,9 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
@@ -72,18 +63,13 @@ import com.thumbtrek.app.data.Prefs
 import com.thumbtrek.app.data.appName
 import com.thumbtrek.app.share.DataExporter
 import com.thumbtrek.app.stats.BASELINE_DAYS
+import com.thumbtrek.app.share.BACKUP_MIME
+import com.thumbtrek.app.share.BackupStore
 import com.thumbtrek.app.stats.BILLING_ENFORCED
-import com.thumbtrek.app.stats.MAX_DAILY_LIMIT_M
-import com.thumbtrek.app.stats.MIN_DAILY_LIMIT_M
-import com.thumbtrek.app.stats.comparison
-import com.thumbtrek.app.stats.suggestedLimit
 import com.thumbtrek.app.stats.formatDistance
-import com.thumbtrek.app.stats.pixelsToMeters
-import com.thumbtrek.app.track.ScrollDiagnostics
 import com.thumbtrek.app.update.UpdateSettingsContent
 import kotlinx.coroutines.launch
 
-private val GUTTER = 24.dp
 
 @Composable
 fun SettingsScreen(
@@ -106,10 +92,40 @@ fun SettingsScreen(
     val scope = rememberCoroutineScope()
     var showPicker by remember { mutableStateOf(false) }
     var exportNote by remember { mutableStateOf<String?>(null) }
+    // What the last backup or restore did, in a sentence; the Boolean is "it failed".
+    var backupNote by remember { mutableStateOf<Pair<String, Boolean>?>(null) }
+    val saveBackup = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(BACKUP_MIME),
+    ) { target ->
+        if (target != null) {
+            scope.launch {
+                backupNote = runCatching { BackupStore.write(context, target) }.fold(
+                    onSuccess = { "Backup saved. Keep the file somewhere safe." to false },
+                    onFailure = { (it.message ?: "Could not write the backup.") to true },
+                )
+            }
+        }
+    }
+    val openBackup = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { source ->
+        if (source != null) {
+            scope.launch {
+                backupNote = runCatching { BackupStore.restore(context, source) }.fold(
+                    onSuccess = {
+                        val days = if (it.days == 1) "1 day" else "${it.days} days"
+                        "Restored $days of history, from ${it.from} to ${it.to}." to false
+                    },
+                    onFailure = { (it.message ?: "Could not read that backup.") to true },
+                )
+            }
+        }
+    }
     var showDiagnostics by rememberSaveable { mutableStateOf(false) }
+    var showPremium by rememberSaveable { mutableStateOf(false) }
 
     // PRD 5.5 reminders are a notification, and on Android 13+ that needs a runtime grant.
-    // The grant callback enables whichever toggle asked for it · hardcoding one toggle here
+    // The grant callback enables whichever toggle asked for it. Hardcoding one toggle here
     // is how a limit-nudge tap would silently switch on the streak reminder instead.
     var pendingNotifyToggle by remember { mutableStateOf<String?>(null) }
     val notificationPermission = rememberLauncherForActivityResult(
@@ -118,6 +134,7 @@ fun SettingsScreen(
         if (granted) {
             when (pendingNotifyToggle) {
                 "limit" -> vm.setLimitNudge(true)
+                "report" -> vm.setWeeklyReport(true)
                 else -> vm.setStreakReminder(true)
             }
         }
@@ -132,7 +149,7 @@ fun SettingsScreen(
             .padding(top = 10.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        PageHeading("Settings", "Make room for what matters.")
+        PageHeading("Settings", "Tracking, your limit, notifications and your data.")
         ActionRow("Review setup", "Apps, permissions, daily limit and account", {
             Prefs.get(context).setOnboardingStep(0)
         })
@@ -153,7 +170,7 @@ fun SettingsScreen(
                     "Enable ThumbTrek in Accessibility settings to start measuring scroll distance."
                 },
                 style = MaterialTheme.typography.bodyMedium,
-                color = Trek.inkMuted,
+                color = Trek.textDim,
             )
             if (!state.trackingEnabled) {
                 Spacer(modifier = Modifier.height(14.dp))
@@ -171,7 +188,7 @@ fun SettingsScreen(
             SectionHead(
                 "Tracked apps",
                 trailing = "${state.trackedApps.size} enabled",
-                trailingColor = if (state.trackedApps.isEmpty()) Trek.danger else Trek.inkMuted,
+                trailingColor = if (state.trackedApps.isEmpty()) Trek.danger else Trek.textDim,
             )
             TRACKED_APPS.forEach { (pkg, name) ->
                 ToggleRow(
@@ -190,7 +207,7 @@ fun SettingsScreen(
                     leading = { AppToken(appName(pkg, state.customApps), chartColor(pkg)) },
                     trailing = {
                         TextButton(onClick = { vm.removeCustomApp(pkg) }) {
-                            Text("Remove", color = Trek.inkFaint)
+                            Text("Remove", color = Trek.textFaint)
                         }
                     },
                 )
@@ -222,7 +239,7 @@ fun SettingsScreen(
                 "Daily limit",
                 trailing = when {
                     state.limitM != null -> "${state.limitM!!.toInt()} m / day"
-                    learning -> "Learning · day ${baseline.days} of $BASELINE_DAYS"
+                    learning -> "Learning, day ${baseline.days} of $BASELINE_DAYS"
                     else -> "Not set"
                 },
             )
@@ -233,14 +250,14 @@ fun SettingsScreen(
                     else -> "No limit and no clean-day scores. Learn your baseline and ThumbTrek will suggest one, or set your own below."
                 },
                 style = MaterialTheme.typography.bodyMedium,
-                color = Trek.inkMuted,
+                color = Trek.textDim,
             )
             baseline.typicalM?.let {
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
                     "Your usual day lately: about ${formatDistance(it)}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Trek.inkFaint,
+                    color = Trek.textFaint,
                 )
             }
             if (state.limitM == null && !learning) {
@@ -260,10 +277,32 @@ fun SettingsScreen(
                     state.freeEditsLeft > 0 -> "One free change per week. Yours is still " +
                         "available this week."
                     else -> "This week's free change is used. The quota resets Monday; " +
-                        "Premium (coming soon) unlocks unlimited changes."
+                        "Premium will unlock unlimited changes."
                 },
                 style = MaterialTheme.typography.bodySmall,
-                color = Trek.inkFaint,
+                color = Trek.textFaint,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            LaneLine(color = Trek.lineSoft)
+            val canShare = vm.canShareLimit
+            ToggleRow(
+                title = "One limit across your phone and your browser",
+                subtitle = when {
+                    !canShare -> "Needs sync. Sign in and turn it on in the Friends tab first."
+                    state.sharedLimit -> "On. Browser scrolling counts against this limit, as of its last sync."
+                    else -> "Keep one limit in your account, and count browser scrolling against it."
+                },
+                checked = state.sharedLimit && canShare,
+                onCheckedChange = { if (canShare) vm.setSharedLimit(it) },
+            )
+            LaneLine(color = Trek.lineSoft)
+            Spacer(modifier = Modifier.height(12.dp))
+            AppLimitsEditor(
+                apps = (TRACKED_APPS.keys + state.customApps.keys)
+                    .filter { it in state.trackedApps }
+                    .map { it to appName(it, state.customApps) },
+                limits = state.appLimits,
+                onSet = vm::setAppLimit,
             )
         }
 
@@ -283,9 +322,9 @@ fun SettingsScreen(
                     }
                 },
             )
-            if (state.limitM != null) ToggleRow(
+            if (state.limitM != null || state.appLimits.isNotEmpty()) ToggleRow(
                 title = "Limit nudge",
-                subtitle = "One heads-up near 80% of your limit, one if you pass it",
+                subtitle = "One heads-up near 80% of a limit, one if you pass it",
                 checked = state.limitNudge,
                 onCheckedChange = { enabled ->
                     if (enabled && needsNotificationPermission(context)) {
@@ -296,10 +335,40 @@ fun SettingsScreen(
                     }
                 },
             )
+            ToggleRow(
+                title = "Weekly report",
+                subtitle = "One summary of last week, at the start of each week",
+                checked = state.weeklyReport,
+                onCheckedChange = { enabled ->
+                    if (enabled && needsNotificationPermission(context)) {
+                        pendingNotifyToggle = "report"
+                        notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    } else {
+                        vm.setWeeklyReport(enabled)
+                    }
+                },
+            )
             Text(
                 "Off by default. ThumbTrek is not here to nag you about your screen time.",
                 style = MaterialTheme.typography.bodySmall,
-                color = Trek.inkFaint,
+                color = Trek.textFaint,
+            )
+        }
+
+        // ---- Premium ------------------------------------------------------------------
+        Column {
+            SectionHead("Premium", trailing = "Not on sale yet")
+            Text(
+                "Tracking is free and stays free. The Premium features are already here " +
+                    "and open to everyone until Premium goes on sale.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Trek.textDim,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            TrekGhostButton(
+                text = "See what Premium includes",
+                onClick = { showPremium = true },
+                modifier = Modifier.fillMaxWidth(),
             )
         }
 
@@ -316,7 +385,7 @@ fun SettingsScreen(
                                 context.startActivity(
                                     Intent.createChooser(
                                         DataExporter.shareIntent(uri),
-                                        "Export trek",
+                                        "Export your data",
                                     ),
                                 )
                             }
@@ -332,11 +401,44 @@ fun SettingsScreen(
             Text(
                 "Download your complete history, organized by app and date.",
                 style = MaterialTheme.typography.bodySmall,
-                color = Trek.inkFaint,
+                color = Trek.textFaint,
             )
             exportNote?.let {
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(it, style = MaterialTheme.typography.bodySmall, color = Trek.danger)
+            }
+            Spacer(modifier = Modifier.height(16.dp))
+            LaneLine(color = Trek.lineSoft)
+            Spacer(modifier = Modifier.height(16.dp))
+            Text("Backup and restore", style = MaterialTheme.typography.titleSmall, color = Trek.text)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                "One file with your whole history, your limits and your added apps. " +
+                    "Restoring merges it in: nothing already on this phone is lost.",
+                style = MaterialTheme.typography.bodySmall,
+                color = Trek.textDim,
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            TrekGhostButton(
+                text = "Save a backup file",
+                onClick = { saveBackup.launch(BackupStore.suggestedName()) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            TrekGhostButton(
+                text = "Restore from a backup file",
+                // Not every file manager labels JSON as JSON, so the picker is left open
+                // and the file is checked when it is read.
+                onClick = { openBackup.launch(arrayOf("*/*")) },
+                modifier = Modifier.fillMaxWidth(),
+            )
+            backupNote?.let { (message, failed) ->
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    message,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = if (failed) Trek.danger else Trek.textDim,
+                )
             }
         }
 
@@ -347,20 +449,20 @@ fun SettingsScreen(
                 Text(
                     "ThumbTrek measures distance, never content.",
                     style = MaterialTheme.typography.titleMedium,
-                    color = Trek.ink,
+                    color = Trek.text,
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     "Your posts, messages and typing stay private. ThumbTrek only counts scroll events in the apps you choose.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Trek.inkMuted,
+                    color = Trek.textDim,
                 )
                 Spacer(modifier = Modifier.height(10.dp))
                 Text(
                     "Distances live in a database on this phone. Nothing is uploaded until you " +
-                        "opt into a leaderboard on the Social tab.",
+                        "opt into a leaderboard on the Friends tab.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Trek.inkMuted,
+                    color = Trek.textDim,
                 )
             }
         }
@@ -373,7 +475,7 @@ fun SettingsScreen(
         if (showDiagnostics) {
             Column {
                 SectionHead("Tracking details")
-                Text("Live counters for troubleshooting. Open a tracked app, scroll, then return here. These counters stay on this phone.", style = MaterialTheme.typography.bodyMedium, color = Trek.inkMuted)
+                Text("Live counters for troubleshooting. Open a tracked app, scroll, then return here. These counters stay on this phone.", style = MaterialTheme.typography.bodyMedium, color = Trek.textDim)
                 Spacer(Modifier.height(12.dp))
                 DiagnosticsTable(trackedApps = state.trackedApps, customLabels = state.customApps)
             }
@@ -407,6 +509,8 @@ fun SettingsScreen(
         Spacer(modifier = Modifier.height(16.dp))
     }
 
+    if (showPremium) PremiumSheet(onDismiss = { showPremium = false })
+
     if (showPicker) {
         AppPickerDialog(vm = vm, onDismiss = { showPicker = false })
     }
@@ -423,13 +527,13 @@ private fun StatusLine(live: Boolean, liveText: String, idleText: String) {
         Box(
             modifier = Modifier
                 .size(8.dp)
-                .background(if (live) Trek.accent else Trek.inkFaint, CircleShape),
+                .background(if (live) Trek.accent else Trek.textFaint, CircleShape),
         )
         Spacer(modifier = Modifier.width(10.dp))
         Text(
             if (live) liveText else idleText,
             style = MaterialTheme.typography.titleLarge,
-            color = if (live) Trek.ink else Trek.inkMuted,
+            color = if (live) Trek.text else Trek.textDim,
         )
     }
 }
@@ -464,7 +568,7 @@ internal fun ToggleRow(
             Text(
                 title,
                 style = MaterialTheme.typography.bodyLarge,
-                color = Trek.ink,
+                color = Trek.text,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -472,7 +576,7 @@ internal fun ToggleRow(
                 Text(
                     subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Trek.inkFaint,
+                    color = Trek.textFaint,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
@@ -487,9 +591,9 @@ internal fun ToggleRow(
                 checkedThumbColor = Trek.onAccent,
                 checkedTrackColor = Trek.accent,
                 checkedBorderColor = Trek.accent,
-                uncheckedThumbColor = Trek.inkFaint,
-                uncheckedTrackColor = Trek.groundSunken,
-                uncheckedBorderColor = Trek.hairline,
+                uncheckedThumbColor = Trek.textFaint,
+                uncheckedTrackColor = Trek.sunken,
+                uncheckedBorderColor = Trek.line,
             ),
         )
     }
@@ -521,12 +625,12 @@ private fun ActionRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, style = MaterialTheme.typography.bodyLarge, color = Trek.ink)
+            Text(title, style = MaterialTheme.typography.bodyLarge, color = Trek.text)
             if (subtitle != null) {
                 Text(
                     subtitle,
                     style = MaterialTheme.typography.bodySmall,
-                    color = Trek.inkFaint,
+                    color = Trek.textFaint,
                 )
             }
         }
@@ -553,9 +657,9 @@ internal fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        containerColor = Trek.groundRaised,
-        titleContentColor = Trek.ink,
-        textContentColor = Trek.inkMuted,
+        containerColor = Trek.surface,
+        titleContentColor = Trek.text,
+        textContentColor = Trek.textDim,
         shape = MaterialTheme.shapes.large,
         title = { Text("Track another app") },
         text = {
@@ -571,14 +675,14 @@ internal fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                         placeholder = { Text("Search apps") },
                         leadingIcon = {
-                            Icon(Icons.Default.Search, contentDescription = null, tint = Trek.inkFaint)
+                            Icon(Icons.Default.Search, contentDescription = null, tint = Trek.textFaint)
                         },
                         singleLine = true,
                         shape = MaterialTheme.shapes.small,
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Trek.accent,
-                            unfocusedBorderColor = Trek.hairline,
+                            unfocusedBorderColor = Trek.line,
                         ),
                     )
                     Spacer(modifier = Modifier.height(8.dp))
@@ -587,7 +691,7 @@ internal fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
                             if (query.isBlank()) "Every installed app is already on your list."
                             else "No apps match \"${query.trim()}\".",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = Trek.inkMuted,
+                            color = Trek.textDim,
                             modifier = Modifier.padding(vertical = 12.dp),
                         )
                     }
@@ -609,7 +713,7 @@ internal fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
                                 Text(
                                     app.label,
                                     style = MaterialTheme.typography.bodyLarge,
-                                    color = Trek.ink,
+                                    color = Trek.text,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
                                 )
@@ -621,7 +725,7 @@ internal fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
         },
         confirmButton = {},
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = Trek.inkMuted) }
+            TextButton(onClick = onDismiss) { Text("Cancel", color = Trek.textDim) }
         },
     )
 }
@@ -642,345 +746,3 @@ private fun needsNotificationPermission(context: Context): Boolean =
     Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
         ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
         PackageManager.PERMISSION_GRANTED
-
-// ---------------------------------------------------------------------------------------
-// Daily limit editor
-// ---------------------------------------------------------------------------------------
-
-/**
- * The limit editor. Saves through the weekly free-edit quota in [Prefs]: the first change
- * each ISO week is free, further ones need premium, and the result line says which one
- * just happened so "Save" never looks dead.
- */
-@Composable
-private fun LimitEditor(vm: SettingsViewModel, currentM: Float?, typicalM: Double?, learning: Boolean) {
-    var input by remember(currentM) { mutableStateOf(currentM?.toInt()?.toString().orEmpty()) }
-    var error by remember { mutableStateOf<String?>(null) }
-    // A hand-typed limit, held until the user confirms it.
-    var pendingLimit by remember { mutableStateOf<Float?>(null) }
-    val result by vm.limitEdit.collectAsStateWithLifecycle()
-    val focus = LocalFocusManager.current
-
-    val save = {
-        val value = input.toFloatOrNull()
-        error = when {
-            value == null -> "Enter your daily limit in metres."
-            value < MIN_DAILY_LIMIT_M.toFloat() || value > MAX_DAILY_LIMIT_M.toFloat() ->
-                "Between ${MIN_DAILY_LIMIT_M.toInt()} and " +
-                    "${MAX_DAILY_LIMIT_M.toInt()} m, so a typo can't break the game."
-            else -> null
-        }
-        if (error == null && value != null) {
-            focus.clearFocus()
-            // Every hand-set limit is confirmed first; see ManualLimitDialog.
-            pendingLimit = value
-        }
-    }
-
-    pendingLimit?.let { pending ->
-        ManualLimitDialog(
-            newM = pending.toDouble(),
-            typicalM = typicalM,
-            currentM = currentM?.toDouble(),
-            onConfirm = {
-                vm.trySetLimit(pending)
-                pendingLimit = null
-            },
-            onDismiss = { pendingLimit = null },
-            onUseBaseline = if (learning) null else {
-                {
-                    vm.startBaseline()
-                    pendingLimit = null
-                }
-            },
-            onUseSuggested = { suggested ->
-                vm.trySetLimit(suggested)
-                pendingLimit = null
-            },
-        )
-    }
-
-    LimitPresets(
-        selected = input.toIntOrNull(),
-        onPick = {
-            input = it.toString()
-            error = null
-            vm.clearLimitEdit()
-        },
-    )
-    Spacer(modifier = Modifier.height(12.dp))
-    Row(verticalAlignment = Alignment.Top) {
-        OutlinedTextField(
-            value = input,
-            onValueChange = {
-                // Digits only; the range check happens on save, where it can explain itself.
-                input = it.filter { char -> char.isDigit() }.take(5)
-                error = null
-                vm.clearLimitEdit()
-            },
-            modifier = Modifier.weight(1f),
-            label = { Text("Metres per day") },
-            singleLine = true,
-            shape = MaterialTheme.shapes.small,
-            isError = error != null,
-            supportingText = error?.let { { Text(it) } },
-            keyboardOptions = KeyboardOptions(
-                keyboardType = KeyboardType.Number,
-                imeAction = ImeAction.Done,
-            ),
-            keyboardActions = KeyboardActions(onDone = { save() }),
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedTextColor = Trek.ink,
-                unfocusedTextColor = Trek.ink,
-                errorTextColor = Trek.ink,
-                focusedLabelColor = Trek.inkFaint,
-                unfocusedLabelColor = Trek.inkFaint,
-                errorLabelColor = Trek.danger,
-                focusedBorderColor = Trek.accent,
-                unfocusedBorderColor = Trek.hairline,
-                errorBorderColor = Trek.danger,
-            ),
-        )
-        Spacer(modifier = Modifier.width(10.dp))
-        TrekButton(
-            "Save",
-            onClick = save,
-            // Saving the value that is already set would only spend a weekly edit.
-            enabled = input.toFloatOrNull() != currentM,
-        )
-    }
-    // What the typed number means, before it is saved: the same landmark line onboarding
-    // shows, so "250" reads as a distance rather than an arbitrary figure.
-    input.toDoubleOrNull()
-        ?.takeIf { it in MIN_DAILY_LIMIT_M..MAX_DAILY_LIMIT_M && error == null && result == null }
-        ?.let {
-            Text(
-                comparison(it),
-                style = MaterialTheme.typography.bodySmall,
-                color = Trek.inkMuted,
-            )
-        }
-    when (val applied = result) {
-        is Prefs.LimitEditResult.Applied -> {
-            Spacer(modifier = Modifier.height(8.dp))
-            val noun = if (applied.freeLeft == 1) "change" else "changes"
-            Text(
-                when {
-                    !BILLING_ENFORCED -> "Saved. Limits are free for now, so change it whenever you like."
-                    applied.freeLeft == Int.MAX_VALUE -> "Saved. Premium: unlimited changes."
-                    else -> "Saved. ${applied.freeLeft} free $noun left this week."
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = Trek.accent,
-            )
-        }
-        Prefs.LimitEditResult.NeedsPremium -> {
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                "This week's free change is used. The quota resets Monday. Premium " +
-                    "(coming soon) unlocks unlimited changes. Nothing was changed.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Trek.danger,
-            )
-        }
-        null -> Unit
-    }
-}
-
-/**
- * The caution step every hand-set limit goes through. Baseline is the default way to a
- * limit, so a manual one is confirmed against what is known about the user's scrolling,
- * and the dialog offers the better option where there is one. It never blocks.
- */
-@Composable
-internal fun ManualLimitDialog(
-    newM: Double,
-    typicalM: Double?,
-    currentM: Double?,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-    onUseBaseline: (() -> Unit)? = null,
-    onUseSuggested: ((Float) -> Unit)? = null,
-) {
-    val suggested = typicalM?.let { suggestedLimit(it) }
-    val verb = if (currentM == null) "Set" else "Change"
-    val (title, body) = when {
-        typicalM == null -> "Set a limit without a baseline?" to
-            "ThumbTrek doesn’t know your usual day yet, so ${formatDistance(newM)} is a guess. " +
-            "Too low and every day reads as over; too high and it never matters. Learning your " +
-            "baseline takes $BASELINE_DAYS tracked days and sets a limit that fits you."
-        newM > typicalM -> "$verb your limit to ${formatDistance(newM)}?" to
-            "That’s above your usual day of about ${formatDistance(typicalM)}, so most days " +
-            "would pass under it without you noticing. Limits work best a little below what " +
-            "you normally scroll."
-        newM < typicalM * 0.5 -> "$verb your limit to ${formatDistance(newM)}?" to
-            "That’s less than half your usual day of about ${formatDistance(typicalM)}, so most " +
-            "days will count as over. Big cuts are hard to keep. About " +
-            "${formatDistance(suggested!!.toDouble())} is a steadier start."
-        else -> "$verb your limit to ${formatDistance(newM)}?" to
-            "That’s ${((1 - newM / typicalM) * 100).toInt()}% under your usual day of about " +
-            "${formatDistance(typicalM)}. Clean days are judged against it from today."
-    }
-    val offerSuggested = typicalM != null && newM < typicalM * 0.5 && onUseSuggested != null &&
-        suggested != null && suggested.toDouble() != newM
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        containerColor = Trek.groundRaised,
-        titleContentColor = Trek.ink,
-        textContentColor = Trek.inkMuted,
-        shape = MaterialTheme.shapes.large,
-        title = { Text(title) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(body)
-                if (typicalM == null && onUseBaseline != null) {
-                    TrekButton("Learn my baseline instead", onUseBaseline, Modifier.fillMaxWidth())
-                }
-                if (offerSuggested) {
-                    TrekButton("Use ${formatDistance(suggested!!.toDouble())} instead", { onUseSuggested!!(suggested) }, Modifier.fillMaxWidth())
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) { Text("$verb to ${formatDistance(newM)}", color = Trek.ink) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel", color = Trek.inkMuted) }
-        },
-    )
-}
-
-/** Common starting points, so choosing a limit doesn't begin with a blank number field. */
-private val LIMIT_PRESETS = listOf(50, 100, 250, 500)
-
-/**
- * One-tap limit presets, shared by onboarding and Settings. A preset is only a suggestion:
- * it fills the field, and the caller still decides when to save.
- */
-@Composable
-internal fun LimitPresets(selected: Int?, onPick: (Int) -> Unit, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxWidth().selectableGroup(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        LIMIT_PRESETS.forEach { meters ->
-            val active = meters == selected
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .heightIn(min = 48.dp)
-                    .clip(CircleShape)
-                    .background(if (active) Trek.accentWash else Color.Transparent)
-                    .border(1.dp, if (active) Trek.accent else Trek.hairline, CircleShape)
-                    .selectable(selected = active, role = Role.RadioButton) { onPick(meters) },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    "$meters m",
-                    style = MaterialTheme.typography.labelLarge,
-                    color = if (active) Trek.accent else Trek.ink,
-                    maxLines = 1,
-                )
-            }
-        }
-    }
-}
-
-// ---------------------------------------------------------------------------------------
-// Tracking diagnostics
-// ---------------------------------------------------------------------------------------
-
-/**
- * Per-app proof that measurement works, read straight from [ScrollDiagnostics]. The
- * service and the UI share a process, so this is live counters, not a log scrape: scroll
- * YouTube, come back, and its row moves. Apps with no row yet show as idle rather than
- * vanishing, so "YouTube measures nothing" and "YouTube never heard a scroll" read
- * differently · which is the entire point of the diagnostics.
- */
-@Composable
-private fun DiagnosticsTable(
-    trackedApps: Set<String>,
-    customLabels: Map<String, String>,
-) {
-    val context = LocalContext.current
-    val dpi = remember { context.resources.displayMetrics.densityDpi }
-    val revision by ScrollDiagnostics.revision.collectAsStateWithLifecycle()
-    val snapshot = remember(revision) { ScrollDiagnostics.snapshot() }
-    val byPkg = remember(snapshot) { snapshot.associateBy { it.packageName } }
-    var clearedNote by remember { mutableStateOf(false) }
-
-    val packages = remember(trackedApps, customLabels, snapshot) {
-        (TRACKED_APPS.keys + customLabels.keys + snapshot.map { it.packageName })
-            .distinct()
-            .sortedWith(
-                compareBy<String> { it !in trackedApps }.thenBy { appName(it, customLabels) },
-            )
-    }
-
-    TrekPanel(padding = PaddingValues(4.dp)) {
-        if (packages.isEmpty()) {
-            Text(
-                "Nothing tracked yet. Switch an app on above and its row appears here.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Trek.inkFaint,
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            )
-        }
-        packages.forEachIndexed { index, pkg ->
-            val diag = byPkg[pkg]
-            val countedPx = diag?.countedPixels ?: 0L
-            val detail = when {
-                pkg !in trackedApps -> "Not tracked"
-                diag == null -> "Idle. No scroll heard yet"
-                else -> "Seen in foreground ${diag.foregroundSightings}× · " +
-                    "${formatDistance(pixelsToMeters(countedPx, dpi))} counted" +
-                    (diag.dominantPath?.let { " · via $it" } ?: "")
-            }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .heightIn(min = 48.dp)
-                    .padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                SeriesDot(chartColor(pkg))
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        appName(pkg, customLabels),
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = if (pkg in trackedApps) Trek.ink else Trek.inkFaint,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Text(
-                        detail,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Trek.inkFaint,
-                        maxLines = 2,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                }
-            }
-            if (index < packages.lastIndex) Hairline(modifier = Modifier.padding(horizontal = 14.dp))
-        }
-    }
-    Spacer(modifier = Modifier.height(10.dp))
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        TrekGhostButton(
-            text = "Reset counters",
-            onClick = {
-                ScrollDiagnostics.clear()
-                clearedNote = true
-            },
-        )
-        if (clearedNote) {
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                "Counters cleared. Scroll a feed to start them again.",
-                style = MaterialTheme.typography.bodySmall,
-                color = Trek.inkFaint,
-            )
-        }
-    }
-}

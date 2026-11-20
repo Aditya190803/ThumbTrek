@@ -95,7 +95,7 @@ export function inviteLink(code) {
 export function inviteMessage(code) {
   return (
     "I'm tracking how far my thumb scrolls with ThumbTrek. Add me with code " +
-    `${formatFriendCode(code)} and let's see who treks further this week.\n\n` +
+    `${formatFriendCode(code)} and let's see who scrolls further this week.\n\n` +
     inviteLink(code)
   );
 }

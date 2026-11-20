@@ -113,6 +113,24 @@ export async function accumulate(date, domain, um) {
   });
 }
 
+/**
+ * Merges restored rows in. Each `(date, domain)` keeps the larger of what is stored and
+ * what the backup holds, so restoring the same file twice changes nothing and restoring an
+ * old file never erases newer scrolling. One transaction: all of it lands or none does.
+ */
+export async function restoreRows(rows) {
+  if (rows.length === 0) return;
+  await run([STORE_DAYS], 'readwrite', (tx) => {
+    const days = tx.objectStore(STORE_DAYS);
+    for (const row of rows) {
+      const get = days.get([row.date, row.domain]);
+      get.onsuccess = () => {
+        if ((get.result?.um ?? 0) < row.um) days.put({ date: row.date, domain: row.domain, um: row.um });
+      };
+    }
+  });
+}
+
 /** Every row for one day, as `{ domain, um }`, biggest first. */
 export async function rowsForDate(date) {
   const rows = await run([STORE_DAYS], 'readonly', (tx, done) => {

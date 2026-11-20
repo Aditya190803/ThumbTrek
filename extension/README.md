@@ -199,7 +199,7 @@ The `browser`/`chrome` namespace difference is already handled, in `lib/browser.
 node --test "test/*.test.js"
 ```
 
-94 tests, no dependencies, node's built-in runner. They cover the pure logic: the µm
+148 tests, no dependencies, node's built-in runner. They cover the pure logic: the µm
 conversion and Java-compatible rounding, the streak and bucket and comparison functions
 (expectations lifted from `app/src/test/.../StatsTest.kt`), the friend code and anonymous
 handle (checked against an independent oracle, not against themselves), domain attribution,
@@ -218,10 +218,31 @@ node tools/make-icons.mjs
 ```
 
 Chrome will not accept an SVG for `icons`, so the mark is rasterised from the same geometry
-as `web/assets/mark.svg` rather than committed as four hand-made binaries that can drift
+as `web/assets/track-mark.svg` rather than committed as four hand-made binaries that can drift
 from it.
 
 ---
+
+## Premium features
+
+Built, and free for everyone until Premium goes on sale (see
+[`docs/monetization.md`](../docs/monetization.md)). All of them live on the options page
+(`options/extras.js`):
+
+- **One limit across your phone and your browser.** Needs sync. Each sync reconciles this
+  browser's limit with `users/{uid}/settings/limits`, newest edit winning, then reads the
+  phone's day document so its distance counts against the limit in the side panel
+  (`lib/sync.js`, contract §7).
+- **A limit for each site.** Local only, shown as "X of Y" on the site's lane.
+- **Weekly and monthly reports**, from `lib/report.js`.
+- **Groups.** Created and joined on the phone or the dashboard. The extension publishes this
+  browser's distance into each group the account is in, and removes it on opt-out.
+- **Backup and restore.** One JSON file (`lib/backup.js`) in the phone's format, marked as
+  coming from the browser; each client restores only its own files.
+  Restoring merges: each day and site keeps the larger figure, so nothing is lost.
+
+`lib/report.js`, `lib/groups.js` and `lib/limits.js` are byte-identical to the dashboard's
+copies in `web/app/`, and `test/features.test.js` fails if they drift.
 
 ## Privacy
 
@@ -234,7 +255,7 @@ from it.
 - The extension reads no page content. It reads one number per scroll event (a scroll
   offset) and the hostname of the tab. Untracked sites are discarded in the service worker
   and never stored or sent.
-- The font (Manrope) is bundled, so opening the side panel does not tell a CDN that you did.
+- The font (Archivo, one variable file) is bundled, so opening the side panel does not tell a CDN that you did.
 
 ## Known limits
 

@@ -74,11 +74,6 @@ export function scoreOf(data, periodId, keys = {}) {
   return { value: pixelsToUm(data?.[period.pixels]), unit: 'pixels', meters: null };
 }
 
-/** True for a row that carries no `*Um` field at all — every figure on it is a guess. */
-export function isLegacyRow(data) {
-  return !['weekUm', 'monthUm', 'totalUm'].some((f) => umOrNull(data, f) !== null);
-}
-
 /** Field-by-field and untyped on purpose: a half-written doc must not break the board. */
 export function boardEntry(uid, data) {
   const name = typeof data?.displayName === 'string' ? data.displayName.trim() : '';

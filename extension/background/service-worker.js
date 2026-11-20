@@ -15,7 +15,7 @@ import { ensureBaselineDefault, readSettings, shouldTrack } from '../lib/setting
 import { applyBaselineIfReady } from '../lib/baseline.js';
 import { todayKey } from '../lib/dates.js';
 import {
-  backfillEverything, optOutRemote, syncNow, syncStatus,
+  backfillEverything, optOutRemote, syncNow, syncStatus, withdrawSharedLimit,
 } from '../lib/sync.js';
 
 const SYNC_ALARM = 'thumbtrek-sync';
@@ -108,6 +108,7 @@ api.runtime.onMessage.addListener((message, sender, sendResponse) => {
     'trek/sync-status': () => syncStatus(),
     'trek/opted-in': () => backfillEverything().then(() => syncNow({ force: true })),
     'trek/opted-out': () => optOutRemote(),
+    'trek/shared-limit-off': () => withdrawSharedLimit(),
     'trek/wipe-local': () => wipeLocalData(),
     'trek/day-totals': () => dayTotals().then((totals) => [...totals]),
   };

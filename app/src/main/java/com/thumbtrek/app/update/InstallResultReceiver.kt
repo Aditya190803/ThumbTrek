@@ -49,7 +49,7 @@ class InstallResultReceiver : BroadcastReceiver() {
 
             PackageInstaller.STATUS_FAILURE_CONFLICT ->
                 repository.onInstallFailed(
-                    "Install blocked by a signature conflict — the installed copy was signed " +
+                    "Install blocked by a signature conflict. The installed copy was signed " +
                         "with a different key. Uninstall ThumbTrek first (export your data " +
                         "from Settings before you do; uninstalling wipes local history).",
                 )

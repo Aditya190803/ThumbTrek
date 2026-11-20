@@ -471,18 +471,18 @@ class SocialRepository(private val context: Context) {
         val current = auth.currentUser?.uid ?: error("Sign in to add friends")
         val code = normalizeFriendCode(input)
         require(code.length == FRIEND_CODE_LENGTH) {
-            "That code doesn't look right — friend codes are $FRIEND_CODE_LENGTH characters."
+            "That code doesn't look right. Friend codes are $FRIEND_CODE_LENGTH characters."
         }
         require(code != friendCode(current)) { "That's your own code." }
         val friend = (db.collection("friendCodes").document(code).get().await()
             .get("uid") as? String).orEmpty()
-        require(friend.isNotEmpty()) { "No trekker has that code yet." }
+        require(friend.isNotEmpty()) { "Nobody has that code yet." }
         require(friend != current) { "That's your own code." }
 
         val mine = friendsOf(current).document(friend).get().await()
         require(!mine.exists()) {
             if (mine.getString(FIELD_STATUS) == STATUS_PENDING) {
-                "Request already sent — waiting on them."
+                "Request already sent. Waiting on them to accept."
             } else {
                 "You're already trekking together."
             }

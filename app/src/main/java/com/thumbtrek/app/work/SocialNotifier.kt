@@ -27,8 +27,8 @@ object SocialNotifier {
         post(context, REQUEST_NOTIFICATION_ID) {
             NotificationCompat.Builder(context, ThumbTrekApp.SOCIAL_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle("New trek request")
-                .setContentText("$fromName wants to trek with you — accept on the Social tab.")
+                .setContentTitle("New friend request")
+                .setContentText("$fromName sent you a friend request. Accept it on the Friends tab.")
                 .setAutoCancel(true)
         }
 
@@ -37,7 +37,7 @@ object SocialNotifier {
             NotificationCompat.Builder(context, ThumbTrekApp.SOCIAL_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_notification)
                 .setContentTitle("You slipped to #$newRank")
-                .setContentText("Others are trekking harder this week. The Social tab has the board.")
+                .setContentText("Friends have passed you this week. The Friends tab has the board.")
                 .setAutoCancel(true)
         }
 

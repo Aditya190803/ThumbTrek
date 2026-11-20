@@ -35,7 +35,7 @@ const valid = code.length === FRIEND_CODE_LENGTH;
 const state = { user: null, sent: false };
 
 function render() {
-  byId('code').textContent = valid ? formatFriendCode(code) : '————————';
+  byId('code').textContent = valid ? formatFriendCode(code) : 'No code';
   byId('code-inline').textContent = valid ? formatFriendCode(code) : 'the code';
   show(byId('invalid'), !valid);
   show(byId('add-here'), valid);
@@ -66,13 +66,13 @@ function renderAuth() {
   if (state.sent) {
     stateLine.textContent =
       'Request sent. They have to accept it before either of you appears on the other’s ' +
-      'board — that is the same two-way handshake the app uses.';
+      'board, the same as in the app.';
     show(addButton, false);
     show(signinButton, false);
     return;
   }
   if (state.user) {
-    stateLine.textContent = `Signed in as ${state.user.displayName || 'you'}. One tap and the request is on its way.`;
+    stateLine.textContent = `Signed in as ${state.user.displayName || 'you'}. Send the request when you are ready.`;
     show(addButton, true);
     show(signinButton, false);
   } else {
@@ -99,7 +99,7 @@ byId('copy-code').addEventListener('click', async () => {
       byId('copy-code').textContent = 'Copy code';
     }, 1800);
   } catch {
-    announce('Copying was blocked. The code is on screen — it is eight characters.');
+    announce('Copying was blocked. The code is on screen, and it is eight characters long.');
   }
 });
 
@@ -111,7 +111,7 @@ byId('add-button').addEventListener('click', async () => {
   try {
     await sendRequest(state.user.uid, code);
     state.sent = true;
-    announce('Trek request sent.');
+    announce('Friend request sent.');
   } catch (error) {
     reportError(explainError(error));
     announce(explainError(error));
@@ -146,8 +146,8 @@ async function boot() {
     // work, so the page degrades to the printed-invitation version of itself.
     byId('add-state').textContent =
       error instanceof NotConfiguredError
-        ? 'Adding trekkers from the web is not set up on this deployment yet. The code above ' +
-          'still works in the app.'
+        ? 'Adding friends from the web is not set up on this copy of the site yet. The code ' +
+          'above still works in the app.'
         : explainError(error);
     show(byId('add-button'), false);
     show(byId('signin-button'), false);
@@ -161,7 +161,7 @@ async function boot() {
     if (user && valid && code === (await friendCode(user.uid))) {
       state.user = null;
       byId('add-state').textContent =
-        "That is your own code. Send the link to somebody else — it is how they find you.";
+        'That is your own code. Send the link to somebody else, and it is how they find you.';
       show(byId('add-button'), false);
       show(byId('signin-button'), false);
       return;

@@ -63,16 +63,16 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
     BackHandler(enabled = step > 0 && !imeVisible) { prefs.setOnboardingStep(step - 1) }
     if (showPicker) AppPickerDialog(settings) { showPicker = false }
 
-    Scaffold(containerColor = Trek.ground, contentColor = Trek.ink) { padding ->
+    Scaffold(containerColor = Trek.bg, contentColor = Trek.text) { padding ->
         Column(
             Modifier.fillMaxSize().padding(padding).imePadding()
                 .verticalScroll(key(step) { rememberScrollState() }).padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                BrandMark(Modifier.size(36.dp))
+                BrandMark(Modifier.size(50.dp, 30.dp))
                 Spacer(Modifier.weight(1f))
-                Text("Step ${step + 1} of 4", style = TrekOverline, color = Trek.inkMuted)
+                Text("Step ${step + 1} of 4", style = TrekCaption, color = Trek.textDim)
                 if (step > 0) TextButton(onClick = { prefs.setOnboardingStep(step - 1) }) { Text("Back") }
                 // Reviewing setup from Settings shouldn't mean walking all four steps again.
                 if (prefs.setupDone) TextButton(onClick = { prefs.setOnboardingStep(4) }) { Text("Done") }
@@ -82,14 +82,14 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
                 0 -> {
                     PageHeading("A little more awareness.", "Make ThumbTrek yours in a few small steps.")
                     TrekPanel {
-                        Text("Your scrolls, made visible", style = MaterialTheme.typography.titleLarge, color = Trek.ink)
+                        Text("Your scrolls, made visible", style = MaterialTheme.typography.titleLarge, color = Trek.text)
                         Spacer(Modifier.height(12.dp))
-                        Text("See how far your thumb travels across the apps you choose. Distance is an estimate, not time spent on your phone.", color = Trek.inkMuted)
+                        Text("See how far your thumb travels across the apps you choose. Distance is an estimate, not time spent on your phone.", color = Trek.textDim)
                     }
-                    Text("Only distance is measured", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
-                    Text("ThumbTrek never reads posts, messages, passwords or other screen content. Tracking stays on this device unless you explicitly turn on sharing in Social.", color = Trek.inkMuted)
-                    Text("Your pace, your choice", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
-                    Text("Choose your apps, decide whether you want a limit, and sign in only if you want to. You can change these choices in Settings.", color = Trek.inkMuted)
+                    Text("Only distance is measured", style = MaterialTheme.typography.titleMedium, color = Trek.text)
+                    Text("ThumbTrek never reads posts, messages, passwords or other screen content. Tracking stays on this device unless you explicitly turn on sharing in Social.", color = Trek.textDim)
+                    Text("Your pace, your choice", style = MaterialTheme.typography.titleMedium, color = Trek.text)
+                    Text("Choose your apps, decide whether you want a limit, and sign in only if you want to. You can change these choices in Settings.", color = Trek.textDim)
                     TrekButton("Get started", { prefs.setOnboardingStep(1) }, Modifier.fillMaxWidth())
                 }
                 1 -> {
@@ -102,9 +102,9 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
                         TextButton(onClick = { settings.loadInstalledApps(); showPicker = true }) { Text("Add another app") }
                     }
                     TrekPanel {
-                        Text(if (state.trackingEnabled) "Tracking is enabled" else "Allow scroll measurement", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
+                        Text(if (state.trackingEnabled) "Tracking is enabled" else "Allow scroll measurement", style = MaterialTheme.typography.titleMedium, color = Trek.text)
                         Spacer(Modifier.height(8.dp))
-                        Text("Android’s Accessibility permission lets ThumbTrek count scroll movements in your selected apps. It does not read screen content or control your phone. You can turn it off at any time.", color = Trek.inkMuted)
+                        Text("Android’s Accessibility permission lets ThumbTrek count scroll movements in your selected apps. It does not read screen content or control your phone. You can turn it off at any time.", color = Trek.textDim)
                         if (!state.trackingEnabled) {
                             Spacer(Modifier.height(16.dp))
                             TrekGhostButton("Open Accessibility settings", {
@@ -112,9 +112,9 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
                             }, Modifier.fillMaxWidth())
                         }
                     }
-                    if (state.trackedApps.isEmpty()) Text("No apps selected. Nothing will be measured until you choose an app in Settings.", color = Trek.inkMuted)
+                    if (state.trackedApps.isEmpty()) Text("No apps selected. Nothing will be measured until you choose an app in Settings.", color = Trek.textDim)
                     TrekButton(if (state.trackingEnabled) "Continue" else "Continue for now", { prefs.setOnboardingStep(2) }, Modifier.fillMaxWidth())
-                    if (!state.trackingEnabled) Text("You can enable tracking later in Settings.", style = MaterialTheme.typography.bodySmall, color = Trek.inkMuted)
+                    if (!state.trackingEnabled) Text("You can enable tracking later in Settings.", style = MaterialTheme.typography.bodySmall, color = Trek.textDim)
                 }
                 2 -> {
                     var ownLimit by rememberSaveable { mutableStateOf(input.isNotEmpty()) }
@@ -123,11 +123,11 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
                     PageHeading("Find your own pace.", "Start with what a normal day looks like for you.")
                     TrekPanel(fill = Trek.accentWash, border = Trek.accent.copy(alpha = 0.35f)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Start with a baseline", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, color = Trek.ink)
-                            TrekChip("Recommended", color = Trek.accent, border = Trek.accent.copy(alpha = 0.4f))
+                            Text("Start with a baseline", modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, color = Trek.text)
+                            TrekChip("Recommended")
                         }
                         Spacer(Modifier.height(10.dp))
-                        Text("Scroll as you normally would for $BASELINE_DAYS tracked days. Nothing is judged that week. Then ThumbTrek sets your daily limit about 10% under your usual day, and you can adjust it anytime.", color = Trek.inkMuted)
+                        Text("Scroll as you normally would for $BASELINE_DAYS tracked days. Nothing is judged that week. Then ThumbTrek sets your daily limit about 10% under your usual day, and you can adjust it anytime.", color = Trek.textDim)
                         Spacer(Modifier.height(16.dp))
                         TrekButton("Learn my baseline", {
                             prefs.startBaseline()
@@ -138,7 +138,7 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
                     if (!ownLimit) {
                         TextButton(onClick = { ownLimit = true }) { Text("I already know my limit") }
                     } else {
-                        Text("Or set your own limit now", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
+                        Text("Or set your own limit now", style = MaterialTheme.typography.titleMedium, color = Trek.text)
                         val limit = parseDailyLimit(input)
                         LimitPresets(
                             selected = input.toIntOrNull(),
@@ -155,7 +155,7 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                             keyboardActions = KeyboardActions(onDone = { focus.clearFocus() }),
                         )
-                        if (limit != null) Text(comparison(limit.toDouble()), color = Trek.inkMuted)
+                        if (limit != null) Text(comparison(limit.toDouble()), color = Trek.textDim)
                         saveError?.let { Text(it, color = Trek.danger) }
                         TrekGhostButton("Use my limit", {
                             if (limit != null) { focus.clearFocus(); confirmLimit = limit }
@@ -184,33 +184,33 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
                             )
                         }
                     }
-                    Text("A limit is a gentle reference, never a block on your apps. Rather not have one at all? Turn it off anytime in Settings.", style = MaterialTheme.typography.bodySmall, color = Trek.inkMuted)
+                    Text("A limit is a gentle reference, never a block on your apps. Rather not have one at all? Turn it off anytime in Settings.", style = MaterialTheme.typography.bodySmall, color = Trek.textDim)
                 }
                 3 -> {
                     val social: SocialViewModel = viewModel()
                     val account by social.state.collectAsStateWithLifecycle()
                     PageHeading("Your trek. Your choice.", "An account is completely optional.")
                     TrekPanel {
-                        Text(if (account.signedIn) "You’re signed in" else "Bring your people along", style = MaterialTheme.typography.titleLarge, color = Trek.ink)
+                        Text(if (account.signedIn) "You’re signed in" else "Bring your people along", style = MaterialTheme.typography.titleLarge, color = Trek.text)
                         Spacer(Modifier.height(12.dp))
-                        Text("Sign in to get ready for friend comparisons and syncing. Signing in alone shares nothing. You’ll decide whether to publish and sync from the Social tab.", color = Trek.inkMuted)
+                        Text("Sign in to get ready for friend comparisons and syncing. Signing in alone shares nothing. You’ll decide whether to publish and sync from the Friends tab.", color = Trek.textDim)
                         if (!account.signedIn) {
                             Spacer(Modifier.height(16.dp))
                             TrekButton("Continue with Google", { social.signIn(context) }, Modifier.fillMaxWidth(), loading = account.busy)
                         }
                         account.error?.let { Spacer(Modifier.height(8.dp)); Text(it, color = Trek.danger) }
                     }
-                    Text("A daily check-in, if you want one", style = MaterialTheme.typography.titleMedium, color = Trek.ink)
-                    Text("Allow notifications for daily distance summaries. Streak reminders and limit nudges stay off unless you enable them in Settings.", color = Trek.inkMuted)
+                    Text("A daily check-in, if you want one", style = MaterialTheme.typography.titleMedium, color = Trek.text)
+                    Text("Allow notifications for daily distance summaries. Streak reminders and limit nudges stay off unless you enable them in Settings.", color = Trek.textDim)
                     if (notificationsAllowed) {
-                        Text("Notifications are allowed. Manage them in Android settings.", color = Trek.inkMuted)
+                        Text("Notifications are allowed. Manage them in Android settings.", color = Trek.textDim)
                     } else if (Build.VERSION.SDK_INT >= 33) {
                         TrekGhostButton("Allow notifications", { notificationRequest.launch(Manifest.permission.POST_NOTIFICATIONS) }, Modifier.fillMaxWidth())
                     }
                     TrekButton(if (account.signedIn) "Start my trek" else "Continue without an account", {
                         prefs.setOnboardingStep(4)
                     }, Modifier.fillMaxWidth(), enabled = !account.busy)
-                    Text("Your choices are saved. Revisit them anytime in Settings → Review setup.", style = MaterialTheme.typography.bodySmall, color = Trek.inkMuted)
+                    Text("Your choices are saved. Revisit them anytime in Settings, under Review setup.", style = MaterialTheme.typography.bodySmall, color = Trek.textDim)
                 }
             }
         }

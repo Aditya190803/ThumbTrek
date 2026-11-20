@@ -10,7 +10,6 @@ import assert from 'node:assert/strict';
 import {
   PERIODS,
   archiveScore,
-  isLegacyRow,
   periodById,
   rankEntries,
   rankOf,
@@ -68,8 +67,6 @@ test('the fallback is decided per field, not per row', () => {
   const data = row({ totalUm: 9_000, weekPixels: 420 });
   assert.equal(scoreOf(data, 'all', KEYS).unit, 'um');
   assert.equal(scoreOf(data, 'week', KEYS).unit, 'pixels');
-  assert.equal(isLegacyRow(data), false);
-  assert.equal(isLegacyRow(row({ weekPixels: 1 })), true);
 });
 
 test('a stale period key reads as zero rather than dropping off', () => {

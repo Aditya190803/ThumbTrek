@@ -52,7 +52,23 @@ interface ScrollDao {
     @Query("SELECT * FROM daily_scroll WHERE date >= :startDate ORDER BY date ASC")
     fun observeRowsSince(startDate: String): Flow<List<DailyScroll>>
 
-    /** Every row ever, for CSV export. */
+    /** Lifts a stored row to [pixels] when the backup holds more; never lowers one. */
+    @Query("UPDATE daily_scroll SET pixels = MAX(pixels, :pixels) WHERE packageName = :pkg AND date = :date")
+    suspend fun raiseTo(pkg: String, date: String, pixels: Long): Int
+
+    /**
+     * Merges a backup in. Each app-day keeps the larger of what is stored and what the
+     * backup holds, so restoring the same file twice changes nothing and restoring an old
+     * file never erases newer scrolling.
+     */
+    @Transaction
+    suspend fun restore(rows: List<DailyScroll>) {
+        rows.forEach { row ->
+            if (raiseTo(row.packageName, row.date, row.pixels) == 0) insert(row)
+        }
+    }
+
+    /** Every row ever, for export and backup. */
     @Query("SELECT * FROM daily_scroll ORDER BY date ASC, packageName ASC")
     suspend fun allRows(): List<DailyScroll>
 }

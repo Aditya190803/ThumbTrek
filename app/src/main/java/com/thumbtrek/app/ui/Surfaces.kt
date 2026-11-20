@@ -3,7 +3,6 @@ package com.thumbtrek.app.ui
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
@@ -21,11 +20,9 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -33,7 +30,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -72,13 +68,16 @@ import kotlin.math.roundToInt
 // Structure
 // ---------------------------------------------------------------------------------------
 
-/** A softly raised surface for a related group of controls or data. */
+/**
+ * A panel, for content that is one object. No border at night, a hairline by day, never a
+ * shadow. Lists of things are rows divided by lane lines, not stacks of these (DESIGN.md).
+ */
 @Composable
 fun TrekPanel(
     modifier: Modifier = Modifier,
     padding: PaddingValues = PaddingValues(20.dp),
-    fill: Color = Trek.groundRaised,
-    border: Color = Trek.hairlineSoft,
+    fill: Color = Trek.surface,
+    border: Color = if (Trek.isDark) Color.Transparent else Trek.line,
     shape: Shape = MaterialTheme.shapes.large,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -97,14 +96,14 @@ fun SectionHead(
     label: String,
     modifier: Modifier = Modifier,
     trailing: String? = null,
-    trailingColor: Color = Trek.inkMuted,
+    trailingColor: Color = Trek.textDim,
 ) {
     Row(
         modifier = modifier.fillMaxWidth().padding(bottom = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = Trek.ink)
+        Text(label, modifier = Modifier.weight(1f), style = MaterialTheme.typography.titleMedium, color = Trek.text)
         if (trailing != null) {
             Text(trailing, style = MaterialTheme.typography.labelMedium, color = trailingColor)
         }
@@ -114,8 +113,8 @@ fun SectionHead(
 @Composable
 fun PageHeading(title: String, subtitle: String) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, style = MaterialTheme.typography.headlineLarge, color = Trek.ink)
-        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Trek.inkMuted)
+        Text(title, style = MaterialTheme.typography.headlineLarge, color = Trek.text)
+        Text(subtitle, style = MaterialTheme.typography.bodyMedium, color = Trek.textDim)
     }
 }
 
@@ -136,11 +135,11 @@ fun AppToken(label: String, color: Color, modifier: Modifier = Modifier) {
 }
 
 @Composable
-fun Hairline(modifier: Modifier = Modifier, color: Color = Trek.hairlineSoft) {
+fun Hairline(modifier: Modifier = Modifier, color: Color = Trek.lineSoft) {
     Spacer(
         modifier = modifier
             .fillMaxWidth()
-            .height(1.dp)
+            .height(1.5.dp)
             .background(color),
     )
 }
@@ -148,6 +147,11 @@ fun Hairline(modifier: Modifier = Modifier, color: Color = Trek.hairlineSoft) {
 // ---------------------------------------------------------------------------------------
 // Numbers
 // ---------------------------------------------------------------------------------------
+
+/** The headline figure, and the same figure stepped down once it gets long. */
+private val TrekHero = TrekDisplay
+private val TrekHeroTight = TrekDisplay.copy(fontSize = 34.sp, lineHeight = 38.sp)
+private val TrekUnit = TrekFigure.copy(fontSize = 18.sp, lineHeight = 22.sp)
 
 /** Splits "1.24 km" into figure and unit so they can be set at different sizes. */
 fun distanceParts(meters: Double): Pair<String, String> {
@@ -157,9 +161,9 @@ fun distanceParts(meters: Double): Pair<String, String> {
 }
 
 /**
- * The dashboard readout. Counts from where it was to [meters] on an exponential ease-out,
- * so opening the app feels like an odometer settling rather than a value appearing. The
- * unit is set as a separate, quieter mark.
+ * The headline distance, set in the wide cut. Counts from where it was to [meters] on an
+ * ease-out, so opening the app reads as a figure settling rather than appearing. The unit
+ * is set smaller beside it.
  *
  * The figure steps down a size once it gets long, so a five-figure kilometre count still
  * fits on one line at large font scales.
@@ -168,7 +172,8 @@ fun distanceParts(meters: Double): Pair<String, String> {
 fun HeroDistance(
     meters: Double,
     modifier: Modifier = Modifier,
-    color: Color = Trek.ink,
+    color: Color = Trek.text,
+    unitColor: Color = Trek.textDim,
     centered: Boolean = false,
 ) {
     val target = meters.toFloat()
@@ -176,7 +181,7 @@ fun HeroDistance(
     val animated = remember { Animatable(0f) }
     LaunchedEffect(target, motion) {
         if (motion) {
-            animated.animateTo(target, tween(TrekDur.REVEAL, easing = TrekEase))
+            animated.animateTo(target, tween(TrekDur.LAP, easing = TrekEase))
         } else {
             animated.snapTo(target)
         }
@@ -195,7 +200,7 @@ fun HeroDistance(
         ) {
             Text(figure, style = preferred.copy(fontSize = figureSize, lineHeight = figureSize * 1.12f), color = color, maxLines = 1)
             Spacer(Modifier.width(6.dp))
-            Text(unit, style = TrekUnit, color = Trek.inkMuted, modifier = Modifier.padding(bottom = 6.dp))
+            Text(unit, style = TrekUnit, color = unitColor, modifier = Modifier.padding(bottom = 6.dp))
         }
     }
 }
@@ -206,7 +211,7 @@ fun CountedDistance(
     meters: Double,
     modifier: Modifier = Modifier,
     style: TextStyle = MaterialTheme.typography.headlineMedium,
-    color: Color = Trek.ink,
+    color: Color = Trek.text,
 ) {
     val target = meters.toFloat()
     val motion = LocalTrekMotion.current
@@ -241,8 +246,8 @@ fun Rail(
     fraction: Float,
     modifier: Modifier = Modifier,
     color: Color = Trek.accent,
-    track: Color = Trek.groundSunken,
-    height: Dp = 6.dp,
+    track: Color = Trek.sunken,
+    height: Dp = 8.dp,
 ) {
     val shown by animateFloatAsState(
         targetValue = fraction.coerceIn(0f, 1f),
@@ -271,20 +276,21 @@ fun Rail(
     )
 }
 
+/** A stadium chip. State chips always say their state in words; the wash only backs it up. */
 @Composable
 fun TrekChip(
     text: String,
     modifier: Modifier = Modifier,
-    color: Color = Trek.inkMuted,
-    fill: Color = Color.Transparent,
-    border: Color = Trek.hairline,
+    color: Color = Trek.text,
+    fill: Color = Trek.accentWash,
+    border: Color = Color.Transparent,
     leading: (@Composable () -> Unit)? = null,
 ) {
     Row(
         modifier = modifier
-            .background(fill, MaterialTheme.shapes.extraLarge)
-            .border(1.dp, border, MaterialTheme.shapes.extraLarge)
-            .padding(horizontal = 12.dp, vertical = 6.dp),
+            .background(fill, CircleShape)
+            .border(1.5.dp, border, CircleShape)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
@@ -296,10 +302,10 @@ fun TrekChip(
 @Composable
 fun StreakBadge(streak: Int, modifier: Modifier = Modifier) {
     TrekChip(
-        text = if (streak > 0) "$streak day streak" else "A fresh start",
+        text = if (streak > 0) "$streak day streak" else "No streak yet",
         modifier = modifier,
-        color = if (streak > 0) Trek.amber else Trek.inkMuted,
-        fill = if (streak > 0) Trek.amberWash else Trek.groundSunken,
+        color = if (streak > 0) Trek.warn else Trek.textDim,
+        fill = if (streak > 0) Trek.warnWash else Trek.sunken,
         border = Color.Transparent,
     )
 }
@@ -328,8 +334,8 @@ fun TrekButton(
         colors = ButtonDefaults.buttonColors(
             containerColor = Trek.accent,
             contentColor = Trek.onAccent,
-            disabledContainerColor = Trek.groundSunken,
-            disabledContentColor = Trek.inkFaint,
+            disabledContainerColor = Trek.sunken,
+            disabledContentColor = Trek.textFaint,
         ),
         elevation = ButtonDefaults.buttonElevation(0.dp, 0.dp, 0.dp, 0.dp, 0.dp),
         contentPadding = PaddingValues(horizontal = 22.dp, vertical = 12.dp),
@@ -360,17 +366,17 @@ fun TrekGhostButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    contentColor: Color = Trek.ink,
+    contentColor: Color = Trek.text,
 ) {
     OutlinedButton(
         onClick = onClick,
         modifier = modifier.heightIn(min = 48.dp),
         enabled = enabled,
         shape = CircleShape,
-        border = BorderStroke(1.dp, if (enabled) Trek.hairline else Trek.hairlineSoft),
+        border = BorderStroke(1.5.dp, if (enabled) Trek.line else Trek.lineSoft),
         colors = ButtonDefaults.outlinedButtonColors(
             contentColor = contentColor,
-            disabledContentColor = Trek.inkFaint,
+            disabledContentColor = Trek.textFaint,
         ),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
     ) {
@@ -378,7 +384,7 @@ fun TrekGhostButton(
     }
 }
 
-/** Equal-width tabs with an explicit selected state, including in scrolling layouts. */
+/** Equal-width stadium tabs. The selected one is filled with the accent and says so to a11y. */
 @Composable
 fun TrekSegmented(
     options: List<String>,
@@ -387,21 +393,22 @@ fun TrekSegmented(
     modifier: Modifier = Modifier,
 ) {
     Row(
-        modifier = modifier.fillMaxWidth().clip(MaterialTheme.shapes.large)
-            .background(Trek.groundSunken).padding(4.dp).selectableGroup(),
+        modifier = modifier.fillMaxWidth().clip(CircleShape)
+            .background(Trek.sunken).padding(4.dp).selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         options.forEachIndexed { index, label ->
             val active = index == selected
             Box(
-                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
-                    .clip(MaterialTheme.shapes.medium)
-                    .background(if (active) Trek.groundRaised else Color.Transparent)
+                modifier = Modifier.weight(1f).heightIn(min = 44.dp)
+                    .clip(CircleShape)
+                    .background(if (active) Trek.accent else Color.Transparent)
                     .selectable(selected = active, role = Role.Tab, onClick = { onSelect(index) })
-                    .padding(horizontal = 2.dp, vertical = 8.dp),
+                    .padding(horizontal = 6.dp, vertical = 8.dp),
                 contentAlignment = Alignment.Center,
             ) {
                 Text(label, style = MaterialTheme.typography.labelMedium,
-                    color = if (active) Trek.accent else Trek.inkMuted,
+                    color = if (active) Trek.onAccent else Trek.textDim,
                     textAlign = androidx.compose.ui.text.style.TextAlign.Center,
                     maxLines = 2)
             }
@@ -430,8 +437,8 @@ fun EmptyState(
             .padding(vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(title, style = MaterialTheme.typography.titleLarge, color = Trek.ink)
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = Trek.inkMuted)
+        Text(title, style = MaterialTheme.typography.titleLarge, color = Trek.text)
+        Text(body, style = MaterialTheme.typography.bodyMedium, color = Trek.textDim)
         if (action != null) {
             Spacer(modifier = Modifier.height(4.dp))
             action()
@@ -444,7 +451,7 @@ fun EmptyState(
 fun Skeleton(
     modifier: Modifier = Modifier,
     height: Dp = 14.dp,
-    shape: Shape = RoundedCornerShape(4.dp),
+    shape: Shape = CircleShape,
 ) {
     val phase = if (LocalTrekMotion.current) {
         rememberInfiniteTransition(label = "skeleton").animateFloat(
@@ -459,8 +466,8 @@ fun Skeleton(
     } else {
         0.5f
     }
-    val base = Trek.groundSunken
-    val highlight = Trek.hairline
+    val base = Trek.sunken
+    val highlight = Trek.line
     Spacer(
         modifier = modifier
             .height(height)
@@ -496,8 +503,8 @@ fun MeasureRow(
     fraction: Float,
     modifier: Modifier = Modifier,
     color: Color = Trek.accent,
-    labelColor: Color = Trek.ink,
-    valueColor: Color = Trek.inkMuted,
+    labelColor: Color = Trek.text,
+    valueColor: Color = Trek.textDim,
     leading: (@Composable () -> Unit)? = null,
 ) {
     Column(
@@ -522,7 +529,7 @@ fun MeasureRow(
             )
             Text(value, style = TrekFigure, color = valueColor, maxLines = 1)
         }
-        Rail(fraction, color = color, height = 5.dp)
+        Rail(fraction, color = color, height = 8.dp)
     }
 }
 
@@ -538,8 +545,8 @@ fun SeriesDot(color: Color, modifier: Modifier = Modifier, size: Dp = 9.dp) {
 }
 
 /**
- * Rank marker. The top three take a medal tint, everyone else a plain tabular figure, which
- * keeps the eye on the podium without turning the whole list into confetti.
+ * Rank, as a painted lane number. The top three take a medal colour; the rank is always the
+ * figure itself, so the colour never carries it alone.
  */
 @Composable
 fun RankMark(rank: Int, modifier: Modifier = Modifier, highlight: Boolean = false) {
@@ -547,26 +554,29 @@ fun RankMark(rank: Int, modifier: Modifier = Modifier, highlight: Boolean = fals
     val color = when {
         rank in 1..3 -> medals[rank - 1]
         highlight -> Trek.accent
-        else -> Trek.inkFaint
+        else -> Trek.text
     }
     Box(
-        modifier = modifier.sizeIn(minWidth = 28.dp),
+        modifier = modifier.sizeIn(minWidth = 30.dp),
         contentAlignment = Alignment.CenterStart,
     ) {
-        Text(rank.toString(), style = TrekFigure, color = color, maxLines = 1)
+        Text(rank.toString(), style = TrekLaneNumber, color = color, maxLines = 1)
     }
 }
 
-/** A percentage delta, coloured only by direction. Never by judgement about the number. */
+/**
+ * A change against an earlier period, in words. More scrolling is not good or bad here, so
+ * it carries no colour. [suffix] completes the sentence: "than yesterday".
+ */
 @Composable
 fun DeltaMark(percent: Int?, suffix: String, modifier: Modifier = Modifier) {
     if (percent == null) return
-    val up = percent >= 0
     Text(
-        "${if (up) "+" else "-"}${abs(percent)}% $suffix",
+        if (percent == 0) "The same as ${suffix.removePrefix("than ")}"
+        else "${abs(percent)}% ${if (percent > 0) "more" else "less"} $suffix",
         modifier = modifier,
         style = MaterialTheme.typography.labelMedium,
-        color = if (up) Trek.amber else Trek.slate,
+        color = Trek.textDim,
         maxLines = 1,
     )
 }

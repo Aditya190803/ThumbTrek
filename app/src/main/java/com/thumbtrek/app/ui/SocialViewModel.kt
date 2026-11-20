@@ -5,7 +5,6 @@ import android.app.Application
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.credentials.exceptions.GetCredentialCancellationException
-import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -15,10 +14,10 @@ import com.thumbtrek.app.social.FriendRequest
 import com.thumbtrek.app.social.LeaderboardEntry
 import com.thumbtrek.app.social.Period
 import com.thumbtrek.app.social.PodiumEntry
+import com.thumbtrek.app.social.AccountSync
 import com.thumbtrek.app.social.SocialRepository
 import com.thumbtrek.app.social.SourceTotals
 import com.thumbtrek.app.social.SyncStatus
-import com.thumbtrek.app.stats.monthKey
 import com.thumbtrek.app.stats.totalThisMonth
 import com.thumbtrek.app.stats.totalThisWeek
 import com.thumbtrek.app.stats.weekKey
@@ -52,8 +51,6 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
         val hasMore: Boolean = false,
         /** My position on the global board; null while I'm not on it or not found yet. */
         val myRank: Int? = null,
-        /** Total opted-in trekkers on the global board, when known. */
-        val totalCount: Int? = null,
         val requests: List<FriendRequest> = emptyList(),
         val podium: List<PodiumEntry> = emptyList(),
         /** Who is writing into my board row — this phone, a browser, both. */
@@ -77,6 +74,7 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     private val repo = SocialRepository(app)
+    private val account = AccountSync(app)
     private val prefs = Prefs.get(app)
     private val dao = ScrollDatabase.get(app).dao()
 
@@ -152,7 +150,12 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
             refresh()
         } else {
             board.value = BoardState(board.value.scope, board.value.period)
-            guarded("Couldn't remove your score") { repo.unpublish() }
+            guarded("Couldn't remove your score") {
+                // Everything this phone published goes, not only the board row.
+                runCatching { account.withdrawFromGroups() }
+                runCatching { account.withdrawSharedLimit() }
+                repo.unpublish()
+            }
         }
     }
 
@@ -224,11 +227,16 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
             val current = state.value
             val sync = repo.syncScore(current.weekPx, current.monthPx, current.totalPx)
             board.value = board.value.copy(sync = sync)
-            repo.syncDays(dao.allRows())
+            val rows = dao.allRows()
+            repo.syncDays(rows)
             board.value = board.value.copy(
                 sync = sync.copy(lastSyncedAt = prefs.lastSyncedAt.takeIf { it > 0L }),
             )
             loadBoard()
+            // The extras ride along last and never fail the board: a limit or a group that
+            // could not be reached is retried on the next sync.
+            runCatching { account.syncSharedLimit() }
+            runCatching { account.publishProgress(account.myGroups(), rows) }
         }
     }
 

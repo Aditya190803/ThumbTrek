@@ -41,24 +41,6 @@ export function formatFriendCode(code) {
   return code.length === FRIEND_CODE_LENGTH ? `${code.slice(0, 4)}-${code.slice(4)}` : code;
 }
 
-/**
- * Accepts what people actually paste: lower case, spaces, the grouping dash, or the whole
- * `https://thumbtrek.adityamer.dev/i/<code>` invite link.
- */
-export function normalizeFriendCode(input) {
-  const afterSlash = input.trim().split('/').pop();
-  let out = '';
-  for (const ch of afterSlash.toUpperCase()) {
-    // Kotlin filters to letters-or-digits *before* substituting, so a dash or space is
-    // dropped rather than mapped. Order matters: doing it the other way round would turn
-    // "O" in a URL path into a "0" that was never part of the code.
-    if (!/[0-9A-Z]/.test(ch)) continue;
-    out += ch === 'I' || ch === 'L' ? '1' : ch === 'O' ? '0' : ch === 'U' ? 'V' : ch;
-    if (out.length === FRIEND_CODE_LENGTH) break;
-  }
-  return out;
-}
-
 const ANON_ADJECTIVES = [
   'Silent', 'Feral', 'Midnight', 'Restless', 'Caffeinated', 'Sneaky', 'Blurry',
   'Infinite', 'Rogue', 'Turbo', 'Velvet', 'Nocturnal', 'Bottomless', 'Unbothered',
@@ -77,8 +59,4 @@ export async function anonymousHandle(uid) {
   const noun = ANON_NOUNS[bytes[1] % ANON_NOUNS.length];
   const number = String(((bytes[2] << 8) | bytes[3]) % 10_000).padStart(4, '0');
   return `${adjective} ${noun} #${number}`;
-}
-
-export function inviteLink(code) {
-  return `https://thumbtrek.adityamer.dev/i/${code}`;
 }

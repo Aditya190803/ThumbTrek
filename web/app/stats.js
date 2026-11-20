@@ -180,10 +180,6 @@ export function totalThisMonth(days, today = todayIso()) {
   return sum;
 }
 
-export function totalToday(days, today = todayIso()) {
-  return asDayMap(days).get(today) ?? 0;
-}
-
 /**
  * Longest single day, or null when there is no data. Ties keep the first entry seen, which
  * is what Kotlin's `maxByOrNull` does over an ordered map.
@@ -342,7 +338,7 @@ export const LANDMARKS = [
 ];
 
 export function comparison(meters) {
-  if (meters <= 0) return 'No trek yet — go scroll something.';
+  if (meters <= 0) return 'Nothing scrolled yet.';
   let landmark = LANDMARKS[0];
   for (const candidate of LANDMARKS) {
     if (meters >= candidate.meters) landmark = candidate;
@@ -368,46 +364,46 @@ export function landmarkFloor(meters) {
 // Badges
 // ---------------------------------------------------------------------------------------
 
-function badge(id, emoji, label, value, target, detail) {
+function badge(id, label, value, target, detail) {
   const progress = target <= 0 ? 1 : Math.min(Math.max(value / target, 0), 1);
-  return { id, emoji, label, detail, earned: progress >= 1, progress };
+  return { id, label, detail, earned: progress >= 1, progress };
 }
 
 /** Local achievements computed from history alone — no server, no extra storage. Same ids, order and copy as the phone and the extension. */
 export function badges(totalMeters, bestDayMeters, streak, cleanStreak = 0) {
   return [
-    badge('first_trek', '👣', 'First steps', totalMeters, 1.0, 'Complete your first trek'),
-    badge('banana', '🍌', 'Banana', totalMeters, 100.0, 'Trek 100 m in total'),
-    badge('kilometer', '🎯', 'Kilometer club', totalMeters, 1_000.0, 'Trek 1 km in total'),
-    badge('bridge', '🌉', 'Golden Gate', totalMeters, 2_737.0, 'Trek 2.7 km in total'),
-    badge('fivek', '🏅', '5K', totalMeters, 5_000.0, 'Trek 5 km in total'),
-    badge('burj_day', '🏙️', 'Burj day', bestDayMeters, 830.0,
-      'Trek 830 m — the Burj Khalifa — in a single day'),
-    badge('tenk', '🥉', '10K', totalMeters, 10_000.0, 'Trek 10 km in total'),
-    badge('half_marathon', '🥈', 'Half marathon', totalMeters, 21_097.0,
-      'Trek 21.1 km in total'),
-    badge('everest', '🏔️', 'Everest', bestDayMeters, 8_849.0, 'Trek 8.8 km in a single day'),
-    badge('marathon', '🏃', 'Marathon thumb', totalMeters, 42_195.0, 'Trek 42.2 km in total'),
-    badge('ultra', '🥇', 'Ultra', totalMeters, 50_000.0, 'Trek 50 km in total'),
-    badge('century', '💯', 'Century', totalMeters, 100_000.0, 'Trek 100 km in total'),
-    badge('quarter_million', '🚀', 'Quarter-million', totalMeters, 250_000.0,
-      'Trek 250 km in total'),
-    badge('half_million', '⭐', 'Half-million', totalMeters, 500_000.0, 'Trek 500 km in total'),
-    badge('million', '🌟', 'Thousand-K club', totalMeters, 1_000_000.0,
-      'Trek 1,000 km in total'),
-    badge('streak_3', '🔥', 'Warm-up', streak, 3.0, 'Keep a 3-day streak'),
-    badge('streak_7', '📅', 'Week trekker', streak, 7.0, 'Keep a 7-day streak'),
-    badge('streak_14', '🌱', 'Two-week habit', streak, 14.0, 'Keep a 14-day streak'),
-    badge('streak_30', '🗓️', 'Monthly mover', streak, 30.0, 'Keep a 30-day streak'),
-    badge('streak_100', '💎', 'Centurion streak', streak, 100.0, 'Keep a 100-day streak'),
-    badge('streak_365', '👑', 'Year-round trekker', streak, 365.0, 'Keep a 365-day streak'),
-    badge('clean_3', '🧼', 'Clean slate', cleanStreak, 3.0,
+    badge('first_trek', 'First steps', totalMeters, 1.0, 'Scroll your first metre'),
+    badge('banana', 'Banana', totalMeters, 100.0, 'Scroll 100 m in total'),
+    badge('kilometer', 'Kilometer club', totalMeters, 1_000.0, 'Scroll 1 km in total'),
+    badge('bridge', 'Golden Gate', totalMeters, 2_737.0, 'Scroll 2.7 km in total'),
+    badge('fivek', '5K', totalMeters, 5_000.0, 'Scroll 5 km in total'),
+    badge('burj_day', 'Burj day', bestDayMeters, 830.0,
+      'Scroll 830 m, the height of the Burj Khalifa, in a single day'),
+    badge('tenk', '10K', totalMeters, 10_000.0, 'Scroll 10 km in total'),
+    badge('half_marathon', 'Half marathon', totalMeters, 21_097.0,
+      'Scroll 21.1 km in total'),
+    badge('everest', 'Everest', bestDayMeters, 8_849.0, 'Scroll 8.8 km in a single day'),
+    badge('marathon', 'Marathon thumb', totalMeters, 42_195.0, 'Scroll 42.2 km in total'),
+    badge('ultra', 'Ultra', totalMeters, 50_000.0, 'Scroll 50 km in total'),
+    badge('century', 'Century', totalMeters, 100_000.0, 'Scroll 100 km in total'),
+    badge('quarter_million', 'Quarter-million', totalMeters, 250_000.0,
+      'Scroll 250 km in total'),
+    badge('half_million', 'Half-million', totalMeters, 500_000.0, 'Scroll 500 km in total'),
+    badge('million', 'Thousand-K club', totalMeters, 1_000_000.0,
+      'Scroll 1,000 km in total'),
+    badge('streak_3', 'Warm-up', streak, 3.0, 'Keep a 3-day streak'),
+    badge('streak_7', 'Week trekker', streak, 7.0, 'Keep a 7-day streak'),
+    badge('streak_14', 'Two-week habit', streak, 14.0, 'Keep a 14-day streak'),
+    badge('streak_30', 'Monthly mover', streak, 30.0, 'Keep a 30-day streak'),
+    badge('streak_100', 'Centurion streak', streak, 100.0, 'Keep a 100-day streak'),
+    badge('streak_365', 'Year-round trekker', streak, 365.0, 'Keep a 365-day streak'),
+    badge('clean_3', 'Clean slate', cleanStreak, 3.0,
       'Stay under your limit 3 days in a row'),
-    badge('clean_7', '🛡️', 'Under control', cleanStreak, 7.0,
+    badge('clean_7', 'Under control', cleanStreak, 7.0,
       'Stay under your limit 7 days in a row'),
-    badge('clean_14', '🧘', 'Steady mind', cleanStreak, 14.0,
+    badge('clean_14', 'Steady mind', cleanStreak, 14.0,
       'Stay under your limit 14 days in a row'),
-    badge('clean_30', '🏵️', 'Month of restraint', cleanStreak, 30.0,
+    badge('clean_30', 'Month of restraint', cleanStreak, 30.0,
       'Stay under your limit 30 days in a row'),
   ];
 }
@@ -415,4 +411,24 @@ export function badges(totalMeters, bestDayMeters, streak, cleanStreak = 0) {
 /** Progress toward a target, phrased the way a person would say it. */
 export function percentCaption(progress) {
   return `${Math.round(progress * 100)}%`;
+}
+
+/** Day documents, every source together, as Map<date, Map<app, metres>>. */
+export function reportDays(docs) {
+  const days = new Map();
+  for (const doc of docs) {
+    if (!days.has(doc.date)) days.set(doc.date, new Map());
+    const day = days.get(doc.date);
+    let split = 0;
+    for (const [key, um] of Object.entries(doc.apps ?? {})) {
+      const value = Number(um);
+      if (!Number.isFinite(value) || value <= 0) continue;
+      split += value;
+      day.set(key, (day.get(key) ?? 0) + metersFromUm(value));
+    }
+    // Older records carry a total without the split. The rest still counts, as "Other".
+    const rest = doc.um - split;
+    if (rest > 0) day.set('Other', (day.get('Other') ?? 0) + metersFromUm(rest));
+  }
+  return days;
 }

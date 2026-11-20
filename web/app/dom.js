@@ -70,3 +70,13 @@ export function announce(message) {
   region.textContent = '';
   region.textContent = message;
 }
+
+/** A shimmering stand-in for rows that have not arrived yet. */
+export function loadingSkeleton(label, widths = [88, 72, 80, 58]) {
+  return el(
+    'div',
+    { class: 'skel', role: 'status', 'aria-label': label },
+    el('span', { class: 'visually-hidden', text: label }),
+    ...widths.map((w) => el('i', { style: `width:${w}%`, 'aria-hidden': 'true' })),
+  );
+}
