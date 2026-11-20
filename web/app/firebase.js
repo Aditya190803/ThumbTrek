@@ -117,6 +117,33 @@ export async function signOutOfThumbTrek() {
   await authMod.signOut(auth);
 }
 
+/**
+ * Firebase only deletes a user who signed in within the last five minutes. Four is used so
+ * a sign-in that is just inside the window does not run out while the data is deleted.
+ */
+const RECENT_SIGN_IN_MS = 4 * 60 * 1000;
+
+export async function signedInRecently() {
+  const { auth } = await firebase();
+  const last = Date.parse(auth.currentUser?.metadata?.lastSignInTime ?? '');
+  return Number.isFinite(last) && Date.now() - last < RECENT_SIGN_IN_MS;
+}
+
+/**
+ * Asks Google again for the account that is already signed in. A popup only: a redirect
+ * would reload the page half-way through deleting an account. Must run straight from a
+ * click, or the browser blocks the popup.
+ */
+export async function reauthenticate() {
+  const { auth, authMod } = await firebase();
+  await authMod.reauthenticateWithPopup(auth.currentUser, new authMod.GoogleAuthProvider());
+}
+
+export async function deleteSignedInUser() {
+  const { auth, authMod } = await firebase();
+  await authMod.deleteUser(auth.currentUser);
+}
+
 /** Completes a redirect sign-in, if this load is the return leg of one. */
 export async function completeRedirectSignIn() {
   const { auth, authMod } = await firebase();
@@ -146,6 +173,14 @@ export function explainError(error) {
   }
   if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
     return 'Sign-in was closed before it finished. Try again when you are ready.';
+  }
+  if (code === 'auth/popup-blocked') {
+    return (
+      'The browser blocked the Google window. Allow popups for this site, then try again.'
+    );
+  }
+  if (code === 'auth/user-mismatch') {
+    return 'That was a different Google account. Choose the one this dashboard is signed in with.';
   }
   if (code === 'auth/network-request-failed') {
     return 'The network dropped during sign-in. Check the connection and try again.';

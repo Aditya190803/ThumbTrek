@@ -67,7 +67,7 @@ import com.thumbtrek.app.share.BACKUP_MIME
 import com.thumbtrek.app.share.BackupStore
 import com.thumbtrek.app.stats.BILLING_ENFORCED
 import com.thumbtrek.app.stats.formatDistance
-import com.thumbtrek.app.update.UpdateSettingsContent
+import com.thumbtrek.app.track.ScrollTrackerService
 import kotlinx.coroutines.launch
 
 
@@ -85,6 +85,7 @@ fun SettingsScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     val baseline by vm.baseline.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val requestTracking = rememberTrackingConsent()
 
     // Read once per visit to the screen. The package manager is not observable, but that
     // is fine: an in-place update restarts the process, so a stale read cannot survive it.
@@ -174,10 +175,26 @@ fun SettingsScreen(
             )
             if (!state.trackingEnabled) {
                 Spacer(modifier = Modifier.height(14.dp))
-                TrekButton(
-                    "Turn on tracking",
+                TrekButton("Turn on tracking", onClick = requestTracking)
+            } else {
+                // Google Pay and many UPI/bank apps block payments while a non-Play app has
+                // an accessibility service on. See ScrollTrackerService.pause.
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    "Google Pay or a bank app refusing to open? Some payment apps block " +
+                        "while any accessibility service is on. Pause tracking, pay, then " +
+                        "turn it back on here.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Trek.textDim,
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                TrekGhostButton(
+                    "Pause for payments",
                     onClick = {
-                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        if (!ScrollTrackerService.pause()) {
+                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        }
+                        vm.refreshTrackingState()
                     },
                 )
             }
@@ -485,22 +502,9 @@ fun SettingsScreen(
         Column {
             SectionHead("About ThumbTrek")
 
-            // The self-updater rides here, above the Version row (the banner-ish slot the
-            // old TODO reserved). Its stock container · UpdateCard's OutlinedCard · would
-            // drop a foreign card shape into this screen's panel system, so we take
-            // UpdateSettingsContent, contents only, and dress it in a TrekPanel the way
-            // Privacy does. UpdateUi.kt is deliberately plain Material3 so it keeps
-            // compiling when the design system moves; the dressing stays local to this
-            // file. The content wires up its own ViewModel via the default viewModel(),
-            // which shares state with the background worker through UpdateRepository.
-            TrekPanel { UpdateSettingsContent() }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
+            // Play build: Google Play delivers updates, so there is no updater panel here.
             ActionRow(
                 title = "Version",
-                // Same PackageManager lookup UpdateRepository performs for the updater's
-                // own "Installed:" line, so the two can never disagree.
                 subtitle = "ThumbTrek $installedVersion",
                 onClick = null,
             )
@@ -731,9 +735,8 @@ internal fun AppPickerDialog(vm: SettingsViewModel, onDismiss: () -> Unit) {
 }
 
 /**
- * The installed version name, read the same way the updater's UpdateRepository reads it so
- * the Version row and the updater's own "Installed:" line can never disagree. A bare "?"
- * keeps the row intact if the package manager somehow cannot see our own package.
+ * The installed version name. A bare "?" keeps the row intact if the package manager
+ * somehow cannot see our own package.
  */
 private fun installedVersionName(context: Context): String =
     try {

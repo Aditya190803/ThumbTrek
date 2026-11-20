@@ -11,6 +11,7 @@ web/
   site.js               the direct-download button (a file, so the CSP can forbid inline scripts)
   privacy.html          → /privacy
   terms.html            → /terms
+  delete-account.html   → /delete-account, the Play Console account-deletion URL
   assets/track-mark.svg
   assets/og.png         the 1200×630 share image
   vercel.json           cleanUrls, security headers including the CSP, and the /i/<code> rewrite
@@ -27,6 +28,7 @@ web/
     friends.js          the two-edge friendship protocol, one of two kinds of write on the site
     group-store.js      creating, joining, leaving and deleting groups, and setting challenges;
                         the other kind of write. Never a progress document
+    account-delete.js   deleting the account: every document it owns, in the protocol order
     report.js           weekly and monthly reports  ┐ shared with extension/lib, byte for
     groups.js           groups and challenges       │ byte; a test in each suite fails if
     limits.js           the shared limit, Premium   ┘ they drift
@@ -54,6 +56,7 @@ web/
 | `/i/<code>`     | → `/app/invite`      | rewrite, so the pretty URL stays in the address bar      |
 | `/privacy`      | `privacy.html`       | what is measured, published, and how to delete it        |
 | `/terms`        | `terms.html`         | plain terms; Premium is described as not on sale         |
+| `/delete-account` | `delete-account.html` | how to delete the account in the app and here, what is kept |
 
 `/i/<code>` is the link `social/Identity.kt` has always put on the phone's share sheet, so
 those URLs are already out in the world. The rewrite in `vercel.json` passes the capture
@@ -187,6 +190,11 @@ app, which is also the only client that can safely run the multi-client opt-out 
 The one thing it writes is the friendship graph: the two pending/accepted edges, and the
 `friendCodes/{code}` index entry — and the index entry only once a board row already exists,
 because that row *is* the opt-in.
+
+The one thing it deletes wholesale is the account, from **Delete account** in the header.
+That runs the same sequence as the phone (`docs/sync-protocol.md` §10): it removes every
+source's documents, not only a browser's, because the account they belong to is going.
+The rules for it are exercised in the emulator by `scripts/rules-test`.
 
 Distances are rendered from `users/{uid}/days/{date}__{source}`, which is the only place
 day-by-day history exists; the board row holds three running totals and no past. Leaderboard

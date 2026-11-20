@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Delete your account | ThumbTrek</title>
+  <meta name="description" content="How to delete your ThumbTrek account and its data, from the Android app or the web dashboard, and what is deleted and what is kept." />
+  <link rel="canonical" href="https://thumbtrek.adityamer.dev/delete-account" />
+  <meta name="theme-color" content="#2340e0" />
+  <link rel="icon" href="/assets/track-mark.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@100..125,400..800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <header class="wrap nav">
+    <a class="brand" href="/">
+      <img src="/assets/track-mark.svg" width="40" height="24" alt="" />
+      ThumbTrek
+    </a>
+    <nav class="nav-links" aria-label="Primary">
+      <a href="/">Home</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/app">Dashboard</a>
+    </nav>
+  </header>
+
+  <main class="wrap legal">
+    <h1>Delete your ThumbTrek account</h1>
+    <p class="legal-date">Last updated 20 November 2026</p>
+
+    <p>You can delete your ThumbTrek account and everything it stored on the server at any
+      time, from the Android app or from the web dashboard. Both do the same thing. It takes
+      a few seconds and cannot be undone.</p>
+
+    <h2>In the Android app</h2>
+    <ol>
+      <li>Open ThumbTrek and go to the <strong>Friends</strong> tab.</li>
+      <li>Tap <strong>Delete account</strong>, next to Sign out.</li>
+      <li>Confirm. If you last signed in a while ago, Google asks you to sign in once more
+        before the account can be removed.</li>
+    </ol>
+
+    <h2>On the web</h2>
+    <ol>
+      <li>Open the <a class="text-link" href="/app">dashboard</a> and sign in with the same
+        Google account.</li>
+      <li>Choose <strong>Delete account</strong> at the top of the page, next to Sign out.</li>
+      <li>Type DELETE and confirm. Google may ask you to sign in once more.</li>
+    </ol>
+    <p>If you use ThumbTrek on more than one device, sign out on the others first, so none of
+      them uploads again in the minutes before it notices the account is gone.</p>
+
+    <h2>What is deleted</h2>
+    <ul>
+      <li><strong>Groups.</strong> Groups you own are deleted for everyone, with every
+        member's numbers in them and the group's join code. From groups you only belong to,
+        your numbers are removed and you leave.</li>
+      <li><strong>Friends.</strong> Every friend and friend request, on your list and on
+        theirs.</li>
+      <li><strong>Your friend code</strong>, so it no longer finds you.</li>
+      <li><strong>Your private history.</strong> Your distance per day, from every device
+        and browser.</li>
+      <li><strong>Your shared limit</strong>, if you kept one limit across devices.</li>
+      <li><strong>Your weekly archive rows</strong>, the frozen copies of past weeks'
+        leaderboards.</li>
+      <li><strong>Your board row</strong>: your name, photo and distances on the
+        leaderboard.</li>
+      <li><strong>Your sign-in</strong>: the ThumbTrek account itself, in Firebase
+        Authentication. Your Google account is not affected.</li>
+    </ul>
+
+    <h2>What is kept</h2>
+    <ul>
+      <li><strong>History on your phone.</strong> The app keeps your distances on the device
+        so it works without an account. That stays on the phone until you clear the app's
+        data or uninstall it. The browser extension works the same way until you remove
+        it.</li>
+      <li><strong>The Premium record</strong>, only if you ever bought Premium. Whether an
+        account paid, and until when, is kept for billing, tax and legal reasons. Only the
+        billing system can change it; the app and the dashboard cannot delete it.</li>
+      <li><strong>Crash reports</strong> the Android app sent before deletion. They are not tied
+        to your account, hold no scroll data, and Firebase Crashlytics deletes them after
+        90 days.</li>
+      <li><strong>Backup files and exports</strong> you saved yourself. ThumbTrek never
+        uploaded them, so it cannot delete them.</li>
+    </ul>
+
+    <h2>If you can no longer sign in</h2>
+    <p>If you lost access to the app or the Google account, email
+      <a class="text-link" href="mailto:REPLACE-WITH-CONTACT-EMAIL">REPLACE-WITH-CONTACT-EMAIL</a>
+      from the address of the Google account you used with ThumbTrek, with the subject
+      "Delete my ThumbTrek account". The account and the data listed above are deleted
+      within 30 days, and you get a reply when it is done.</p>
+  </main>
+
+  <footer class="wrap">
+    <span>ThumbTrek</span>
+    <nav aria-label="Footer">
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+      <a href="/delete-account" aria-current="page">Delete account</a>
+      <a href="https://github.com/Aditya190803/ThumbTrek">GitHub</a>
+    </nav>
+  </footer>
+</body>
+</html>

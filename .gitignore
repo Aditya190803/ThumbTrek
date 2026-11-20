@@ -39,3 +39,9 @@ app/google-services.json
 
 # Local Firebase configuration for the separate Dev application.
 app/src/debug/google-services.json
+
+# Firestore rules tests (scripts/rules-test): dependencies and emulator logs
+node_modules/
+firestore-debug.log
+firebase-debug.log
+ui-debug.log

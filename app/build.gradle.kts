@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 // Fresh clone without a real config? Copy the committed placeholder so the app still
@@ -60,12 +61,13 @@ val releaseSigningConfigured: Boolean = releaseKeystore != null &&
 
 android {
     namespace = "com.thumbtrek.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.thumbtrek.app"
         minSdk = 26
-        targetSdk = 35
+        // Google Play has required API 36 for new apps and updates since 31 Aug 2026.
+        targetSdk = 36
         versionCode = 8
         versionName = "0.6.0"
     }
@@ -95,18 +97,19 @@ android {
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
             resValue("string", "app_name", "ThumbTrek Dev")
+            // Design builds crash on purpose while things are half-built; keep that noise
+            // out of the release crash dashboard.
+            manifestPlaceholders["crashlyticsEnabled"] = false
         }
 
         release {
-            // R8 stays OFF deliberately. proguard-rules.pro already carries the keep rules
-            // this app would need (Room, Firebase/Firestore, Compose, the accessibility
-            // service, the updater's reflective-free surface), but nothing here has been
-            // verified by an actual shrunk build yet — and a bad R8 config on a sideloaded,
-            // self-updating app is unrecoverable: the broken build is also the one that
-            // ships the next update. Flip both flags to true, run `assembleRelease`, and
-            // smoke-test tracking + sign-in + leaderboard on a device before trusting it.
-            isMinifyEnabled = false
-            isShrinkResources = false
+            // R8 is ON for the Play build. On main it stays off, because a broken shrunk
+            // build there would also be the one shipping its own fix through the
+            // self-updater. Here Play delivers updates, so a bad build can be replaced like
+            // any other. Crashlytics de-obfuscates stack traces with the uploaded mapping file.
+            manifestPlaceholders["crashlyticsEnabled"] = true
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
@@ -153,6 +156,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.crashlytics)
     implementation(libs.credentials)
     implementation(libs.credentials.play.services)
     implementation(libs.googleid)
@@ -161,4 +165,15 @@ dependencies {
     testImplementation(libs.junit)
     // org.json ships with Android but is only a stub on the unit-test classpath.
     testImplementation(libs.json)
+}
+
+// The mapping upload needs a real Firebase project. With the committed placeholder config
+// (a fresh clone, or CI without the GOOGLE_SERVICES_JSON secret) it would fail the whole
+// release build, so it only runs when the real config is present.
+val realFirebaseConfig = file("google-services.json").takeIf { it.isFile }
+    ?.readText()?.contains("thumbtrek-placeholder") == false
+android.buildTypes.getByName("release") {
+    configure<com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension> {
+        mappingFileUploadEnabled = realFirebaseConfig
+    }
 }

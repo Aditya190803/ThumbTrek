@@ -69,6 +69,7 @@ internal fun Dashboard(
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
+    val requestTracking = rememberTrackingConsent()
     val dpi = remember { context.resources.displayMetrics.densityDpi }
     val todayMeters = pixelsToMeters(state.todayPx, dpi)
     val byDate = remember(state.days) {
@@ -86,11 +87,7 @@ internal fun Dashboard(
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         if (!state.trackingEnabled) {
-            TrackingOffBanner(
-                onEnable = {
-                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                },
-            )
+            TrackingOffBanner(onEnable = requestTracking)
         }
 
         if (state.autoLimitNotice != null && state.limitM != null) {

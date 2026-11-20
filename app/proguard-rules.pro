@@ -1,11 +1,7 @@
 # ThumbTrek R8/ProGuard rules.
 #
-# NOT ACTIVE YET. app/build.gradle.kts keeps `isMinifyEnabled = false` on purpose: these
-# rules are written but have never been proven by a real shrunk build, and this app is
-# sideloaded and self-updating — if a shrunk release breaks, the broken build is also the
-# one that has to ship its own replacement. Turn minification on only together with a
-# device smoke test of: scroll tracking, dashboard numbers, Google Sign-In, the
-# leaderboard, the widget, and an end-to-end self-update.
+# Active on the release/play branch (Play build). main keeps minification off because it
+# self-updates: a broken shrunk build there would have to ship its own replacement.
 
 # --- Keep line numbers so a crash report from a sideloaded build is still readable ---
 -keepattributes SourceFile,LineNumberTable
@@ -68,11 +64,6 @@
     public <init>(android.content.Context, androidx.work.WorkerParameters);
 }
 -keep class com.thumbtrek.app.work.** { *; }
-
-# --- Self-updater ----------------------------------------------------------------
-# The update package parses JSON by hand (org.json, no reflection), but the broadcast
-# receiver that PackageInstaller calls back into is resolved by name.
--keep class com.thumbtrek.app.update.** { *; }
 
 # --- Kotlin coroutines / stdlib ---------------------------------------------------
 -dontwarn kotlinx.coroutines.**

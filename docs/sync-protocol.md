@@ -308,3 +308,35 @@ entitlement, then flipping those constants to `true` together. The three local f
 (per-app limits, reports, backup) can only ever be gated in the client. The two that touch
 the server (shared limit, groups) are gated by the rules as well.
 
+---
+
+## 10. Deleting an account
+
+Google Play requires deletion in the app and on the web, so the Android app and the
+dashboard both offer it, and both run **the same steps in the same order**. Unlike opting
+out (§5), this removes every source's data, not just the client's own: the account they
+belong to is going. Each step is safe to repeat, so a run that fails part-way is finished
+by running it again.
+
+1. **Groups**, found with `members array-contains me`. A group I own: delete every progress
+   document, then `groupCodes/{code}` (only if it exists and points at the group), then the
+   group, in that order in one batch. A group I only belong to: query its progress where
+   `uid == me`, delete those, then `arrayRemove` me from `members`. Groups go first because
+   the progress and group-code delete rules read the group.
+2. **Friend edges.** For every `users/{me}/friends/{f}`, delete it and `users/{f}/friends/{me}`.
+3. **`friendCodes/{code}`**, for the derived code (§4) and the board row's `friendCode`,
+   only where the document exists and its `uid` is me: the delete rule reads it.
+4. **`users/{me}/days/*`** from every source, and **`users/{me}/settings/limits`**.
+5. **`archive/{week}/scores/{me}`** for every ISO week from the account's creation (a day
+   early, for time zones) to this week. These are deleted blind: deleting a missing row is
+   allowed, and the archive cannot be queried by uid.
+6. **`users/{me}`.**
+7. **The Firebase Auth user.** It needs a recent sign-in; on
+   `auth/requires-recent-login` re-authenticate with Google once and retry.
+
+Progress and group-code deletes must target documents that were just read, never guessed:
+their rules read `resource.data`, and a missing document fails the whole batch. Batches hold
+at most 500 operations.
+
+`entitlements/{uid}` is left alone. No client can write it (§9), and the billing record is
+kept for billing and legal reasons. The public page that says so is `/delete-account`.
