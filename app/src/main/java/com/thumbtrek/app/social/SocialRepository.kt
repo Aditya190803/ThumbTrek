@@ -1,11 +1,13 @@
 package com.thumbtrek.app.social
 
 import android.content.Context
+import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
 import androidx.credentials.GetCredentialRequest
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.AuthCredential
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.DocumentSnapshot
@@ -164,6 +166,21 @@ class SocialRepository(private val context: Context) {
 
     /** [activityContext] must be an Activity: Credential Manager renders UI over it. */
     suspend fun signIn(activityContext: Context) {
+        auth.signInWithCredential(googleCredential(activityContext)).await()
+        _uid.value = auth.currentUser?.uid
+    }
+
+    /**
+     * Fresh proof of identity for the signed-in user. Firebase refuses to delete an account
+     * whose last sign-in is more than a few minutes old, and asking Google again is the
+     * only way to satisfy it.
+     */
+    suspend fun reauthenticate(activityContext: Context) {
+        val user = auth.currentUser ?: return
+        user.reauthenticate(googleCredential(activityContext)).await()
+    }
+
+    private suspend fun googleCredential(activityContext: Context): AuthCredential {
         val option = GetGoogleIdOption.Builder()
             .setFilterByAuthorizedAccounts(false)
             .setServerClientId(context.getString(R.string.default_web_client_id))
@@ -172,8 +189,16 @@ class SocialRepository(private val context: Context) {
         val request = GetCredentialRequest.Builder().addCredentialOption(option).build()
         val result = credentialManager.getCredential(activityContext, request)
         val google = GoogleIdTokenCredential.createFrom(result.credential.data)
-        auth.signInWithCredential(GoogleAuthProvider.getCredential(google.idToken, null)).await()
-        _uid.value = auth.currentUser?.uid
+        return GoogleAuthProvider.getCredential(google.idToken, null)
+    }
+
+    /**
+     * Forgets which Google account was picked, so the next sign-in asks instead of
+     * auto-selecting it. Used after deleting an account, so a deleted account doesn't
+     * come back on the next tap.
+     */
+    suspend fun forgetCredential() {
+        runCatching { credentialManager.clearCredentialState(ClearCredentialStateRequest()) }
     }
 
     fun signOut() {

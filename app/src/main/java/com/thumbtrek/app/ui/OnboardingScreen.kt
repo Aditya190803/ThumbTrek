@@ -38,6 +38,7 @@ import com.thumbtrek.app.stats.weekKey
 @Composable
 fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
     val context = LocalContext.current
+    val requestTracking = rememberTrackingConsent()
     val prefs = remember { Prefs.get(context) }
     val step by prefs.onboardingStep.collectAsStateWithLifecycle()
     val state by settings.state.collectAsStateWithLifecycle()
@@ -107,9 +108,7 @@ fun OnboardingScreen(settings: SettingsViewModel = viewModel()) {
                         Text("Android’s Accessibility permission lets ThumbTrek count scroll movements in your selected apps. It does not read screen content or control your phone. You can turn it off at any time.", color = Trek.textDim)
                         if (!state.trackingEnabled) {
                             Spacer(Modifier.height(16.dp))
-                            TrekGhostButton("Open Accessibility settings", {
-                                context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                            }, Modifier.fillMaxWidth())
+                            TrekGhostButton("Allow scroll measurement", requestTracking, Modifier.fillMaxWidth())
                         }
                     }
                     if (state.trackedApps.isEmpty()) Text("No apps selected. Nothing will be measured until you choose an app in Settings.", color = Trek.textDim)

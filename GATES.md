@@ -60,7 +60,26 @@ Scope: Clean, playful Android interface across all four tabs, launcher identity,
   EVIDENCE: headless Chrome screenshots, dark theme, 1280 wide and 480 wide.
 - [x] P4: The site, privacy, terms, dashboard and invite pages load under the vercel.json Content-Security-Policy with no violations, and the Firebase SDK loads on /app.
   EVIDENCE: served locally with the declared headers; no console output; setup notice stayed hidden.
-- [ ] P5: firestore.rules for settings/limits, groups, groupCodes and entitlements exercised in the emulator.
-  EVIDENCE: pending. No Firebase CLI on the build machine.
+- [x] P5: firestore.rules for settings/limits, groups, groupCodes and entitlements exercised in the emulator.
+  CHECK: cd scripts/rules-test && npm install && npm test
+  EVIDENCE: 22 pass, 0 fail, against the Firestore emulator via npx firebase-tools. No rules changes were needed.
 - [ ] P6: Android Settings (shared limit, per-app limits, weekly report, backup), the groups sheet and the oval widget reviewed on a device or emulator.
   EVIDENCE: pending. Compiled, unit-tested and linted only.
+
+
+## Play Store readiness (shared by the sideloaded and Play builds)
+
+- [x] R1: Android builds against compileSdk/targetSdk 36 (Play's requirement since 31 Aug 2026) on AGP 8.9.3; unit tests and lint pass.
+  CHECK: ./gradlew testDebugUnitTest lintDebug assembleDebug
+  EVIDENCE: BUILD SUCCESSFUL, including the new AccountDeletionTest (ISO week enumeration).
+- [x] R2: Web, extension and rules tests pass, including the dashboard's account-deletion module and the full deletion sequence under the rules.
+  CHECK: node --test web/app/test/*.test.js; (cd extension && npm test); (cd scripts/rules-test && npm test)
+  EVIDENCE: web 82 pass, extension 148 pass, rules 22 pass, 0 failures.
+- [x] R3: Every "turn on tracking" entry point shows the Accessibility disclosure first, and only "Agree" opens Accessibility settings.
+  EVIDENCE: emulator (API 35): Today banner -> disclosure -> Agree -> AccessibilitySettingsActivity. Settings and onboarding call the same rememberTrackingConsent().
+- [x] R4: "Pause for payments" turns the service off from inside the app.
+  EVIDENCE: emulator: enabled_accessibility_services went from the ThumbTrek service to null, and the panel switched to Paused without leaving the app.
+- [ ] R5: Delete account on Android, signed in with a real Google account, against the real Firebase project.
+  EVIDENCE: pending. The emulator has no Google account. Same sequence as the rules-tested one.
+- [ ] R6: Crashlytics shows a test crash from a release build.
+  EVIDENCE: pending. Needs the real google-services.json and Crashlytics opened once in the Firebase console.

@@ -35,6 +35,14 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.ThumbTrek">
 
+        <!-- Crash reports go to Firebase Crashlytics in release builds only (see the
+             crashlyticsEnabled placeholder in app/build.gradle.kts). A report is a stack
+             trace plus device model, OS and app version; nothing from the tracked apps.
+             Listed in web/privacy.html. -->
+        <meta-data
+            android:name="firebase_crashlytics_collection_enabled"
+            android:value="${crashlyticsEnabled}" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

@@ -34,7 +34,8 @@ object DataExporter {
                 append("${row.date},\"$name\",${row.pixels}\n")
             }
         })
-        FileProvider.getUriForFile(context, "com.thumbtrek.app.fileprovider", file)
+        // Matches the manifest's ${applicationId}.fileprovider, so the .dev build works too.
+        FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
     }
 
     fun shareIntent(uri: Uri): Intent = Intent(Intent.ACTION_SEND).apply {

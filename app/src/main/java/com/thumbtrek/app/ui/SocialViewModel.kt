@@ -14,6 +14,7 @@ import com.thumbtrek.app.social.FriendRequest
 import com.thumbtrek.app.social.LeaderboardEntry
 import com.thumbtrek.app.social.Period
 import com.thumbtrek.app.social.PodiumEntry
+import com.thumbtrek.app.social.AccountDeletion
 import com.thumbtrek.app.social.AccountSync
 import com.thumbtrek.app.social.SocialRepository
 import com.thumbtrek.app.social.SourceTotals
@@ -75,6 +76,7 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
 
     private val repo = SocialRepository(app)
     private val account = AccountSync(app)
+    private val deletion = AccountDeletion(app)
     private val prefs = Prefs.get(app)
     private val dao = ScrollDatabase.get(app).dao()
 
@@ -142,6 +144,39 @@ class SocialViewModel(app: Application) : AndroidViewModel(app) {
         board.value = BoardState()
         error.value = null
     }
+
+    /**
+     * Deletes the account and everything it published (see [AccountDeletion]), then
+     * signs out. [activityContext] has to be an Activity, because Firebase may ask
+     * Google for a fresh sign-in first.
+     */
+    fun deleteAccount(activityContext: Context) {
+        if (deleteState.value.running) return
+        viewModelScope.launch {
+            deleteState.value = DeleteState(running = true)
+            deleteState.value = try {
+                deletion.deleteAccount { repo.reauthenticate(activityContext) }
+                repo.forgetCredential()
+                signOut()
+                DeleteState()
+            } catch (e: GetCredentialCancellationException) {
+                DeleteState(error = "Account not deleted. Confirm with Google to delete it.")
+            } catch (e: Exception) {
+                DeleteState(
+                    error = "Couldn't finish deleting your account (${e.message ?: "unknown error"}). " +
+                        "Try again. Anything already removed stays removed.",
+                )
+            }
+        }
+    }
+
+    /**
+     * Kept apart from [state]'s error, whose retry button means "sign in" or "turn sync
+     * on" depending on the screen. A failed deletion must offer to retry the deletion.
+     */
+    data class DeleteState(val running: Boolean = false, val error: String? = null)
+
+    val deleteState = MutableStateFlow(DeleteState())
 
     /** PRD §11 Q2: opting out withdraws the published score, it doesn't just hide it. */
     fun setOptIn(enabled: Boolean) {
