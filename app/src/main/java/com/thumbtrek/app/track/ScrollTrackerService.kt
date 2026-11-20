@@ -16,6 +16,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import java.lang.ref.WeakReference
 import java.time.LocalDate
 
 /**
@@ -137,9 +138,15 @@ class ScrollTrackerService : AccessibilityService() {
         }
     }
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        running = WeakReference(this)
+    }
+
     override fun onInterrupt() = Unit
 
     override fun onDestroy() {
+        if (running?.get() === this) running = null
         runBlocking { flush() }
         scope.cancel()
         super.onDestroy()
@@ -150,6 +157,33 @@ class ScrollTrackerService : AccessibilityService() {
 
         /** A phone shows a handful of scrollers at once; more than this means stale keys. */
         private const val MAX_TRACKED_SCROLLERS = 32
+
+        @Volatile
+        private var running: WeakReference<ScrollTrackerService>? = null
+
+        /**
+         * Switches the service off in system settings, as if the user had done it by hand.
+         *
+         * This exists for payment apps. ThumbTrek is sideloaded, so Play Integrity's
+         * app-access-risk verdict reports its enabled accessibility service as
+         * UNKNOWN_CONTROLLING (a non-Play app that could drive the screen). Google Pay and
+         * many UPI/bank apps read that verdict and refuse to work until the service is
+         * off. Nothing in the service config changes this: the only exemption is Play's
+         * own accessibility review, which a sideloaded APK cannot get, and
+         * isAccessibilityTool is reserved for disability tools. So the honest fix is to
+         * make "off for a minute" one tap instead of a trip through Accessibility settings.
+         *
+         * Turning it back on still needs the system settings screen; Android gives apps no
+         * way to enable their own accessibility service.
+         *
+         * Returns false when the service isn't running in this process (already off, or
+         * enabled but not yet bound), in which case there is nothing to pause.
+         */
+        fun pause(): Boolean {
+            val service = running?.get() ?: return false
+            service.disableSelf()
+            return true
+        }
 
         fun isEnabled(context: Context): Boolean {
             val enabled = Settings.Secure.getString(

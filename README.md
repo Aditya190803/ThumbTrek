@@ -117,6 +117,18 @@ no user-facing calibration multiplier — that would let anyone shrink (or infla
 
 No screen content is ever read — the service config requests no node-lookup flags.
 
+### Payment apps (Google Pay, UPI, banks)
+
+Google Pay and many UPI and bank apps check Play Integrity's app-access-risk verdict and
+won't run while an `UNKNOWN_CONTROLLING` app is active. Any enabled accessibility service
+that wasn't installed from Google Play falls into that bucket, so ThumbTrek trips it even
+though it never reads the screen. The verdict only exempts services that passed Play's
+accessibility review, and `isAccessibilityTool` is reserved for disability tools, so no
+manifest change gets around it while the app is sideloaded. Settings → Tracking has a
+**Pause for payments** button that switches the service off with `disableSelf()`. Turning it
+back on still goes through Accessibility settings, because Android doesn't let an app enable
+its own service.
+
 ## How the social layer works
 
 - Adding by friend code writes two *pending* edges; accepting flips both to *accepted*.

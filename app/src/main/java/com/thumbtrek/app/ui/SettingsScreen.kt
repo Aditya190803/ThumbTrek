@@ -67,6 +67,7 @@ import com.thumbtrek.app.share.BACKUP_MIME
 import com.thumbtrek.app.share.BackupStore
 import com.thumbtrek.app.stats.BILLING_ENFORCED
 import com.thumbtrek.app.stats.formatDistance
+import com.thumbtrek.app.track.ScrollTrackerService
 import com.thumbtrek.app.update.UpdateSettingsContent
 import kotlinx.coroutines.launch
 
@@ -178,6 +179,27 @@ fun SettingsScreen(
                     "Turn on tracking",
                     onClick = {
                     context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                    },
+                )
+            } else {
+                // Google Pay and many UPI/bank apps block payments while a non-Play app has
+                // an accessibility service on. See ScrollTrackerService.pause.
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    "Google Pay or a bank app refusing to open? They block any accessibility " +
+                        "service not installed from the Play Store. Pause tracking, pay, then " +
+                        "turn it back on here.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Trek.textDim,
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                TrekGhostButton(
+                    "Pause for payments",
+                    onClick = {
+                        if (!ScrollTrackerService.pause()) {
+                            context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                        }
+                        vm.refreshTrackingState()
                     },
                 )
             }
