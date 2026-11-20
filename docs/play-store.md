@@ -12,8 +12,8 @@ Everything below needs the owner's accounts, so it can't be done from the reposi
 
 ## Before the first upload
 
-1. **Contact email.** `web/delete-account.html` has `REPLACE-WITH-CONTACT-EMAIL` twice. Play
-   also needs a developer contact email on the listing. Use the same one.
+1. **Contact email.** `/delete-account` uses aditya@adityamer.dev. Play Console's developer
+   contact email should be the same address.
 2. **Deploy the site** so `/privacy` and `/delete-account` are live. Both URLs go into Play
    Console.
 3. **Deploy the Firestore rules** if they changed: `firebase deploy --only firestore:rules`.
