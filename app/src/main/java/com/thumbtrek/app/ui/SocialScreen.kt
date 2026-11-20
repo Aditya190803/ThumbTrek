@@ -144,7 +144,10 @@ fun SocialScreen(
         }
 
         // Nothing below the fold means anything until the board is switched on.
-        if (!state.optedIn) return@LazyColumn
+        if (!state.optedIn) {
+            if (state.signedIn) item("deleteAccount") { DeleteAccount(vm) }
+            return@LazyColumn
+        }
 
         if (state.requests.isNotEmpty()) {
             item("requests") {
@@ -295,6 +298,61 @@ fun SocialScreen(
                 )
             }
         }
+
+        item("deleteAccount") { DeleteAccount(vm) }
+    }
+}
+
+/**
+ * Account deletion, required by Google Play. Kept at the bottom of the tab and behind a
+ * dialog, because it can't be undone. Local history is not affected, and the dialog says so,
+ * since that's the first thing anyone deleting an account wants to know.
+ */
+@Composable
+private fun DeleteAccount(vm: SocialViewModel) {
+    val deleting by vm.deleteState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    var confirming by remember { mutableStateOf(false) }
+
+    Column(modifier = Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+        TextButton(onClick = { confirming = true }, enabled = !deleting.running) {
+            Text(
+                if (deleting.running) "Deleting account" else "Delete account",
+                color = Trek.danger,
+            )
+        }
+        deleting.error?.let { message ->
+            Text(message, style = MaterialTheme.typography.bodySmall, color = Trek.danger)
+        }
+    }
+
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            containerColor = Trek.surface,
+            titleContentColor = Trek.text,
+            textContentColor = Trek.textDim,
+            shape = MaterialTheme.shapes.large,
+            title = { Text("Delete your account?") },
+            text = {
+                Text(
+                    "This permanently removes your account and everything it put online: your " +
+                        "board scores, synced history, friends, friend code and groups (groups " +
+                        "you own are deleted for everyone). Your scroll history on this phone " +
+                        "stays, and tracking keeps working without an account. You may be asked " +
+                        "to confirm with Google.",
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    confirming = false
+                    vm.deleteAccount(context)
+                }) { Text("Delete", color = Trek.danger) }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) { Text("Cancel", color = Trek.textDim) }
+            },
+        )
     }
 }
 

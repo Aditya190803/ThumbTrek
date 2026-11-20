@@ -1089,3 +1089,28 @@ body[data-auth="out"] #signin-head:not([hidden]) {
   color: var(--danger);
 }
 
+.btn-danger {
+  background: var(--danger);
+  color: #fff;
+}
+
+/* Account deletion. A native <dialog>: modal, focus-trapped and closed by Escape for free. */
+.delete-dialog {
+  max-width: 32rem;
+  width: calc(100% - 2 * var(--s-4));
+  color: var(--text);
+}
+
+.delete-dialog::backdrop {
+  background: rgb(5 8 24 / 0.7);
+}
+
+.delete-dialog h2 {
+  font-size: var(--t-md);
+  font-weight: 650;
+}
+
+.delete-dialog .add-row {
+  margin-top: var(--s-3);
+}
+

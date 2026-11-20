@@ -8,18 +8,23 @@
 // What it is NOT: a second place that measures. The dashboard never writes a distance, a
 // day document or a board row — it reads what the phone and the extension wrote. The only
 // writes on this page are friendship edges (friends.js), and the friend-code index, and
-// only once some client has already opted the account in.
+// only once some client has already opted the account in. The one exception that removes
+// rather than writes is deleting the whole account (account-delete.js).
 
+import { deleteAccountData, deleteAuthUser, firestoreStore } from './account-delete.js';
 import { PERIODS } from './board.js';
 import { watchBoardRow, watchDays, watchFriends, watchSharedLimit } from './data.js';
 import { announce, byId, el, fill, show } from './dom.js';
 import {
   NotConfiguredError,
   completeRedirectSignIn,
+  deleteSignedInUser,
   explainError,
   firebase,
+  reauthenticate,
   signIn,
   signOutOfThumbTrek,
+  signedInRecently,
   watchAuth,
 } from './firebase.js';
 import {
@@ -39,7 +44,7 @@ import { renderHistory, renderRecords } from './history-view.js';
 import { friendCode, inviteLink, inviteMessage } from './identity.js';
 import { REPORTS, renderReport } from './report-view.js';
 import { PHONE_LAYOUT, RANGES, derive, reportSection, state } from './state.js';
-import { todayIso } from './stats.js';
+import { addDays, todayIso } from './stats.js';
 import { renderToday } from './today-view.js';
 
 /** Live-query teardown, so switching accounts does not leave listeners on the old uid. */
@@ -114,6 +119,7 @@ function wireStaticControls() {
     });
   }
   byId('signout').addEventListener('click', () => signOutOfThumbTrek());
+  wireAccountDeletion();
 
   window.addEventListener('hashchange', () => showView(viewFromHash()));
   showView(viewFromHash() ?? 'today');
@@ -126,6 +132,87 @@ function wireStaticControls() {
 
   window.addEventListener('online', () => setOffline(false));
   window.addEventListener('offline', () => setOffline(true));
+}
+
+// ---------------------------------------------------------------------------------------
+// Deleting the account
+// ---------------------------------------------------------------------------------------
+
+function wireAccountDeletion() {
+  const dialog = byId('delete-dialog');
+  const input = byId('delete-confirm');
+  const go = byId('delete-go');
+  const error = byId('delete-error');
+  let running = false;
+
+  byId('delete-account').addEventListener('click', () => {
+    input.value = '';
+    go.disabled = true;
+    show(error, false);
+    dialog.showModal();
+    input.focus();
+  });
+  byId('delete-cancel').addEventListener('click', () => dialog.close());
+  // Escape must not close the dialog while the deletion is half done: the error that
+  // explains what is left would go with it.
+  dialog.addEventListener('cancel', (event) => {
+    if (running) event.preventDefault();
+  });
+  input.addEventListener('input', () => {
+    go.disabled = input.value.trim().toUpperCase() !== 'DELETE';
+  });
+
+  byId('delete-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (running || go.disabled || !state.user) return;
+    if (!navigator.onLine) {
+      error.textContent = 'You are offline. Deleting an account needs the network.';
+      show(error, true);
+      return;
+    }
+    running = true;
+    go.disabled = true;
+    go.setAttribute('aria-busy', 'true');
+    show(error, false);
+    const user = state.user;
+    try {
+      // Firebase deletes only a user who signed in a few minutes ago. Asking first, while
+      // this click still counts as one, is what keeps the popup from being blocked; after
+      // the data is gone there would be no click left to open it from.
+      if (!(await signedInRecently())) await reauthenticate();
+      // The live listeners would repaint every document as it disappears.
+      stopWatching();
+      const { db, storeMod } = await firebase();
+      const created = Date.parse(user.metadata?.creationTime ?? '');
+      const today = todayIso();
+      await deleteAccountData(firestoreStore(db, storeMod), user.uid, {
+        friendCode: state.code,
+        // A day early: a phone in another time zone may have filed the first week's
+        // archive row under the week before the one this browser's clock gives.
+        createdOn: Number.isFinite(created) ? addDays(todayIso(new Date(created)), -1) : today,
+        today,
+      });
+      await deleteAuthUser({ remove: deleteSignedInUser, reauthenticate });
+      // Deleting the user signs it out already; this is the same reset Sign out runs, for
+      // the page and for any other tab.
+      await signOutOfThumbTrek();
+      running = false;
+      dialog.close();
+      announce('Your ThumbTrek account is deleted.');
+    } catch (failure) {
+      running = false;
+      // Everything deleted so far stays deleted, and every step is safe to repeat, so
+      // trying again finishes the job rather than starting over.
+      error.textContent =
+        `${explainError(failure)} What was already deleted stays deleted. Press Delete my ` +
+        'account again to finish.';
+      show(error, true);
+      go.disabled = false;
+      if (state.user) onAuthChanged(state.user);
+    } finally {
+      go.removeAttribute('aria-busy');
+    }
+  });
 }
 
 // ---------------------------------------------------------------------------------------

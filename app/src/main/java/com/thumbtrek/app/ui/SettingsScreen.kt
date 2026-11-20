@@ -86,6 +86,7 @@ fun SettingsScreen(
     val state by vm.state.collectAsStateWithLifecycle()
     val baseline by vm.baseline.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val requestTracking = rememberTrackingConsent()
 
     // Read once per visit to the screen. The package manager is not observable, but that
     // is fine: an in-place update restarts the process, so a stale read cannot survive it.
@@ -175,12 +176,7 @@ fun SettingsScreen(
             )
             if (!state.trackingEnabled) {
                 Spacer(modifier = Modifier.height(14.dp))
-                TrekButton(
-                    "Turn on tracking",
-                    onClick = {
-                    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                    },
-                )
+                TrekButton("Turn on tracking", onClick = requestTracking)
             } else {
                 // Google Pay and many UPI/bank apps block payments while a non-Play app has
                 // an accessibility service on. See ScrollTrackerService.pause.

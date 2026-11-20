@@ -6,6 +6,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
 }
 
 // Fresh clone without a real config? Copy the committed placeholder so the app still
@@ -60,12 +61,13 @@ val releaseSigningConfigured: Boolean = releaseKeystore != null &&
 
 android {
     namespace = "com.thumbtrek.app"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.thumbtrek.app"
         minSdk = 26
-        targetSdk = 35
+        // Google Play has required API 36 for new apps and updates since 31 Aug 2026.
+        targetSdk = 36
         versionCode = 8
         versionName = "0.6.0"
     }
@@ -95,6 +97,9 @@ android {
             applicationIdSuffix = ".dev"
             versionNameSuffix = "-dev"
             resValue("string", "app_name", "ThumbTrek Dev")
+            // Design builds crash on purpose while things are half-built; keep that noise
+            // out of the release crash dashboard.
+            manifestPlaceholders["crashlyticsEnabled"] = false
         }
 
         release {
@@ -105,6 +110,7 @@ android {
             // self-updating app is unrecoverable: the broken build is also the one that
             // ships the next update. Flip both flags to true, run `assembleRelease`, and
             // smoke-test tracking + sign-in + leaderboard on a device before trusting it.
+            manifestPlaceholders["crashlyticsEnabled"] = true
             isMinifyEnabled = false
             isShrinkResources = false
             proguardFiles(
@@ -153,6 +159,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
+    implementation(libs.firebase.crashlytics)
     implementation(libs.credentials)
     implementation(libs.credentials.play.services)
     implementation(libs.googleid)
